@@ -1,0 +1,18 @@
+com.smart.vision.core
+├── config                  // 基础设施配置 (ES, Async, Aliyun Clients)
+├── controller              // 接入层 (REST API)
+├── constant                // 全局常量
+├── model                   // 领域模型与数据传输对象
+│   ├── dto                 // 数据传输对象 (Request/Response)
+│   ├── entity              // 数据库实体 (Elasticsearch Document)
+│   └── enums               // 枚举 (SearchType, ErrorCode)
+├── manager                 // 防腐层 (ACL) - 封装外部 SDK (Aliyun, OSS)
+├── repository              // 持久层 (Elasticsearch Repository)
+├── service                 // 核心业务逻辑层
+    ├── convert             // 模型转换
+│   ├── ingestion           // 数据入库业务 (上传流水线)
+│   ├── search              // 检索业务 (策略模式)
+    ├── route               // 路由业务 (根据配置动态选择)
+│   └── impl                // 业务实现
+├── strategy                // 策略层 (定义不同的召回策略)
+└── util                    // 工具类
