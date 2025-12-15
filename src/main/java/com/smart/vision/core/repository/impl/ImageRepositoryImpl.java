@@ -15,6 +15,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.smart.vision.core.constant.CommonConstant.*;
+
 /**
  * Hybrid search implementation
  *
@@ -32,7 +34,7 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
     public List<ImageDocument> hybridSearch(SearchQueryDTO query, List<Float> queryVector) {
         try {
             SearchResponse<ImageDocument> response = esClient.search(s -> s
-                            .index("smart_gallery_v1")
+                            .index(IMAGE_INDEX)
                             .query(q -> q
                                     .bool(b -> b
                                             // 1. OCR text matching (BM25)
@@ -58,10 +60,10 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
                                     .field("imageEmbedding")
                                     .queryVector(queryVector)
                                     .k(query.getLimit())
-                                    .numCandidates(100)
+                                    .numCandidates(DEFAULT_NUM_CANDIDATES)
                                     .boost(0.9f)
                                     // Minimum similarity threshold, only applies to KNN search, hybrid search score normalization is complex
-                                    .similarity(query.getMinScore())
+                                    .similarity(null == query.getMinScore() ? HYBRID_SEARCH_DEFAULT_MIN_SCORE : query.getMinScore())
                             )
                             .size(query.getLimit()),
                     ImageDocument.class
