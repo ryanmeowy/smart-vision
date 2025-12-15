@@ -6,9 +6,11 @@ import lombok.Data;
 import java.io.Serializable;
 
 /**
- * 统一 API 响应结果封装
+ * Unified API response result encapsulation
+ * @param <T> Business data type
  *
- * @param <T> 业务数据类型
+ * @author Ryan
+ * @since 2025/12/15
  */
 @Data
 public class Result<T> implements Serializable {
@@ -21,7 +23,7 @@ public class Result<T> implements Serializable {
 
     private long timestamp;
 
-    // 私有构造，强制使用静态方法
+    // Private constructor, force use of static methods
     private Result() {
         this.timestamp = System.currentTimeMillis();
     }

@@ -17,6 +17,12 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
+/**
+ * rest api controller for vision search functionality;
+ *
+ * @author Ryan
+ * @since 2025/12/15
+ */
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/vision")
@@ -27,19 +33,17 @@ public class SearchApiController {
     @Resource
     private SmartSearchService searchService;
 
-    // 上传图片接口
     @PostMapping("/upload")
     public Result<Void> upload(@RequestParam("file") MultipartFile file) {
         try {
             ingestionService.processAndIndex(file);
         } catch (Exception e) {
-            log.error("file upload,  error", e);
+            log.error("file upload error", e);
             return Result.error("文件上传失败");
         }
         return Result.success();
     }
 
-    // 搜索接口
     @GetMapping("/search")
     public Result<List<SearchResultDTO>> search(@Validated SearchQueryDTO query) {
         return Result.success(searchService.search(query));

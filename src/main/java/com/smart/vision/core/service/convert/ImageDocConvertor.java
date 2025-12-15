@@ -6,6 +6,12 @@ import com.smart.vision.core.model.entity.ImageDocument;
 
 import java.util.List;
 
+/**
+ * image document convertor
+ *
+ * @author Ryan
+ * @since 2025/12/15
+ */
 public class ImageDocConvertor {
 
     public static List<SearchResultDTO> convertToSearchResultDTO(List<ImageDocument> docs) {

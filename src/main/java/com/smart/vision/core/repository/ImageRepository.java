@@ -7,25 +7,28 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 /**
- * Elasticsearch 数据访问层
- * 泛型 1: 实体类
- * 泛型 2: 主键类型 (ES ID 是 String)
+ * Elasticsearch data access layer;
+ * Generic 1: Entity class;
+ * Generic 2: Primary key type;
+ *
+ * @author Ryan
+ * @since 2025/12/15
  */
 @Repository
 public interface ImageRepository extends ElasticsearchRepository<ImageDocument, String>, ImageRepositoryCustom {
 
-    // 基础 CRUD 由父接口提供，无需手写
+    // Basic CRUD operations are provided by the parent interface, no need to write manually
     // save(doc)
     // findById(id)
-    
+
     /**
-     * 简单的根据 URL 查询 (用于去重检查)
+     * Simple query by URL (used for duplicate checking)
      */
     List<ImageDocument> findByUrl(String url);
 
     /**
-     * 仅根据 OCR 内容进行简单的全文检索 (不含向量)
-     * 真正复杂的混合检索建议在 Service/Strategy 层使用 ElasticsearchClient 构建
+     * Simple full-text search based on OCR content only (without vector)
+     * For complex hybrid search, it is recommended to use ElasticsearchClient to build in Service/Strategy layer
      */
     List<ImageDocument> findByOcrContentMatches(String text);
 }

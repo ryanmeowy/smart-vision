@@ -6,37 +6,42 @@ import lombok.Data;
 
 import java.io.Serializable;
 
+/**
+ * image search result model
+ *
+ * @author Ryan
+ * @since 2025/12/15
+ */
 @Data
 @Builder
 public class SearchResultDTO implements Serializable {
-
     /**
-     * 图片ID (ES Doc ID)
+     * image ID (ES Doc ID)
      */
     private String id;
 
     /**
-     * 图片访问地址 (OSS URL)
+     * image access address (OSS URL)
      */
     private String url;
 
     /**
-     * 匹配得分 (0.0 - 1.0)，分数越高越相关
+     * match score (0.0 - 1.0), higher score means more relevant
      */
     private Double score;
 
     /**
-     * 图片中包含的 OCR 文字 (如果有)
+     * OCR text contained in the image (if any)
      */
     private String ocrText;
 
     /**
-     * 高亮摘要 (可选，用于展示命中的文字片段)
+     * highlight (optional, used to display matched text fragments)
      */
     private String highlight;
 
     /**
-     * 额外元数据 (宽、高、大小等)
+     * additional metadata (width, height, size, etc.)
      */
     private Object metadata;
 }

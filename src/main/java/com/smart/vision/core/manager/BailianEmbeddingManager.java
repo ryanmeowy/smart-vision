@@ -1,34 +1,39 @@
 package com.smart.vision.core.manager;
+
 import com.alibaba.dashscope.embeddings.MultiModalEmbedding;
 import com.alibaba.dashscope.embeddings.MultiModalEmbeddingParam;
 import com.alibaba.dashscope.embeddings.MultiModalEmbeddingResult;
 import com.google.common.collect.Lists;
 import org.springframework.stereotype.Component;
 
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
+import java.util.stream.Collectors;
 
+/**
+ * Bailian embedding manager for handling multimodal embeddings
+ * This manager integrates with Alibaba Cloud's Bailian service to generate
+ * vector representations of images and text for semantic search capabilities
+ *
+ * @author Ryan
+ * @since 2025/12/15
+ */
 @Component
 public class BailianEmbeddingManager {
 
     public List<Float> embedImage(String imageUrl) {
         try {
-            // 1. 创建专用参数对象
             MultiModalEmbeddingParam param = MultiModalEmbeddingParam.builder()
-                .model("multimodal-embedding-v1")
-                .input(Collections.singletonList(Map.of("image", imageUrl)))
-                .build();
+                    .model("multimodal-embedding-v1")
+//                    .input(Collections.singletonList(Map.of("image", imageUrl)))
+                    .build();
 
-            // 2. 创建专用功能对象
             MultiModalEmbedding embedder = new MultiModalEmbedding();
-            
-            // 3. 调用
             MultiModalEmbeddingResult result = embedder.call(param);
-            
-            return Collections.singletonList(result.getOutput().getEmbedding().get(0));
+            return result.getOutput().getEmbedding().stream()
+                    .map(Double::floatValue)
+                    .collect(Collectors.toList());
         } catch (Exception e) {
-            throw new RuntimeException("调用阿里云多模态失败", e);
+            throw new RuntimeException("Failed to call Alibaba Cloud multimodal service", e);
         }
     }
 

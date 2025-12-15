@@ -2,31 +2,33 @@
 package com.smart.vision.core.model.enums;
 
 /**
- * 检索策略类型枚举
+ * Search strategy type enumeration
+ *
+ * @author Ryan
+ * @since 2025/12/15
  */
 public enum StrategyType {
-
     /**
-     * 混合检索 (默认)：向量相似度 + OCR 文本匹配
-     * 适用场景：通用搜索，即想搜画面，又想搜文字
+     * Hybrid search (default): vector similarity + OCR text matching
+     * Use case: general search, searching for both visual content and text
      */
     HYBRID,
 
     /**
-     * 纯向量检索
-     * 适用场景：以文搜图 (描述画面感)，忽略 OCR
+     * Pure vector search
+     * Use case: text-to-image search (describing visual content), ignoring OCR
      */
     VECTOR_ONLY,
 
     /**
-     * 纯文本检索 (BM25)
-     * 适用场景：仅搜索图片内的文字
+     * Pure text search (BM25)
+     * Use case: searching only for text within images
      */
     TEXT_ONLY,
 
     /**
-     * 以图搜图
-     * 适用场景：用户上传一张图，搜相似图
+     * Image-to-image search
+     * Use case: user uploads an image to search for similar images
      */
     IMAGE_TO_IMAGE;
 }

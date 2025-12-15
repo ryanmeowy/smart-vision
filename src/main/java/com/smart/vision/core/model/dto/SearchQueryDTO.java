@@ -3,22 +3,29 @@ package com.smart.vision.core.model.dto;
 
 import lombok.Data;
 
+/**
+ * image search request model
+ *
+ * @author Ryan
+ * @since 2025/12/15
+ */
 @Data
 public class SearchQueryDTO {
     /**
-     * 搜索关键词
+     * search keyword
      */
-    private String text;
+    private String keyword;
     /**
-     * 分页大小
+     * page size
      */
     private Integer limit;
     /**
-     * 最小相似度阈值
+     * minimum similarity threshold
      */
     private Float minScore = 0.6f;
     /**
-     * 是否开启 OCR 混合检索开关
+     * whether to enable OCR hybrid search
      */
     private boolean enableOcr;
+
 }

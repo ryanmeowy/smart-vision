@@ -4,9 +4,13 @@ import org.springframework.stereotype.Component;
 
 import java.io.InputStream;
 
+/**
+ * Aliyun OSS service
+ * @author Ryan
+ * @since 2025/12/15
+ */
 @Component
 public class OssManager {
-    // 上传文件流，返回公网 URL
     public String uploadFile(InputStream inputStream, String fileName) {
         return "";
     }

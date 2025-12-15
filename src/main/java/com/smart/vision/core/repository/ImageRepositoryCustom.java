@@ -7,16 +7,18 @@ import com.smart.vision.core.model.entity.ImageDocument;
 import java.util.List;
 
 /**
- * 自定义扩展接口，用于定义复杂的混合检索方法
+ * Custom extension interface for defining complex hybrid search methods;
+ *
+ * @author Ryan
+ * @since 2025/12/15
  */
 public interface ImageRepositoryCustom {
     /**
-     * 混合检索：向量 + OCR文本
+     * Hybrid search: vector + OCR text
      *
-     * @param keyword     用户输入的文本
-     * @param limit       返回条数
-     * @param queryVector 文本转换后的向量
-     * @return 匹配的文档列表
+     * @param query       user request
+     * @param queryVector text converted to vector
+     * @return list of matching documents
      */
     List<ImageDocument> hybridSearch(SearchQueryDTO query, List<Float> queryVector);
 }

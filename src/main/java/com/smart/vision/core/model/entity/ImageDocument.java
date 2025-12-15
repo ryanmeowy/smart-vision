@@ -4,35 +4,41 @@ import lombok.Data;
 
 import java.util.List;
 
+/**
+ * image doc model for elasticsearch
+ *
+ * @author Ryan
+ * @since 2025/12/15
+ */
 @Data
 public class ImageDocument {
     /**
-     * 图片ID (ES Doc ID)
+     * Image ID (ES Doc ID)
      */
     private String id;
 
     /**
-     * 图片访问地址 (OSS URL)
+     * Image access URL (OSS URL)
      */
     private String url;
 
     /**
-     * OCR 提取的文本
+     * OCR extracted text
      */
     private String ocrContent;
 
     /**
-     * 核心向量字段，dims 对应阿里云模型维度
+     * Core vector field, dims correspond to Alibaba Cloud model dimensions
      */
     private List<Float> imageEmbedding;
 
     /**
-     * 创建时间
+     * Creation time
      */
     private Long createTime;
 
     /**
-     * 文件名
+     * Filename
      */
     private String filename;
 

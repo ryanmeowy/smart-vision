@@ -1,41 +1,23 @@
 package com.smart.vision.core.service.ingestion;
 
-import com.smart.vision.core.manager.AliyunOcrManager;
-import com.smart.vision.core.manager.BailianEmbeddingManager;
-import com.smart.vision.core.manager.OssManager;
-import com.smart.vision.core.model.entity.ImageDocument;
-import com.smart.vision.core.repository.ImageRepository;
-import jakarta.annotation.Resource;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-@Service
-public class ImageIngestionService {
+/**
+ * Image data processing service
+ *
+ * @author Ryan
+ * @since 2025/12/15
+ */
+public interface ImageIngestionService {
 
-    @Resource
-    private OssManager ossManager;
-    @Resource
-    private BailianEmbeddingManager embeddingManager;
-    @Resource
-    private AliyunOcrManager ocrManager;
-    @Resource
-    private ImageRepository imageRepository;
+    /**
+     * Upload image and index
+     *
+     * @param file image file
+     */
+    void processAndIndex(MultipartFile file) throws IOException, ExecutionException, InterruptedException;
 
-    public void processAndIndex(MultipartFile file) throws IOException, ExecutionException, InterruptedException {
-        String url = ossManager.uploadFile(file.getInputStream(), file.getOriginalFilename());
-        CompletableFuture<List<Float>> vectorFuture = CompletableFuture.supplyAsync(() -> embeddingManager.embedImage(url));
-        CompletableFuture<String> ocrFuture = CompletableFuture.supplyAsync(() -> ocrManager.extractText(url));
-        CompletableFuture.allOf(vectorFuture, ocrFuture).join();
-        ImageDocument doc = new ImageDocument();
-        doc.setUrl(url);
-        doc.setImageEmbedding(vectorFuture.get());
-        doc.setOcrContent(ocrFuture.get());
-        imageRepository.save(doc);
-    }
 }
