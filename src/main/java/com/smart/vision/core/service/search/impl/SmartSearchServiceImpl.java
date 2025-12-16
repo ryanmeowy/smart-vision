@@ -6,7 +6,7 @@ import com.smart.vision.core.model.dto.SearchResultDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
 import com.smart.vision.core.service.search.SmartSearchService;
 import com.smart.vision.core.strategy.RetrievalStrategy;
-import jakarta.annotation.Resource;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -21,11 +21,10 @@ import static com.smart.vision.core.service.convert.ImageDocConvertor.convertToS
  * @since 2025/12/15
  */
 @Service
+@RequiredArgsConstructor
 public class SmartSearchServiceImpl implements SmartSearchService {
-    @Resource
-    private BailianEmbeddingManager embeddingManager;
-    @Resource
-    private Map<String, RetrievalStrategy> strategyMap;
+    private final BailianEmbeddingManager embeddingManager;
+    private final Map<String, RetrievalStrategy> strategyMap;
 
     public List<SearchResultDTO> search(SearchQueryDTO query) {
 //        query = validQuery(query);

@@ -28,22 +28,23 @@
     </scm>
     <properties>
         <java.version>17</java.version>
+        <dashscope-sdk-java.version>2.16.3</dashscope-sdk-java.version>
+        <aliyun-sdk-oss.version>3.18.3</aliyun-sdk-oss.version>
+        <jaxb-api.version>2.3.1</jaxb-api.version>
+        <activation.version>1.1.1</activation.version>
+        <jaxb-runtime.version>2.3.3</jaxb-runtime.version>
+        <guava.version>33.4.8-jre</guava.version>
     </properties>
     <dependencies>
+        <!--↓↓ spring ↓↓-->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
-
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-devtools</artifactId>
             <scope>runtime</scope>
-            <optional>true</optional>
-        </dependency>
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
         <dependency>
@@ -55,16 +56,54 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-elasticsearch</artifactId>
         </dependency>
+        <!--↑↑ spring ↑↑-->
+
+        <!--↓↓ Aliyun ↓↓-->
         <dependency>
             <groupId>com.alibaba</groupId>
             <artifactId>dashscope-sdk-java</artifactId>
-            <version>2.16.3</version> <!-- 建议使用较新版本，确保支持多模态 embedding -->
+            <version>${dashscope-sdk-java.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.aliyun.oss</groupId>
+            <artifactId>aliyun-sdk-oss</artifactId>
+            <version>${aliyun-sdk-oss.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.ini4j</groupId>
+                    <artifactId>ini4j</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>javax.xml.bind</groupId>
+            <artifactId>jaxb-api</artifactId>
+            <version>${jaxb-api.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>javax.activation</groupId>
+            <artifactId>activation</artifactId>
+            <version>${activation.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.jaxb</groupId>
+            <artifactId>jaxb-runtime</artifactId>
+            <version>${jaxb-runtime.version}</version>
+        </dependency>
+        <!--↑↑ Aliyun ↑↑-->
+
+        <!--↓↓ tools ↓↓-->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>33.4.8-jre</version>
+            <version>${guava.version}</version>
         </dependency>
+        <!--↑↑ tools ↑↑-->
     </dependencies>
 
     <build>

@@ -18,9 +18,9 @@ public class ImageDocument {
     private String id;
 
     /**
-     * Image access URL (OSS URL)
+     * Image path (relative)
      */
-    private String url;
+    private String imagePath;
 
     /**
      * OCR extracted text
@@ -28,7 +28,7 @@ public class ImageDocument {
     private String ocrContent;
 
     /**
-     * Core vector field, dims correspond to Alibaba Cloud model dimensions
+     * Core vector field, dims correspond to Aliyun model dimensions
      */
     private List<Float> imageEmbedding;
 

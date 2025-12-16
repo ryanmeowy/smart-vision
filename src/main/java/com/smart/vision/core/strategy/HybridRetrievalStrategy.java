@@ -6,6 +6,7 @@ import com.smart.vision.core.model.entity.ImageDocument;
 import com.smart.vision.core.model.enums.StrategyType;
 import com.smart.vision.core.repository.ImageRepository;
 import jakarta.annotation.Resource;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -19,10 +20,10 @@ import java.util.List;
  * @since 2025/12/15
  */
 @Component
+@RequiredArgsConstructor
 public class HybridRetrievalStrategy implements RetrievalStrategy {
 
-    @Resource
-    private ImageRepository imageRepository;
+    private final ImageRepository imageRepository;
 
     /**
      * Execute hybrid search by combining vector embedding search with text-based search

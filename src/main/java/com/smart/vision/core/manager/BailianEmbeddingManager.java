@@ -11,7 +11,7 @@ import java.util.stream.Collectors;
 
 /**
  * Bailian embedding manager for handling multimodal embeddings
- * This manager integrates with Alibaba Cloud's Bailian service to generate
+ * This manager integrates with Aliyun Bailian service to generate
  * vector representations of images and text for semantic search capabilities
  *
  * @author Ryan
@@ -33,7 +33,7 @@ public class BailianEmbeddingManager {
                     .map(Double::floatValue)
                     .collect(Collectors.toList());
         } catch (Exception e) {
-            throw new RuntimeException("Failed to call Alibaba Cloud multimodal service", e);
+            throw new RuntimeException("Failed to call Aliyun multimodal service", e);
         }
     }
 
