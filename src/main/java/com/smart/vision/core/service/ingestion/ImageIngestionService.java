@@ -1,9 +1,7 @@
 package com.smart.vision.core.service.ingestion;
 
+import com.smart.vision.core.model.dto.BatchUploadResultDTO;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.io.IOException;
-import java.util.concurrent.ExecutionException;
 
 /**
  * Image data processing service
@@ -18,6 +16,14 @@ public interface ImageIngestionService {
      *
      * @param file image file
      */
-    void processAndIndex(MultipartFile file) throws IOException, ExecutionException, InterruptedException;
+    void processAndIndex(MultipartFile file) throws Exception;
+
+    /**
+     * Batch upload images and index
+     *
+     * @param files image files
+     * @return batch upload result
+     */
+    BatchUploadResultDTO batchProcess(MultipartFile[] files);
 
 }

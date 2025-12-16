@@ -21,4 +21,12 @@ public interface ImageRepositoryCustom {
      * @return list of matching documents
      */
     List<ImageDocument> hybridSearch(SearchQueryDTO query, List<Float> queryVector);
+
+    /**
+     * High-performance batch write
+     * @param documents Document list
+     * @return Number of successfully written documents
+     */
+    int bulkSave(List<ImageDocument> documents);
+
 }
