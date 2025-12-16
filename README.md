@@ -20,77 +20,106 @@
 采用 **Cloud-Native（云原生）** 架构设计，Java 后端作为调度核心，利用公有云的弹性 AI 算力与 Elasticsearch 的检索引擎能力。
 
 ```mermaid
-graph LR
-    %% ================= 定义样式 =================
-    classDef client fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,rx:10,ry:10;
-    classDef backend fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,rx:5,ry:5;
-    classDef cloud fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,stroke-dasharray: 5 5,rx:5,ry:5;
-    classDef ai fill:#e1bee7,stroke:#4a148c,stroke-width:2px,rx:5,ry:5;
-    classDef storage fill:#ffccbc,stroke:#d84315,stroke-width:2px,rx:5,ry:5;
-    classDef note fill:#fff,stroke:#333,stroke-dasharray: 2 2;
+graph TD
+    %% ================= 样式定义 =================
+    classDef user fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
+    classDef app fill:#fff9c4,stroke:#fbc02d,stroke-width:2px;
+    classDef cloud fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,stroke-dasharray: 5 5;
+    classDef db fill:#ffccbc,stroke:#d84315,stroke-width:2px;
+    classDef cache fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px;
 
-    %% ================= 1. 接入层 =================
-    subgraph Client_Layer [💻 接入层 / Client Layer]
-        direction TB
-        UI("Vue3 Frontend<br>(Web/Mobile)"):::client
+    %% ================= 1. 客户端层 =================
+    subgraph Client_Layer [💻 客户端 / Client Layer]
+        User((User / Browser)):::user
+        Vue[Vue3 Frontend<br>Element Plus]:::user
     end
 
-    %% ================= 2. 核心服务层 =================
-    subgraph Service_Layer [⚙️ 核心业务层 / Java Backend]
-        direction TB
-        API("Spring Boot Controller"):::backend
-        AsyncService("Async Orchestrator<br>(异步编排)"):::backend
-        SearchStrategy{"混合检索策略<br>(Hybrid Search)"}:::backend
-    end
-
-    %% ================= 3. 云原生 AI 能力层 =================
-    subgraph Cloud_Layer [☁️ 阿里云算力 / Aliyun Cloud]
-        direction TB
-        OSS("OSS 对象存储"):::cloud
+    %% ================= 2. 应用服务层 =================
+    subgraph App_Layer [⚙️ 后端应用 / Spring Boot Core]
+        API[Search Controller<br>REST API]:::app
         
-        subgraph AI_Pipeline [🧠 AI 处理流水线]
-            direction TB
-            Model_Embed("多模态 Embedding<br>(通义万相)"):::ai
-            Model_OCR("通用文字识别<br>(OCR)"):::ai
+        subgraph Ingestion_Flow ["数据入库流水线 (Async)"]
+            IngestionService[Ingestion Service]:::app
+            BatchProcessor[CompletableFuture<br>Parallel Processor]:::app
+            EsBatchTemplate[EsBatchTemplate<br>Bulk Processor]:::app
+        end
+
+        subgraph Search_Flow ["搜索核心链路 (Real-time)"]
+            SearchService[Smart Search Service]:::app
+            VectorCache[Redis Vector Cache<br>Semantic Caching]:::cache
+            HybridStrategy[Hybrid Strategy<br>KNN + BM25]:::app
+        end
+        
+        subgraph ACL_Layer [防腐层 / ACL Manager]
+            OssMgr[OssManager]:::app
+            AiMgr[AliyunAiManager]:::app
         end
     end
 
-    %% ================= 4. 数据存储层 =================
-    subgraph Data_Layer [💾 数据持久层 / Storage]
-        direction TB
-        ES[("Elasticsearch 8.x<br>(Vector + Text)")]:::storage
+    %% ================= 3. 数据存储层 =================
+    subgraph Storage_Layer [💾 数据存储 / Data Storage]
+        Redis[("Redis<br>Cache & Task State")]:::cache
+        ES[("Elasticsearch 8.x<br>HNSW Vector Index")]:::db
     end
 
-    %% ================= 链路关系 =================
-    
-    %% --- A. 图片入库流程 (Ingestion) ---
-    UI == "1. 上传图片" ==> API
-    API -- "2. 直传/转发" --> OSS
-    OSS -.->|3. 返回 URL| API
-    
-    API -- "4. 提交任务" --> AsyncService
-    AsyncService -- "5a. 获取 URL" --> Model_Embed
-    AsyncService -- "5b. 获取 URL" --> Model_OCR
-    
-    Model_Embed -- "6a. 生成 1024维 向量" --> AsyncService
-    Model_OCR -- "6b. 提取文本关键字" --> AsyncService
-    
-    AsyncService == "7. 写入混合索引" ==> ES
+    %% ================= 4. 云原生基础设施 =================
+    subgraph Cloud_Layer [☁️ 阿里云 / Aliyun PaaS]
+        OSS[("OSS Object Storage<br>(Private Bucket)")]:::cloud
+        
+        subgraph Bailian_AI [百炼 Model Studio]
+            Model_Embed[Multimodal Embedding<br>v1]:::cloud
+            Model_VL[Qwen-VL / OCR<br>Image Understanding]:::cloud
+        end
+    end
 
-    %% --- B. 搜索流程 (Search) ---
-    UI == "8. 搜索: '红色的车'" ==> API
-    API --> SearchStrategy
-    
-    SearchStrategy -- "9. 文本转向量" --> Model_Embed
-    Model_Embed -.->|返回 Query Vector| SearchStrategy
-    
-    SearchStrategy == "10. 多路召回 (KNN + BM25)" ==> ES
-    ES -.->|Top-K 结果| UI
+    %% ================= 链路关系 (按顺序计数) =================
 
-    %% 样式连接微调
+    %% [0, 1] 交互
+    User <--> Vue
+    Vue <--> API
+
+    %% [2 - 12] 流程 A: 图片批量入库 (红色链路)
+    API -- "1. 上传请求" --> IngestionService
+    IngestionService -- "2. 流式上传" --> OssMgr
+    OssMgr -- "3. PutObject" --> OSS
+    OSS -.->|4. Object Key| OssMgr
+    
+    IngestionService -- "5. 提交异步任务" --> BatchProcessor
+    BatchProcessor -- "6. 获取 Presigned URL" --> OssMgr
+    BatchProcessor -- "7. 并发调用 AI" --> AiMgr
+    
+    AiMgr -- "8a. 向量化" --> Model_Embed
+    AiMgr -- "8b. 描述/OCR" --> Model_VL
+    
+    BatchProcessor -- "9. 聚合数据 (Doc)" --> EsBatchTemplate
+    EsBatchTemplate -- "10. Bulk Insert" --> ES
+
+    %% [13 - 21] 流程 B: 混合搜索 (蓝色链路)
+    API -- "1. 搜索请求" --> SearchService
+    SearchService -- "2. Check Cache" --> VectorCache
+    VectorCache -.->|Hit| SearchService
+    VectorCache -- "3. Miss" --> AiMgr
+    AiMgr -- "4. 文本 Embedding" --> Model_Embed
+    Model_Embed -.->|Vector| SearchService
+    
+    SearchService -- "5. 混合检索 (Vector+Text)" --> HybridStrategy
+    HybridStrategy -- "6. Execute Query" --> ES
+    ES -.->|7. Top-K Results| SearchService
+
+    %% [22, 23] 状态更新
+    BatchProcessor -.->|Update Progress| Redis
+    API -.->|Poll Status| Redis
+
+    %% ================= 样式修正 =================
+    %% 移除了 color 属性，只设置 stroke (线色) 和 stroke-width (线宽)，这是最安全的写法
+    
     linkStyle default stroke:#666,stroke-width:1px,fill:none;
-    linkStyle 0,9,12,13 stroke:#1565c0,stroke-width:3px;
-    linkStyle 8 stroke:#d84315,stroke-width:3px; 
+
+    %% 写链路 (红色): 对应上面 Index 2 到 12
+    linkStyle 2,3,4,5,6,7,8,9,10,11,12 stroke:#d84315,stroke-width:2px;
+
+    %% 读链路 (蓝色): 对应上面 Index 13 到 21
+    linkStyle 13,14,15,16,17,18,19,20,21 stroke:#1565c0,stroke-width:2px;
 ```
 
 ---
