@@ -1,5 +1,6 @@
 package com.smart.vision.core.controller;
 
+import com.smart.vision.core.annotation.RequireAuth;
 import com.smart.vision.core.model.Result;
 import com.smart.vision.core.service.ingestion.ImageIngestionService;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ public class ImageApiController {
 
     private final ImageIngestionService ingestionService;
 
+    @RequireAuth
     @PostMapping("/upload")
     public Result<Void> upload(@RequestParam("file") MultipartFile file) {
         try {
@@ -38,6 +40,7 @@ public class ImageApiController {
         return Result.success();
     }
 
+    @RequireAuth
     @PostMapping("/batch-process")
     public Result<String> batchProcessUrl(@RequestBody List<String> imageUrls) {
         return Result.success(ingestionService.processUrls(imageUrls));

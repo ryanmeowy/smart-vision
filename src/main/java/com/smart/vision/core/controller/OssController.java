@@ -5,6 +5,7 @@ import com.aliyuncs.IAcsClient;
 import com.aliyuncs.auth.sts.AssumeRoleRequest;
 import com.aliyuncs.auth.sts.AssumeRoleResponse;
 import com.aliyuncs.profile.DefaultProfile;
+import com.smart.vision.core.annotation.RequireAuth;
 import com.smart.vision.core.config.OssConfig;
 import com.smart.vision.core.model.Result;
 import com.smart.vision.core.model.dto.StsTokenDTO;
@@ -22,6 +23,7 @@ public class OssController {
 
     private final OssConfig ossConfig;
 
+    @RequireAuth
     @GetMapping("/sts")
     public Result<StsTokenDTO> getStsToken() {
         String roleArn = ossConfig.getRoleArn();
