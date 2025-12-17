@@ -1,5 +1,5 @@
 com.smart.vision.core
-├── annotation              // 注释类
+├── annotation            // 注解类
 ├── component               // 通用组件
 ├── config                  // 基础设施配置 (ES, Async, Aliyun Clients)
 ├── constant                // 全局常量
