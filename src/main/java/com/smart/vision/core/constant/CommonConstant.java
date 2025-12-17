@@ -18,5 +18,7 @@ public class CommonConstant {
     public static final Long DEFAULT_PRESIGNED_URL_VALIDITY_TIME = 5 * 60 * 1_000L;
 
     public static final String ES_STORE_STAGE_FAIL = "THE-ES-STORAGE-STAGE-FAILED";
+
+    public static final Long DEFAULT_STS_DURATION_SECONDS = 15 * 60L;
 }
 

@@ -25,4 +25,10 @@ public class OssConfig {
     private String accessKeyId;
     private String accessKeySecret;
     private String bucketName;
+    /**
+     * The role ID that the STS assumes
+     * example: acs:ram::{uid}:role/{roleName}
+     */
+    private String roleArn;
+
 }

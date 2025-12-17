@@ -21,7 +21,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 
 import static com.smart.vision.core.constant.CommonConstant.DEFAULT_PRESIGNED_URL_VALIDITY_TIME;
 import static com.smart.vision.core.constant.CommonConstant.ES_STORE_STAGE_FAIL;
@@ -77,7 +76,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
                                 .build());
                     }
                 }, imageUploadTaskExecutor))
-                .collect(Collectors.toList());
+                .toList();
 
         // 3. Block and wait for all AI extraction and image upload tasks to complete
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
@@ -103,6 +102,13 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
                 .failureCount(totalCount - finalSavedCount)
                 .failures(failures)
                 .build();
+    }
+
+
+    @Override
+    public String processUrls(List<String> imageUrls) {
+        //
+        return null;
     }
 
     private ImageDocument processSingleFile(MultipartFile file) throws Exception {
