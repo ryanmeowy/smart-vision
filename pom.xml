@@ -34,6 +34,7 @@
         <activation.version>1.1.1</activation.version>
         <jaxb-runtime.version>2.3.3</jaxb-runtime.version>
         <guava.version>33.4.8-jre</guava.version>
+        <aliyun-java-sdk-sts.version>3.1.1</aliyun-java-sdk-sts.version>
     </properties>
     <dependencies>
         <!--↓↓ spring ↓↓-->
@@ -89,6 +90,11 @@
             <groupId>org.glassfish.jaxb</groupId>
             <artifactId>jaxb-runtime</artifactId>
             <version>${jaxb-runtime.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.aliyun</groupId>
+            <artifactId>aliyun-java-sdk-sts</artifactId>
+            <version>${aliyun-java-sdk-sts.version}</version>
         </dependency>
         <!--↑↑ Aliyun ↑↑-->
 

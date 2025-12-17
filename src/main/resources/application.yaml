@@ -9,6 +9,4 @@ aliyun:
     access-key-id: ${ALIYUN_ACCESS_KEY_ID}
     access-key-secret: ${ALIYUN_ACCESS_KEY_SECRET}
     bucket-name: ryansimg
-
-
-
+    roleArn: ${ALIYUN_OSS_ROLE_ARN}
