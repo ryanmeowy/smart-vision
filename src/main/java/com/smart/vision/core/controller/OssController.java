@@ -1,49 +1,35 @@
 package com.smart.vision.core.controller;
 
-import com.aliyuncs.DefaultAcsClient;
-import com.aliyuncs.IAcsClient;
-import com.aliyuncs.auth.sts.AssumeRoleRequest;
-import com.aliyuncs.auth.sts.AssumeRoleResponse;
-import com.aliyuncs.profile.DefaultProfile;
+import com.aliyuncs.exceptions.ClientException;
 import com.smart.vision.core.annotation.RequireAuth;
-import com.smart.vision.core.config.OssConfig;
 import com.smart.vision.core.model.Result;
 import com.smart.vision.core.model.dto.StsTokenDTO;
+import com.smart.vision.core.service.search.OssService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import static com.smart.vision.core.constant.CommonConstant.DEFAULT_STS_DURATION_SECONDS;
-
+/**
+ * rest api controller for oss functionality;
+ *
+ * @author Ryan
+ * @since 2025/12/17
+ */
 @RestController
 @RequestMapping("/api/v1/oss")
 @RequiredArgsConstructor
 public class OssController {
 
-    private final OssConfig ossConfig;
+    private final OssService ossService;
 
     @RequireAuth
     @GetMapping("/sts")
     public Result<StsTokenDTO> getStsToken() {
-        String roleArn = ossConfig.getRoleArn();
-        DefaultProfile profile = DefaultProfile.getProfile("cn-shanghai", ossConfig.getAccessKeyId(), ossConfig.getAccessKeySecret());
-        IAcsClient client = new DefaultAcsClient(profile);
-
-        AssumeRoleRequest request = new AssumeRoleRequest();
-        request.setRoleArn(roleArn);
-        request.setRoleSessionName("frontend-upload");
-        request.setDurationSeconds(DEFAULT_STS_DURATION_SECONDS);
-
         try {
-            AssumeRoleResponse response = client.getAcsResponse(request);
-            return Result.success(new StsTokenDTO(
-                response.getCredentials().getAccessKeyId(),
-                response.getCredentials().getAccessKeySecret(),
-                response.getCredentials().getSecurityToken()
-            ));
-        } catch (Exception e) {
-            return Result.error("Failed to get upload credentials");
+            return Result.success(ossService.fetchStsToken());
+        } catch (ClientException e) {
+            return Result.error(e.getMessage());
         }
     }
 }

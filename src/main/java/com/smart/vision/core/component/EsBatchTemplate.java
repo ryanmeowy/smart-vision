@@ -13,12 +13,13 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * ES Generic Batch Operations Tool
  * Solves the problem of automatic Index and ID resolution for generic entities
  *
- * @author ryan
+ * @author Ryan
  * @since 2025/12/16
  */
 @Slf4j
@@ -27,7 +28,7 @@ import java.util.List;
 public class EsBatchTemplate {
 
     private final ElasticsearchClient esClient;
-    // Core converter of Spring Data ES, can understand @Document and @Id
+    // Core converter of Spring Data ES, read @Document and @Id
     private final ElasticsearchConverter elasticsearchConverter;
 
     /**
@@ -52,12 +53,15 @@ public class EsBatchTemplate {
             BulkRequest.Builder br = new BulkRequest.Builder();
 
             for (T item : items) {
-                String id = elasticsearchConverter.getMappingContext()
+                Object identifier = elasticsearchConverter.getMappingContext()
                         .getRequiredPersistentEntity(clazz)
                         .getIdentifierAccessor(item)
-                        .getIdentifier()
-                        .toString();
-
+                        .getIdentifier();
+                String id = Optional.ofNullable(identifier).map(String::valueOf).orElse(null);
+                if (id == null) {
+                    log.warn("ES Bulk write failed - ID is null for item: {}", item);
+                    continue;
+                }
                 br.operations(op -> op
                     .index(idx -> idx
                         .index(indexName)

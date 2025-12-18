@@ -49,5 +49,9 @@ public class BatchUploadResultDTO implements Serializable {
          * Error reason
          */
         private String errorMessage;
+        /**
+         * OSS object key
+         */
+        private String objectKey;
     }
 }
