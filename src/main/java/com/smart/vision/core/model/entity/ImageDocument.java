@@ -1,8 +1,12 @@
 package com.smart.vision.core.model.entity;
 
 import lombok.Data;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.elasticsearch.annotations.Document;
 
 import java.util.List;
+
+import static com.smart.vision.core.constant.CommonConstant.IMAGE_INDEX;
 
 /**
  * image doc model for elasticsearch
@@ -11,10 +15,12 @@ import java.util.List;
  * @since 2025/12/15
  */
 @Data
+@Document(indexName = IMAGE_INDEX)  // ← 这里配置的索引名
 public class ImageDocument {
     /**
      * Image ID (ES Doc ID)
      */
+    @Id
     private String id;
 
     /**

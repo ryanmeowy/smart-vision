@@ -1,12 +1,14 @@
 package com.smart.vision.core.service.ingestion;
 
+import com.smart.vision.core.model.dto.BatchProcessRequest;
 import com.smart.vision.core.model.dto.BatchUploadResultDTO;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
 /**
  * Image data processing service
+ * Provides functionality for processing and indexing image data in the system
+ * Main operations include batch processing of images that have been uploaded to OSS
  *
  * @author Ryan
  * @since 2025/12/15
@@ -14,25 +16,13 @@ import java.util.List;
 public interface ImageIngestionService {
 
     /**
-     * Upload image and index
+     * Processes a batch of image items for vector indexing and storage
+     * This method takes a list of batch process requests containing OSS keys and file names,
+     * downloads the images from OSS, generates vector embeddings using AI models,
+     * and indexes the data in Elasticsearch for search functionality
      *
-     * @param file image file
+     * @param items list of batch process requests containing OSS keys and metadata
+     * @return BatchUploadResultDTO containing processing statistics and results
      */
-    void processAndIndex(MultipartFile file) throws Exception;
-
-    /**
-     * Batch upload images and index
-     *
-     * @param files image files
-     * @return batch upload result
-     */
-    BatchUploadResultDTO batchProcess(MultipartFile[] files);
-
-    /**
-     * Batch upload images by url and index
-     *
-     * @param imageUrls image url list
-     * @return batch upload result
-     */
-    String processUrls(List<String> imageUrls);
+    BatchUploadResultDTO processBatchItems(List<BatchProcessRequest> items);
 }
