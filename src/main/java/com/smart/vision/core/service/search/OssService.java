@@ -15,7 +15,6 @@ public interface OssService {
 
     /**
      * Fetches a temporary STS (Security Token Service) token for OSS access
-     *
      * This method retrieves temporary security credentials from Alibaba Cloud STS service
      * that can be used by clients to access OSS resources with limited permissions and duration
      *

@@ -1,7 +1,8 @@
 package com.smart.vision.core.controller;
 
+import com.smart.vision.core.annotation.RequireAuth;
 import com.smart.vision.core.model.Result;
-import com.smart.vision.core.model.dto.BatchProcessRequest;
+import com.smart.vision.core.model.dto.BatchProcessDTO;
 import com.smart.vision.core.model.dto.BatchUploadResultDTO;
 import com.smart.vision.core.service.ingestion.ImageIngestionService;
 import lombok.RequiredArgsConstructor;
@@ -36,8 +37,9 @@ public class ImageApiController {
      * @param items list of batch process requests containing OSS keys and file names
      * @return Result containing batch upload statistics
      */
+    @RequireAuth
     @PostMapping("/batch-process")
-    public Result<BatchUploadResultDTO> batchProcess(@RequestBody List<BatchProcessRequest> items) {
+    public Result<BatchUploadResultDTO> batchProcess(@RequestBody List<BatchProcessDTO> items) {
         if (items.size() > DEFAULT_NUM_BATCH_ITEMS) {
             return Result.error("The number of items processed per request cannot exceed 20");
         }

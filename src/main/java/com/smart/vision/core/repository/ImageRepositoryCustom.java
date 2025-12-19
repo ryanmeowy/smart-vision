@@ -24,6 +24,7 @@ public interface ImageRepositoryCustom {
 
     /**
      * High-performance batch write
+     *
      * @param documents Document list
      * @return Number of successfully written documents
      */

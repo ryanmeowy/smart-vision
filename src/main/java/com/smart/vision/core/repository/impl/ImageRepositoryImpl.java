@@ -5,7 +5,6 @@ import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
-import com.smart.vision.core.component.EsBatchTemplate;
 import com.smart.vision.core.model.dto.SearchQueryDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
 import com.smart.vision.core.repository.ImageRepositoryCustom;
@@ -34,8 +33,6 @@ import static com.smart.vision.core.constant.CommonConstant.IMAGE_INDEX;
 public class ImageRepositoryImpl implements ImageRepositoryCustom {
 
     private final ElasticsearchClient esClient;
-
-    private final EsBatchTemplate esBatchTemplate;
 
     @Override
     public List<ImageDocument> hybridSearch(SearchQueryDTO query, List<Float> queryVector) {

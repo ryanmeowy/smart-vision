@@ -13,8 +13,6 @@ public class CommonConstant {
     public static final Float HYBRID_SEARCH_DEFAULT_MIN_SCORE = 0.6f;
 
     public static final Integer DEFAULT_NUM_CANDIDATES = 10;
-    // default pre signed url expiration date, 5 minutes
-    public static final Long DEFAULT_PRESIGNED_URL_VALIDITY_TIME = 5 * 60 * 1_000L;
 
     public static final Long DEFAULT_STS_DURATION_SECONDS = 15 * 60L;
 
@@ -23,5 +21,9 @@ public class CommonConstant {
     public static final Integer DEFAULT_NUM_BATCH_ITEMS = 20;
 
     public static final String DEFAULT_ROLE_SESSION_NAME = "frontend-upload";
+
+    public static final String TOKEN_KEY = "sys:config:upload-token";
+
+    public static final String MODEL_NAME = "multimodal-embedding-v1";
 }
 
