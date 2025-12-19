@@ -1,6 +1,6 @@
 package com.smart.vision.core.service.ingestion;
 
-import com.smart.vision.core.model.dto.BatchProcessRequest;
+import com.smart.vision.core.model.dto.BatchProcessDTO;
 import com.smart.vision.core.model.dto.BatchUploadResultDTO;
 
 import java.util.List;
@@ -24,5 +24,5 @@ public interface ImageIngestionService {
      * @param items list of batch process requests containing OSS keys and metadata
      * @return BatchUploadResultDTO containing processing statistics and results
      */
-    BatchUploadResultDTO processBatchItems(List<BatchProcessRequest> items);
+    BatchUploadResultDTO processBatchItems(List<BatchProcessDTO> items);
 }

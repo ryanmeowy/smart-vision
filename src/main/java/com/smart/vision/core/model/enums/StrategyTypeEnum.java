@@ -7,7 +7,7 @@ package com.smart.vision.core.model.enums;
  * @author Ryan
  * @since 2025/12/15
  */
-public enum StrategyType {
+public enum StrategyTypeEnum {
     /**
      * Hybrid search (default): vector similarity + OCR text matching
      * Use case: general search, searching for both visual content and text

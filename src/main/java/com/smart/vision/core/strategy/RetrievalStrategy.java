@@ -2,7 +2,7 @@ package com.smart.vision.core.strategy;
 
 import com.smart.vision.core.model.dto.SearchQueryDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
-import com.smart.vision.core.model.enums.StrategyType;
+import com.smart.vision.core.model.enums.StrategyTypeEnum;
 
 import java.util.List;
 
@@ -35,5 +35,5 @@ public interface RetrievalStrategy {
      *
      * @return strategy type
      */
-    StrategyType getType();
+    StrategyTypeEnum getType();
 }

@@ -1,16 +1,24 @@
 spring:
   application:
     name: smart-vision
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      password: ${REDIS_PASSWORD}
+      database: 0
+      timeout: 3000ms
 
 aliyun:
   oss:
-    endpoint: oss-cn-shanghai.aliyuncs.com
-    public-endpoint: ryansimg.oss-cn-shanghai.aliyuncs.com
+    endpoint: ${OSS_ENDPOINT}
+    public-endpoint: ${OSS_PUBLIC_ENDPOINT}
     access-key-id: ${ALIYUN_ACCESS_KEY_ID}
     access-key-secret: ${ALIYUN_ACCESS_KEY_SECRET}
-    bucket-name: ryansimg
+    bucket-name: ${ALIYUN_OSS_BUCKET_NAME}
     role-arn: ${ALIYUN_OSS_ROLE_ARN}
 
 app:
   security:
-    upload-token: ${APP_UPLOAD_TOKEN}
+    admin-secret: ${APP_ADMIN_SECRET}
+

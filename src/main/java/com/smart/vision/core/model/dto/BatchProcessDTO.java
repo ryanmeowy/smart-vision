@@ -12,7 +12,7 @@ import lombok.Data;
  * @since 2025/12/18
  */
 @Data
-public class BatchProcessRequest {
+public class BatchProcessDTO {
 
     /**
      * OSS Object Key

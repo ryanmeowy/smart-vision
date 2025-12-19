@@ -3,9 +3,8 @@ package com.smart.vision.core.strategy;
 
 import com.smart.vision.core.model.dto.SearchQueryDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
-import com.smart.vision.core.model.enums.StrategyType;
+import com.smart.vision.core.model.enums.StrategyTypeEnum;
 import com.smart.vision.core.repository.ImageRepository;
-import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -43,10 +42,10 @@ public class HybridRetrievalStrategy implements RetrievalStrategy {
      * Get the strategy type identifier for this implementation
      *
      * @return StrategyType.HYBRID indicating this is a hybrid search strategy
-     * @see StrategyType#HYBRID
+     * @see StrategyTypeEnum#HYBRID
      */
     @Override
-    public StrategyType getType() {
-        return StrategyType.HYBRID;
+    public StrategyTypeEnum getType() {
+        return StrategyTypeEnum.HYBRID;
     }
 }
