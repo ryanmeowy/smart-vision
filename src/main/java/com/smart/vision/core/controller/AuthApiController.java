@@ -35,10 +35,8 @@ public class AuthApiController {
      * 远程刷新上传口令接口
      */
     @PostMapping("/refresh-token")
-    public Result<String> refreshToken(
-            @RequestHeader("X-Admin-Secret") String secret,
-            @RequestParam(required = false) String code
-    ) {
+    public Result<String> refreshToken(@RequestHeader("X-Admin-Secret") String secret,
+                                       @RequestParam(required = false) String code) {
         if (!adminSecret.equals(secret)) {
             // prevent timing attack
             try {
