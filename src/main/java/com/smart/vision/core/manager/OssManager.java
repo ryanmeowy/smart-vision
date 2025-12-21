@@ -34,13 +34,10 @@ public class OssManager {
     public String getPresignedUrl(String path, Long validityTime) {
         Date expiration = new Date(System.currentTimeMillis() + validityTime);
         URL url = ossClient.generatePresignedUrl(ossConfig.getBucketName(), path, expiration);
-        // Ensure the generated URL is accessible by AI through public network
-        if (StringUtils.hasText(ossConfig.getPublicEndpoint())) {
-            String originalUrl = url.toString();
-            // Assume ossConfig.getEndpoint() is internal domain, replace it with public domain
-            return originalUrl.replace(ossConfig.getEndpoint(), ossConfig.getPublicEndpoint());
+        String urlString = url.toString();
+        if (urlString.contains("+")) {
+            urlString = urlString.replace("+", "%2B");
         }
-
-        return url.toString();
+        return urlString;
     }
 }
