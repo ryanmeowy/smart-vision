@@ -1,6 +1,7 @@
 package com.smart.vision.core.manager;
 
 import com.aliyun.oss.OSS;
+import com.aliyun.oss.model.GeneratePresignedUrlRequest;
 import com.smart.vision.core.config.OSSConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +36,25 @@ public class OssManager {
     public String getPresignedUrl(String path, Long validityTime) {
         Date expiration = new Date(System.currentTimeMillis() + validityTime);
         URL url = ossClient.generatePresignedUrl(ossConfig.getBucketName(), path, expiration);
+        return url.toString();
+    }
+
+
+    /**
+     * [New] URL generation method specifically for AI
+     * Automatically appends image compression parameters to limit the image size to within 3MB
+     */
+    public String getAiPresignedUrl(String objectKey, Long validityTime, String processParam) {
+        Date expiration = new Date(System.currentTimeMillis() + validityTime);
+        GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(
+                ossConfig.getBucketName(),
+                objectKey);
+        request.setExpiration(expiration);
+        // [Core] Add OSS image processing parameters (x-oss-process)
+        // Strategy: Limit maximum width to 1024px, compress quality to 90%
+        // This size is sufficient for embedding semantic understanding and typically only takes up a few hundred KB
+        request.setProcess(processParam);
+        URL url = ossClient.generatePresignedUrl(request);
         return url.toString();
     }
 }

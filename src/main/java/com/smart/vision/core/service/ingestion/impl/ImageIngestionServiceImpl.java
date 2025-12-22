@@ -8,7 +8,6 @@ import com.smart.vision.core.manager.OssManager;
 import com.smart.vision.core.model.dto.BatchProcessDTO;
 import com.smart.vision.core.model.dto.BatchUploadResultDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
-import com.smart.vision.core.model.enums.PresignedValidityEnum;
 import com.smart.vision.core.repository.ImageRepository;
 import com.smart.vision.core.service.ingestion.ImageIngestionService;
 import lombok.RequiredArgsConstructor;
@@ -22,7 +21,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
-import static com.smart.vision.core.constant.CommonConstant.DUPLICATE_THRESHOLD;
+import static com.smart.vision.core.constant.CommonConstant.*;
+import static com.smart.vision.core.model.enums.PresignedValidityEnum.SHORT_TERM_VALIDITY;
 
 /**
  * Image data processing service implementation of ImageIngestionService that handles batch processing of images
@@ -102,11 +102,12 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
      * @param successDocs synchronized list to collect successfully processed documents
      */
     private void processSingleItem(BatchProcessDTO item, List<ImageDocument> successDocs) throws Exception {
-        String tempUrl = ossManager.getPresignedUrl(item.getKey(), PresignedValidityEnum.SHORT_TERM_VALIDITY.getValidity());
-        List<Float> vector = embeddingManager.embedImage(tempUrl);
-        String ocrText = ocrManager.extractText(tempUrl);
+        String tempUrl2Embed = ossManager.getAiPresignedUrl(item.getKey(), SHORT_TERM_VALIDITY.getValidity(), X_OSS_PROCESS_EMBEDDING);
+        List<Float> vector = embeddingManager.embedImage(tempUrl2Embed);
+        String tempUrl2OCR = ossManager.getAiPresignedUrl(item.getKey(), SHORT_TERM_VALIDITY.getValidity(), X_OSS_PROCESS_OCR);
+        String ocrText = ocrManager.extractText(tempUrl2OCR);
         // AI tag
-        List<String> tags = aliyunTaggingManager.generateTags(tempUrl);
+        List<String> tags = aliyunTaggingManager.generateTags(tempUrl2OCR);
 
         // Set threshold to 0.98 (Highly similar)
         ImageDocument duplicate = imageRepository.findDuplicate(vector, DUPLICATE_THRESHOLD);

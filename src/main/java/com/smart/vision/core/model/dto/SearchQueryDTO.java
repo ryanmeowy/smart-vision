@@ -1,4 +1,3 @@
-
 package com.smart.vision.core.model.dto;
 
 import lombok.Data;
@@ -22,10 +21,14 @@ public class SearchQueryDTO {
     /**
      * minimum similarity threshold
      */
-    private Float minScore = 0.6f;
+    private Float minScore;
     /**
      * whether to enable OCR hybrid search
      */
     private boolean enableOcr;
-
+    /**
+     * search strategy type
+     * @see com.smart.vision.core.model.enums.StrategyTypeEnum
+     */
+    private String searchType;
 }

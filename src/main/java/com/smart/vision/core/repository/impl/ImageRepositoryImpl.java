@@ -4,9 +4,13 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.elasticsearch.core.search.HitsMetadata;
+import com.smart.vision.core.model.dto.ImageSearchResult;
 import com.smart.vision.core.model.dto.SearchQueryDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
 import com.smart.vision.core.repository.ImageRepositoryCustom;
+import com.smart.vision.core.repository.query.FilenameQueryComponent;
+import com.smart.vision.core.repository.query.KnnQueryComponent;
+import com.smart.vision.core.repository.query.OcrContentQueryComponent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
@@ -18,8 +22,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.smart.vision.core.constant.CommonConstant.DEFAULT_NUM_CANDIDATES;
-import static com.smart.vision.core.constant.CommonConstant.HYBRID_SEARCH_DEFAULT_MIN_SCORE;
 import static com.smart.vision.core.constant.CommonConstant.IMAGE_INDEX;
 
 /**
@@ -34,42 +36,26 @@ import static com.smart.vision.core.constant.CommonConstant.IMAGE_INDEX;
 public class ImageRepositoryImpl implements ImageRepositoryCustom {
 
     private final ElasticsearchClient esClient;
+    private final OcrContentQueryComponent ocrContentQueryComponent;
+    private final FilenameQueryComponent filenameQueryComponent;
+    private final KnnQueryComponent knnQueryComponent;
+
 
     @Override
-    public List<ImageDocument> hybridSearch(SearchQueryDTO query, List<Float> queryVector) {
+    public List<ImageSearchResult> hybridSearch(SearchQueryDTO query, List<Float> queryVector) {
         try {
             SearchResponse<ImageDocument> response = esClient.search(s -> s
                             .index(IMAGE_INDEX)
                             .query(q -> q
                                     .bool(b -> b
                                             // 1. OCR text matching (BM25)
-                                            .should(sh -> sh
-                                                    .match(m -> m
-                                                            .field("ocrContent")
-                                                            .query(query.getKeyword())
-                                                            .boost(0.5f)
-                                                    )
-                                            )
+                                            .should(ocrContentQueryComponent.buildQuery(query))
                                             // 2. Filename/URL exact/tokenized matching
-                                            .should(sh -> sh
-                                                    .match(m -> m
-                                                            .field("filename")
-                                                            .query(query.getKeyword())
-                                                            .boost(0.2f)
-                                                    )
-                                            )
+                                            .should(filenameQueryComponent.buildQuery(query))
                                     )
                             )
                             // 3. Vector KNN search (HNSW index)
-                            .knn(k -> k
-                                    .field("imageEmbedding")
-                                    .queryVector(queryVector)
-                                    .k(query.getLimit())
-                                    .numCandidates(DEFAULT_NUM_CANDIDATES)
-                                    .boost(0.9f)
-                                    // Minimum similarity threshold, only applies to KNN search, hybrid search score normalization is complex
-                                    .similarity(null == query.getMinScore() ? HYBRID_SEARCH_DEFAULT_MIN_SCORE : query.getMinScore())
-                            )
+                            .knn(knnQueryComponent.buildQuery(query, queryVector))
                             .size(query.getLimit()),
                     ImageDocument.class
             );
@@ -80,25 +66,27 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
         }
     }
 
-    private List<ImageDocument> convert2Doc(SearchResponse<ImageDocument> response) {
+    private List<ImageSearchResult> convert2Doc(SearchResponse<ImageDocument> response) {
         List<Hit<ImageDocument>> hits = Optional.ofNullable(response)
                 .map(SearchResponse::hits)
                 .map(HitsMetadata::hits)
                 .orElse(Collections.emptyList());
 
-        return hits.stream().map(hit -> {
-            ImageDocument doc = hit.source();
-            if (doc != null) {
-                doc.setScore(hit.score());
-                doc.setId(hit.id());
-            }
-            return doc;
-        }).collect(Collectors.toList());
+        return hits.stream()
+                .filter(hit -> hit.source() != null)
+                .map(hit -> {
+                    ImageDocument doc = hit.source();
+                    doc.setId(hit.id());
+                    return ImageSearchResult.builder()
+                            .document(doc)
+                            .score(hit.score())
+                            .build();
+                }).collect(Collectors.toList());
 
     }
 
     @Override
-    public List<ImageDocument> searchSimilar(List<Float> vector, int limit, String excludeDocId) {
+    public List<ImageSearchResult> searchSimilar(List<Float> vector, int limit, String excludeDocId) {
         if (CollectionUtils.isEmpty(vector)) {
             return Collections.emptyList();
         }

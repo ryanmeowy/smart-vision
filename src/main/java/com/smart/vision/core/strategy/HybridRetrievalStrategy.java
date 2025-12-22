@@ -1,8 +1,8 @@
 
 package com.smart.vision.core.strategy;
 
+import com.smart.vision.core.model.dto.ImageSearchResult;
 import com.smart.vision.core.model.dto.SearchQueryDTO;
-import com.smart.vision.core.model.entity.ImageDocument;
 import com.smart.vision.core.model.enums.StrategyTypeEnum;
 import com.smart.vision.core.repository.ImageRepository;
 import lombok.RequiredArgsConstructor;
@@ -34,7 +34,7 @@ public class HybridRetrievalStrategy implements RetrievalStrategy {
      * @return list of image documents ranked by combined relevance scores
      */
     @Override
-    public List<ImageDocument> search(SearchQueryDTO query, List<Float> queryVector) {
+    public List<ImageSearchResult> search(SearchQueryDTO query, List<Float> queryVector) {
         return imageRepository.hybridSearch(query, queryVector);
     }
 

@@ -42,5 +42,8 @@ public class CommonConstant {
 
     public static final List<String> MOCK_BLOCKED_WORDS = Lists.newArrayList("色情", "暴力", "血腥");
 
+    public static final String X_OSS_PROCESS_EMBEDDING = "image/resize,l_2048,m_lfit/format,jpg/quality,q_75";
+
+    public static final String X_OSS_PROCESS_OCR = "image/resize,l_4096,m_lfit/format,jpg";
 }
 

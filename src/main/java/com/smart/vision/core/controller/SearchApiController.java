@@ -7,11 +7,7 @@ import com.smart.vision.core.model.dto.SearchResultDTO;
 import com.smart.vision.core.service.search.SmartSearchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -30,8 +26,8 @@ public class SearchApiController {
     private final SmartSearchService searchService;
     private final HotSearchManager hotSearchManager;
 
-    @GetMapping("/search")
-    public Result<List<SearchResultDTO>> search(@Validated SearchQueryDTO query) {
+    @PostMapping("/search")
+    public Result<List<SearchResultDTO>> search(@RequestBody SearchQueryDTO query) {
         return Result.success(searchService.search(query));
     }
 

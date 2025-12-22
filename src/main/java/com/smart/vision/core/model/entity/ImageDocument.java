@@ -2,7 +2,6 @@ package com.smart.vision.core.model.entity;
 
 import lombok.Data;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
@@ -50,12 +49,6 @@ public class ImageDocument {
      * Filename
      */
     private String filename;
-
-    /**
-     * Temporary score field
-     */
-    @Transient
-    private Double score;
 
     @Field(type = FieldType.Keyword)
     private List<String> tags;
