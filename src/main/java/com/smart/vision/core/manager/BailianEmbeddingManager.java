@@ -22,7 +22,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.smart.vision.core.constant.CommonConstant.MODEL_NAME;
+import static com.smart.vision.core.constant.CommonConstant.EMBEDDING_MODEL_NAME;
 
 /**
  * Bailian embedding manager for handling multimodal embeddings
@@ -78,7 +78,7 @@ public class BailianEmbeddingManager {
         try {
             MultiModalEmbeddingParam param = MultiModalEmbeddingParam.builder()
                     .apiKey(apiKey)
-                    .model(MODEL_NAME)
+                    .model(EMBEDDING_MODEL_NAME)
                     .contents(inputItem)
                     .build();
 

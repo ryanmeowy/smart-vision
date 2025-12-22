@@ -128,4 +128,30 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
             return Collections.emptyList();
         }
     }
+    
+    @Override
+    public ImageDocument findDuplicate(List<Float> vector, double threshold) {
+        try {
+            SearchResponse<ImageDocument> response = esClient.search(s -> s
+                            .index(IMAGE_INDEX)
+                            .knn(k -> k
+                                    .field("imageEmbedding")
+                                    .queryVector(vector)
+                                    .k(1) // top 1
+                                    .numCandidates(10)
+                                    .similarity((float) threshold)// [Core] ES 8.x supports direct filtering of low-score results
+                            )
+                            .size(1),
+                    ImageDocument.class
+            );
+
+            if (!response.hits().hits().isEmpty()) {
+                return response.hits().hits().get(0).source();
+            }
+            return null;
+        } catch (IOException e) {
+            log.error("Duplicate check failed", e);
+            return null;
+        }
+    }
 }

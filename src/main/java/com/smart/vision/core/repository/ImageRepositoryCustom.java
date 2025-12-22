@@ -31,4 +31,13 @@ public interface ImageRepositoryCustom {
      */
     List<ImageDocument> searchSimilar(List<Float> vector, int limit, String excludeDocId);
 
+    /**
+     * Check if there is an extremely similar image (used for deduplication)
+     * @param vector Vector to be checked
+     * @param threshold Similarity threshold
+     * @return Existing similar image document, or null if none exists
+     */
+    ImageDocument findDuplicate(List<Float> vector, double threshold);
+
+
 }

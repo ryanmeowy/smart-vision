@@ -31,7 +31,7 @@ public class AliyunOcrManager {
      * @param imageUrl Public URL of the image (must be an OSS signed URL)
      * @return Extracted plain text content
      */
-    @Retryable(retryFor = Exception.class, backoff = @Backoff(delay = 1000))
+    @Retryable(retryFor = Exception.class, backoff = @Backoff(delay = 1000, multiplier = 2))
     public String extractText(String imageUrl) throws Exception {
         if (imageUrl == null || imageUrl.isEmpty()) {
             return "";
