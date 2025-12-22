@@ -17,8 +17,13 @@ aliyun:
     access-key-secret: ${ALIYUN_ACCESS_KEY_SECRET}
     bucket-name: ${ALIYUN_OSS_BUCKET_NAME}
     role-arn: ${ALIYUN_OSS_ROLE_ARN}
+  ocr:
+    access-key-id: ${ALIYUN_ACCESS_KEY_ID}
+    access-key-secret: ${ALIYUN_ACCESS_KEY_SECRET}
+    endpoint: ${OCR_ENDPOINT}
 
 app:
   security:
     admin-secret: ${APP_ADMIN_SECRET}
+
 

@@ -1,20 +1,21 @@
 package com.smart.vision.core.repository.impl;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import co.elastic.clients.elasticsearch.core.BulkRequest;
-import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
+import co.elastic.clients.elasticsearch.core.search.HitsMetadata;
 import com.smart.vision.core.model.dto.SearchQueryDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
 import com.smart.vision.core.repository.ImageRepositoryCustom;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
+import org.springframework.util.CollectionUtils;
 
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.smart.vision.core.constant.CommonConstant.DEFAULT_NUM_CANDIDATES;
@@ -72,56 +73,59 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
                             .size(query.getLimit()),
                     ImageDocument.class
             );
-
-            return response.hits().hits().stream()
-                    .map(Hit::source)
-                    .collect(Collectors.toList());
-
+            return convert2Doc(response);
         } catch (IOException e) {
             log.error("Hybrid search execution failed", e);
             return Collections.emptyList();
         }
     }
 
+    private List<ImageDocument> convert2Doc(SearchResponse<ImageDocument> response) {
+        List<Hit<ImageDocument>> hits = Optional.ofNullable(response)
+                .map(SearchResponse::hits)
+                .map(HitsMetadata::hits)
+                .orElse(Collections.emptyList());
+
+        return hits.stream().map(hit -> {
+            ImageDocument doc = hit.source();
+            if (doc != null) {
+                doc.setScore(hit.score());
+                doc.setId(hit.id());
+            }
+            return doc;
+        }).collect(Collectors.toList());
+
+    }
+
     @Override
-    public int bulkSave(List<ImageDocument> documents) {
-        if (documents == null || documents.isEmpty()) {
-            return 0;
+    public List<ImageDocument> searchSimilar(List<Float> vector, int limit, String excludeDocId) {
+        if (CollectionUtils.isEmpty(vector)) {
+            return Collections.emptyList();
         }
 
         try {
-            // 1. Build Bulk request
-            BulkRequest.Builder br = new BulkRequest.Builder();
-
-            for (ImageDocument doc : documents) {
-                br.operations(op -> op
-                        .index(idx -> idx
-                                .index("smart_gallery_v1") // Index name
-                                .id(doc.getId())           // Explicitly specify ID (if exists)
-                                .document(doc)             // Put document object
-                        )
-                );
-            }
-
-            // 2. Execute request
-            BulkResponse response = esClient.bulk(br.build());
-
-            // 3. [Critical] Handle partial failure
-            if (response.errors()) {
-                // Senior developers will print specific error logs here instead of simply throwing exceptions
-                response.items().stream()
-                        .filter(item -> item.error() != null)
-                        .forEach(item -> log.error("Document write failed ID [{}]: {}", item.id(), item.error().reason()));
-
-                // Return actual successful count
-                return (int) response.items().stream().filter(i -> i.error() == null).count();
-            }
-
-            return documents.size();
-
+            SearchResponse<ImageDocument> response = esClient.search(s -> s
+                            .index(IMAGE_INDEX)
+                            .query(q -> q
+                                    .bool(b -> b
+                                            .mustNot(mn -> mn
+                                                    .ids(i -> i.values(excludeDocId))
+                                            )
+                                    )
+                            )
+                            .knn(k -> k
+                                    .field("imageEmbedding")
+                                    .queryVector(vector)
+                                    .k(limit)
+                                    .numCandidates(100)
+                            )
+                            .size(limit),
+                    ImageDocument.class
+            );
+            return convert2Doc(response);
         } catch (IOException e) {
-            log.error("Bulk write IO exception occurred", e);
-            throw new RuntimeException("ES batch write failed");
+            log.error("Execution of finding similar failed", e);
+            return Collections.emptyList();
         }
     }
 }

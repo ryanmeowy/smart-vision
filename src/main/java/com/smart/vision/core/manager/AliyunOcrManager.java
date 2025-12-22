@@ -3,6 +3,8 @@ package com.smart.vision.core.manager;
 import com.aliyun.ocr_api20210707.Client;
 import com.aliyun.ocr_api20210707.models.RecognizeGeneralRequest;
 import com.aliyun.ocr_api20210707.models.RecognizeGeneralResponse;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.retry.annotation.Backoff;
@@ -24,10 +26,10 @@ public class AliyunOcrManager {
     private final Client client;
 
     /**
-     * 提取图片文字
+     * Extract text from image
      *
-     * @param imageUrl 图片的公网 URL (必须是 OSS 签名后的 URL)
-     * @return 提取出的纯文本内容
+     * @param imageUrl Public URL of the image (must be an OSS signed URL)
+     * @return Extracted plain text content
      */
     @Retryable(retryFor = Exception.class, backoff = @Backoff(delay = 1000))
     public String extractText(String imageUrl) throws Exception {
@@ -44,7 +46,8 @@ public class AliyunOcrManager {
         if (response == null || response.getBody() == null || response.getBody().getData() == null) {
             return "";
         }
-        return response.getBody().getData();
+        JsonObject jsonObject = JsonParser.parseString(response.getBody().getData()).getAsJsonObject();
+        return jsonObject.get("content").toString();
     }
 
     @Recover

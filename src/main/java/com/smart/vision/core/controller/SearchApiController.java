@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -30,5 +31,10 @@ public class SearchApiController {
     @GetMapping("/search")
     public Result<List<SearchResultDTO>> search(@Validated SearchQueryDTO query) {
         return Result.success(searchService.search(query));
+    }
+
+    @GetMapping("/similar")
+    public Result<List<SearchResultDTO>> searchSimilar(@RequestParam String id) {
+        return Result.success(searchService.searchByVector(id));
     }
 }

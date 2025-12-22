@@ -32,7 +32,7 @@ public class AuthApiController {
     private final OssService ossService;
 
     /**
-     * 远程刷新上传口令接口
+     * Remote refresh upload token interface
      */
     @PostMapping("/refresh-token")
     public Result<String> refreshToken(@RequestHeader("X-Admin-Secret") String secret,
@@ -54,6 +54,20 @@ public class AuthApiController {
         }
         redisTemplate.opsForValue().set(TOKEN_KEY, newToken, 12, TimeUnit.HOURS);
         return Result.success(newToken);
+    }
+
+    @PostMapping("/clean-token")
+    public Result<Void> cleanToken(@RequestHeader("X-Admin-Secret") String secret) {
+        if (!adminSecret.equals(secret)) {
+            // prevent timing attack
+            try {
+                Thread.sleep(5_000);
+            } catch (InterruptedException ignored) {
+            }
+            return Result.error(403, "Unauthorized access: Wrong key");
+        }
+        redisTemplate.delete(TOKEN_KEY);
+        return Result.success();
     }
 
     @RequireAuth

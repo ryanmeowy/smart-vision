@@ -28,4 +28,12 @@ public interface SmartSearchService {
      * @see SearchQueryDTO#isEnableOcr() whether to enable OCR-based text search
      */
     List<SearchResultDTO> search(SearchQueryDTO query);
+
+    /**
+     * Perform vector-based search using the provided document ID
+     *
+     * @param docId unique identifier of the document to search by vector
+     * @return list of search results with image metadata, scores, and highlighted content
+     */
+    List<SearchResultDTO> searchByVector(String docId);
 }

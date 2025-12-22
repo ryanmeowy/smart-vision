@@ -2,6 +2,7 @@ package com.smart.vision.core.model.entity;
 
 import lombok.Data;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Document;
 
 import java.util.List;
@@ -15,7 +16,7 @@ import static com.smart.vision.core.constant.CommonConstant.IMAGE_INDEX;
  * @since 2025/12/15
  */
 @Data
-@Document(indexName = IMAGE_INDEX)  // ← 这里配置的索引名
+@Document(indexName = IMAGE_INDEX) // index name
 public class ImageDocument {
     /**
      * Image ID (ES Doc ID)
@@ -48,4 +49,9 @@ public class ImageDocument {
      */
     private String filename;
 
+    /**
+     * Temporary score field
+     */
+    @Transient
+    private Double score;
 }

@@ -1,10 +1,13 @@
 package com.smart.vision.core.config;
 
 import com.aliyun.ocr_api20210707.Client;
+import com.aliyun.oss.ClientBuilderConfiguration;
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
+import com.aliyun.oss.common.comm.Protocol;
 import com.aliyun.teaopenapi.models.Config;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -18,7 +21,11 @@ import org.springframework.context.annotation.Configuration;
 @RequiredArgsConstructor
 public class BeanConfig {
 
-    private final OssConfig ossConfig;
+    @Qualifier("OSSConfig")
+    private final OSSConfig ossConfig;
+
+    @Qualifier("OCRConfig")
+    private final OCRConfig ocrConfig;
 
     /**
      * Register Aliyun OSS client
@@ -26,10 +33,13 @@ public class BeanConfig {
      */
     @Bean(destroyMethod = "shutdown")
     public OSS ossClient() {
+        ClientBuilderConfiguration conf = new ClientBuilderConfiguration();
+        conf.setProtocol(Protocol.HTTPS);
         return new OSSClientBuilder().build(
                 ossConfig.getEndpoint(),
                 ossConfig.getAccessKeyId(),
-                ossConfig.getAccessKeySecret()
+                ossConfig.getAccessKeySecret(),
+                conf
         );
     }
 
@@ -40,9 +50,9 @@ public class BeanConfig {
     @Bean
     public Client ocrClient() throws Exception {
         Config config = new Config()
-                .setAccessKeyId(ossConfig.getAccessKeyId())
-                .setAccessKeySecret(ossConfig.getAccessKeySecret())
-                .setEndpoint("ocr-api.cn-hangzhou.aliyuncs.com");
+                .setAccessKeyId(ocrConfig.getAccessKeyId())
+                .setAccessKeySecret(ocrConfig.getAccessKeySecret())
+                .setEndpoint(ocrConfig.getEndpoint());
 
         return new Client(config);
     }

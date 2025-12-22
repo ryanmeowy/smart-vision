@@ -23,11 +23,12 @@ public interface ImageRepositoryCustom {
     List<ImageDocument> hybridSearch(SearchQueryDTO query, List<Float> queryVector);
 
     /**
-     * High-performance batch write
-     *
-     * @param documents Document list
-     * @return Number of successfully written documents
+     * Search for similar documents based on vector (supports excluding specific ID)
+     * @param vector Array of vectors
+     * @param limit Number of results
+     * @param excludeDocId Document ID to exclude (usually exclude itself when searching for similar)
+     * @return List of documents
      */
-    int bulkSave(List<ImageDocument> documents);
+    List<ImageDocument> searchSimilar(List<Float> vector, int limit, String excludeDocId);
 
 }
