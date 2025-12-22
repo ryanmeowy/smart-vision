@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Configuration;
 @Data
 @Configuration
 @ConfigurationProperties(prefix = "aliyun.oss")
-public class OssConfig {
+public class OSSConfig {
     /**
      * Internal network endpoint, used for uploading files
      */

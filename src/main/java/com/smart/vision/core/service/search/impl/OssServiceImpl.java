@@ -6,10 +6,11 @@ import com.aliyuncs.auth.sts.AssumeRoleRequest;
 import com.aliyuncs.auth.sts.AssumeRoleResponse;
 import com.aliyuncs.exceptions.ClientException;
 import com.aliyuncs.profile.DefaultProfile;
-import com.smart.vision.core.config.OssConfig;
+import com.smart.vision.core.config.OSSConfig;
 import com.smart.vision.core.model.dto.StsTokenDTO;
 import com.smart.vision.core.service.search.OssService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -31,7 +32,8 @@ import static com.smart.vision.core.constant.CommonConstant.DEFAULT_STS_DURATION
 
 public class OssServiceImpl implements OssService {
 
-    private final OssConfig ossConfig;
+    @Qualifier("OSSConfig")
+    private final OSSConfig ossConfig;
 
     /**
      * Fetches a temporary STS (Security Token Service) token for OSS access

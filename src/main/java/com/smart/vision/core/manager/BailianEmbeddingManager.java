@@ -6,6 +6,7 @@ import com.alibaba.dashscope.embeddings.MultiModalEmbeddingItemImage;
 import com.alibaba.dashscope.embeddings.MultiModalEmbeddingItemText;
 import com.alibaba.dashscope.embeddings.MultiModalEmbeddingParam;
 import com.alibaba.dashscope.embeddings.MultiModalEmbeddingResult;
+import com.alibaba.dashscope.embeddings.MultiModalEmbeddingResultItem;
 import com.alibaba.dashscope.exception.ApiException;
 import com.alibaba.dashscope.exception.NoApiKeyException;
 import com.google.common.collect.Lists;
@@ -15,12 +16,13 @@ import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Recover;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.smart.vision.core.constant.CommonConstant.MODEL_NAME;
+import static com.smart.vision.core.constant.CommonConstant.EMBEDDING_MODEL_NAME;
 
 /**
  * Bailian embedding manager for handling multimodal embeddings
@@ -76,27 +78,33 @@ public class BailianEmbeddingManager {
         try {
             MultiModalEmbeddingParam param = MultiModalEmbeddingParam.builder()
                     .apiKey(apiKey)
-                    .model(MODEL_NAME)
+                    .model(EMBEDDING_MODEL_NAME)
                     .contents(inputItem)
                     .build();
 
             MultiModalEmbedding embedder = new MultiModalEmbedding();
             MultiModalEmbeddingResult result = embedder.call(param);
 
-            if (result.getOutput() == null || result.getOutput().getEmbedding().isEmpty()) {
-                throw new RuntimeException("阿里云返回结果为空");
+            if (result.getOutput() == null || CollectionUtils.isEmpty(result.getOutput().getEmbeddings())) {
+                throw new RuntimeException("Aliyun returned an empty result");
             }
 
-            return result.getOutput().getEmbedding().stream().map(Double::floatValue).collect(Collectors.toList());
+            return result.getOutput().getEmbeddings().stream()
+                    .findFirst()
+                    .map(MultiModalEmbeddingResultItem::getEmbedding)
+                    .orElse(Collections.emptyList())
+                    .stream()
+                    .map(Double::floatValue)
+                    .collect(Collectors.toList());
         } catch (NoApiKeyException e) {
-            log.error("API Key 未配置，请检查环境变量");
-            throw new RuntimeException("API Key 配置缺失", e);
+            log.error("API Key is not configured, please check the environment variables");
+            throw new RuntimeException("API Key configuration is missing", e);
         } catch (ApiException e) {
-            log.error("阿里云 API 调用失败: Code={}, Msg={}", e.getStatus(), e.getMessage());
-            throw new RuntimeException("AI服务异常: " + e.getMessage(), e);
+            log.error("Aliyun API call failed: Code={}, Msg={}", e.getStatus(), e.getMessage());
+            throw new RuntimeException("AI service exception: " + e.getMessage(), e);
         } catch (Exception e) {
-            log.error("向量生成未知错误", e);
-            throw new RuntimeException("向量化服务内部错误", e);
+            log.error("Unknown error occurred during vector generation", e);
+            throw new RuntimeException("Internal error in vectorization service", e);
         }
     }
 

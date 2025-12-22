@@ -1,5 +1,9 @@
 package com.smart.vision.core.constant;
 
+import com.google.common.collect.Lists;
+
+import java.util.List;
+
 /**
  * general constant clazz;
  *
@@ -24,6 +28,22 @@ public class CommonConstant {
 
     public static final String TOKEN_KEY = "sys:config:upload-token";
 
-    public static final String MODEL_NAME = "multimodal-embedding-v1";
+    public static final String EMBEDDING_MODEL_NAME = "multimodal-embedding-v1";
+    // Check for extremely similar images (used for deduplication)
+    public static final Double DUPLICATE_THRESHOLD = 0.98;
+
+    public static final String TAG_MODEL_NAME = "qwen-vl-plus";
+
+    public static final String HOT_SEARCH_KEY = "search:hot:ranking";
+
+    public static final int MAX_HOT_WORDS = 10; // 返回前10个
+    // Fallback data (used during cold start)
+    public static final List<String>  FALLBACK_WORDS = Lists.newArrayList("森林", "大海", "猫", "赛博朋克", "发票");
+
+    public static final List<String> MOCK_BLOCKED_WORDS = Lists.newArrayList("色情", "暴力", "血腥");
+
+    public static final String X_OSS_PROCESS_EMBEDDING = "image/resize,l_2048,m_lfit/format,jpg/quality,q_75";
+
+    public static final String X_OSS_PROCESS_OCR = "image/resize,l_4096,m_lfit/format,jpg";
 }
 
