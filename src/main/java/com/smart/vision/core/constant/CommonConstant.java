@@ -1,5 +1,9 @@
 package com.smart.vision.core.constant;
 
+import com.google.common.collect.Lists;
+
+import java.util.List;
+
 /**
  * general constant clazz;
  *
@@ -29,5 +33,14 @@ public class CommonConstant {
     public static final Double DUPLICATE_THRESHOLD = 0.98;
 
     public static final String TAG_MODEL_NAME = "qwen-vl-plus";
+
+    public static final String HOT_SEARCH_KEY = "search:hot:ranking";
+
+    public static final int MAX_HOT_WORDS = 10; // 返回前10个
+    // Fallback data (used during cold start)
+    public static final List<String>  FALLBACK_WORDS = Lists.newArrayList("森林", "大海", "猫", "赛博朋克", "发票");
+
+    public static final List<String> MOCK_BLOCKED_WORDS = Lists.newArrayList("色情", "暴力", "血腥");
+
 }
 

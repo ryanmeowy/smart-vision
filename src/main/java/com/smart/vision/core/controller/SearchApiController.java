@@ -1,5 +1,6 @@
 package com.smart.vision.core.controller;
 
+import com.smart.vision.core.manager.HotSearchManager;
 import com.smart.vision.core.model.Result;
 import com.smart.vision.core.model.dto.SearchQueryDTO;
 import com.smart.vision.core.model.dto.SearchResultDTO;
@@ -27,6 +28,7 @@ import java.util.List;
 public class SearchApiController {
 
     private final SmartSearchService searchService;
+    private final HotSearchManager hotSearchManager;
 
     @GetMapping("/search")
     public Result<List<SearchResultDTO>> search(@Validated SearchQueryDTO query) {
@@ -36,5 +38,10 @@ public class SearchApiController {
     @GetMapping("/similar")
     public Result<List<SearchResultDTO>> searchSimilar(@RequestParam String id) {
         return Result.success(searchService.searchByVector(id));
+    }
+
+    @GetMapping("/hot-words")
+    public Result<List<String>> getHotWords() {
+        return Result.success(hotSearchManager.getTopHotWords());
     }
 }

@@ -1,6 +1,7 @@
 package com.smart.vision.core.service.search.impl;
 
 import com.smart.vision.core.manager.BailianEmbeddingManager;
+import com.smart.vision.core.manager.HotSearchManager;
 import com.smart.vision.core.model.dto.SearchQueryDTO;
 import com.smart.vision.core.model.dto.SearchResultDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
@@ -11,6 +12,7 @@ import com.smart.vision.core.strategy.RetrievalStrategy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -28,9 +30,13 @@ public class SmartSearchServiceImpl implements SmartSearchService {
     private final Map<String, RetrievalStrategy> strategyMap;
     private final ImageRepository imageRepository;
     private final ImageDocConvertor imageDocConvertor;
+    private final HotSearchManager hotSearchManager;
 
     public List<SearchResultDTO> search(SearchQueryDTO query) {
 //        query = validQuery(query);
+        if (StringUtils.hasText(query.getKeyword())) {
+            hotSearchManager.incrementScore(query.getKeyword());
+        }
         List<Float> queryVector = embeddingManager.embedText(query.getKeyword());
         RetrievalStrategy strategy = strategyMap.get("HYBRID");
         List<ImageDocument> docs = strategy.search(query, queryVector);
