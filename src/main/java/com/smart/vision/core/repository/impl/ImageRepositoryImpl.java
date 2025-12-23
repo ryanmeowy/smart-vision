@@ -1,16 +1,14 @@
 package com.smart.vision.core.repository.impl;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.elasticsearch.core.search.HitsMetadata;
-import com.smart.vision.core.model.dto.ImageSearchResult;
+import com.smart.vision.core.model.dto.ImageSearchResultDTO;
 import com.smart.vision.core.model.dto.SearchQueryDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
 import com.smart.vision.core.repository.ImageRepositoryCustom;
-import com.smart.vision.core.repository.query.FilenameQueryComponent;
-import com.smart.vision.core.repository.query.KnnQueryComponent;
-import com.smart.vision.core.repository.query.OcrContentQueryComponent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
@@ -22,7 +20,16 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.smart.vision.core.constant.CommonConstant.DEFAULT_EMBEDDING_BOOST;
+import static com.smart.vision.core.constant.CommonConstant.DEFAULT_FIELD_NAME_BOOST;
+import static com.smart.vision.core.constant.CommonConstant.DEFAULT_NUM_CANDIDATES;
+import static com.smart.vision.core.constant.CommonConstant.DEFAULT_OCR_BOOST;
+import static com.smart.vision.core.constant.CommonConstant.EMBEDDING_FIELD;
+import static com.smart.vision.core.constant.CommonConstant.FILE_NAME_FIELD;
 import static com.smart.vision.core.constant.CommonConstant.IMAGE_INDEX;
+import static com.smart.vision.core.constant.CommonConstant.MINIMUM_SIMILARITY;
+import static com.smart.vision.core.constant.CommonConstant.NUM_CANDIDATES_FACTOR;
+import static com.smart.vision.core.constant.CommonConstant.OCR_FIELD;
 
 /**
  * Hybrid search implementation
@@ -36,29 +43,43 @@ import static com.smart.vision.core.constant.CommonConstant.IMAGE_INDEX;
 public class ImageRepositoryImpl implements ImageRepositoryCustom {
 
     private final ElasticsearchClient esClient;
-    private final OcrContentQueryComponent ocrContentQueryComponent;
-    private final FilenameQueryComponent filenameQueryComponent;
-    private final KnnQueryComponent knnQueryComponent;
-
 
     @Override
-    public List<ImageSearchResult> hybridSearch(SearchQueryDTO query, List<Float> queryVector) {
+    public List<ImageSearchResultDTO> hybridSearch(SearchQueryDTO query, List<Float> queryVector) {
         try {
             SearchResponse<ImageDocument> response = esClient.search(s -> s
                             .index(IMAGE_INDEX)
                             .query(q -> q
                                     .bool(b -> b
                                             // 1. OCR text matching (BM25)
-                                            .should(ocrContentQueryComponent.buildQuery(query))
+                                            .should(builder -> builder
+                                                    .match(m -> m
+                                                            .field(OCR_FIELD)
+                                                            .query(query.getKeyword())
+                                                            .boost(DEFAULT_OCR_BOOST)
+                                                    ))
                                             // 2. Filename/URL exact/tokenized matching
-                                            .should(filenameQueryComponent.buildQuery(query))
+                                            .should(builder -> builder
+                                                    .match(m -> m
+                                                            .field(FILE_NAME_FIELD)
+                                                            .query(query.getKeyword())
+                                                            .boost(DEFAULT_FIELD_NAME_BOOST)
+                                                    ))
                                     )
                             )
                             // 3. Vector KNN search (HNSW index)
-                            .knn(knnQueryComponent.buildQuery(query, queryVector))
+                            .knn(builder -> builder
+                                    .field(EMBEDDING_FIELD)
+                                    .queryVector(queryVector)
+                                    .k(query.getTopK())
+                                    .numCandidates(Math.min(NUM_CANDIDATES_FACTOR * query.getTopK(), DEFAULT_NUM_CANDIDATES))
+                                    .boost(DEFAULT_EMBEDDING_BOOST)
+                                    .similarity(null == query.getSimilarity() ? MINIMUM_SIMILARITY : query.getSimilarity()))
+                            .sort(so -> so.score(sc -> sc.order(SortOrder.Desc)))
+                            .sort(so -> so.field(f -> f.field("id").order(SortOrder.Asc)))
+                            .searchAfter(query.getSearchAfter())
                             .size(query.getLimit()),
-                    ImageDocument.class
-            );
+                    ImageDocument.class);
             return convert2Doc(response);
         } catch (IOException e) {
             log.error("Hybrid search execution failed", e);
@@ -66,7 +87,7 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
         }
     }
 
-    private List<ImageSearchResult> convert2Doc(SearchResponse<ImageDocument> response) {
+    private List<ImageSearchResultDTO> convert2Doc(SearchResponse<ImageDocument> response) {
         List<Hit<ImageDocument>> hits = Optional.ofNullable(response)
                 .map(SearchResponse::hits)
                 .map(HitsMetadata::hits)
@@ -77,37 +98,33 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
                 .map(hit -> {
                     ImageDocument doc = hit.source();
                     doc.setId(hit.id());
-                    return ImageSearchResult.builder()
+                    return ImageSearchResultDTO.builder()
                             .document(doc)
                             .score(hit.score())
+                            .sortValues(hit.sort())
                             .build();
                 }).collect(Collectors.toList());
 
     }
 
     @Override
-    public List<ImageSearchResult> searchSimilar(List<Float> vector, int limit, String excludeDocId) {
+    public List<ImageSearchResultDTO> searchSimilar(List<Float> vector, Integer topK, String excludeDocId) {
         if (CollectionUtils.isEmpty(vector)) {
             return Collections.emptyList();
         }
-
         try {
             SearchResponse<ImageDocument> response = esClient.search(s -> s
                             .index(IMAGE_INDEX)
                             .query(q -> q
-                                    .bool(b -> b
-                                            .mustNot(mn -> mn
-                                                    .ids(i -> i.values(excludeDocId))
-                                            )
-                                    )
-                            )
-                            .knn(k -> k
-                                    .field("imageEmbedding")
+                                    .bool(b -> b.mustNot(mn -> mn.ids(i -> i.values(excludeDocId)))))
+                            .knn(builder -> builder
+                                    .field(EMBEDDING_FIELD)
                                     .queryVector(vector)
-                                    .k(limit)
-                                    .numCandidates(100)
-                            )
-                            .size(limit),
+                                    .k(topK)
+                                    .numCandidates(Math.min(NUM_CANDIDATES_FACTOR * topK, DEFAULT_NUM_CANDIDATES))
+                                    .boost(DEFAULT_EMBEDDING_BOOST)
+                                    .similarity(MINIMUM_SIMILARITY))
+                            .size(topK),
                     ImageDocument.class
             );
             return convert2Doc(response);
@@ -116,18 +133,18 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
             return Collections.emptyList();
         }
     }
-    
+
     @Override
     public ImageDocument findDuplicate(List<Float> vector, double threshold) {
         try {
             SearchResponse<ImageDocument> response = esClient.search(s -> s
                             .index(IMAGE_INDEX)
                             .knn(k -> k
-                                    .field("imageEmbedding")
+                                    .field(EMBEDDING_FIELD)
                                     .queryVector(vector)
                                     .k(1) // top 1
                                     .numCandidates(10)
-                                    .similarity((float) threshold)// [Core] ES 8.x supports direct filtering of low-score results
+                                    .similarity((float) threshold)
                             )
                             .size(1),
                     ImageDocument.class

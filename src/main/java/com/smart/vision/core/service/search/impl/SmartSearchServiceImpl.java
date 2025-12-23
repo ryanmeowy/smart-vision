@@ -2,7 +2,7 @@ package com.smart.vision.core.service.search.impl;
 
 import com.smart.vision.core.manager.BailianEmbeddingManager;
 import com.smart.vision.core.manager.HotSearchManager;
-import com.smart.vision.core.model.dto.ImageSearchResult;
+import com.smart.vision.core.model.dto.ImageSearchResultDTO;
 import com.smart.vision.core.model.dto.SearchQueryDTO;
 import com.smart.vision.core.model.dto.SearchResultDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
@@ -39,7 +39,7 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         }
         List<Float> queryVector = embeddingManager.embedText(query.getKeyword());
         RetrievalStrategy strategy = strategyFactory.getStrategy(query.getSearchType());
-        List<ImageSearchResult> docs = strategy.search(query, queryVector);
+        List<ImageSearchResultDTO> docs = strategy.search(query, queryVector);
         return imageDocConvertor.convert2SearchResultDTO(docs);
     }
 
@@ -53,7 +53,7 @@ public class SmartSearchServiceImpl implements SmartSearchService {
             throw new RuntimeException("The image has not been vectorized yet");
         }
         // Perform search (find the 10 most similar images)
-        List<ImageSearchResult> similarDocs = imageRepository.searchSimilar(embedding, 10, docId);
+        List<ImageSearchResultDTO> similarDocs = imageRepository.searchSimilar(embedding, 10, docId);
         return imageDocConvertor.convert2SearchResultDTO(similarDocs);
     }
 }

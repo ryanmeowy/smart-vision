@@ -23,8 +23,8 @@ public interface SmartSearchService {
      *              and search strategy configuration
      * @return list of search results with image metadata, scores, and highlighted content
      * @see SearchQueryDTO#getKeyword() search keyword or text query
-     * @see SearchQueryDTO#getLimit() maximum number of results to return
-     * @see SearchQueryDTO#getMinScore() minimum similarity score threshold (0.0-1.0)
+     * @see SearchQueryDTO#getTopK() maximum number of results to return
+     * @see SearchQueryDTO#getSimilarity() minimum similarity score threshold (0.0-1.0)
      * @see SearchQueryDTO#isEnableOcr() whether to enable OCR-based text search
      */
     List<SearchResultDTO> search(SearchQueryDTO query);

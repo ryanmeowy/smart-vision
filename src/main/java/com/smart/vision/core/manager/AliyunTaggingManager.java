@@ -5,9 +5,11 @@ import com.alibaba.dashscope.aigc.multimodalconversation.MultiModalConversationP
 import com.alibaba.dashscope.aigc.multimodalconversation.MultiModalConversationResult;
 import com.alibaba.dashscope.common.MultiModalMessage;
 import com.alibaba.dashscope.exception.NoApiKeyException;
+import com.alibaba.dashscope.exception.UploadFileException;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
@@ -32,7 +34,11 @@ import static com.smart.vision.core.constant.CommonConstant.TAG_MODEL_NAME;
 @Component
 public class AliyunTaggingManager {
 
-    public static final String PROMPT = "请分析这张图片，提取 3-5 个核心标签，包含物体、场景、风格。" +
+    @Value("${DASHSCOPE_API_KEY}")
+    private String apiKey;
+
+    public static final String PROMPT =
+            "请分析这张图片，提取 3-5 个核心标签，包含物体、场景、风格。" +
             "请直接返回一个 JSON 字符串数组，不要包含 Markdown 格式或其他废话。" +
             "例如：[\"风景\", \"雪山\", \"日落\"]";
 
@@ -55,6 +61,7 @@ public class AliyunTaggingManager {
             MultiModalConversationParam param = MultiModalConversationParam.builder()
                     .model(TAG_MODEL_NAME)
                     .message(userMessage)
+                    .apiKey(apiKey)
                     .build();
 
             MultiModalConversation conv = new MultiModalConversation();
@@ -80,11 +87,11 @@ public class AliyunTaggingManager {
      */
     private List<String> parseTags(String content) {
         try {
-            // Regex to extract [...] part
-            Pattern pattern = Pattern.compile("\\[.*?]", Pattern.DOTALL);
+            String regex = "```json\\s*(\\[.*?])\\s*```";
+            Pattern pattern = Pattern.compile(regex, Pattern.DOTALL);
             Matcher matcher = pattern.matcher(content);
             if (matcher.find()) {
-                String jsonArray = matcher.group();
+                String jsonArray = matcher.group(1);
                 Gson gson = new Gson();
                 return gson.fromJson(jsonArray, new TypeToken<List<String>>() {}.getType());
             }

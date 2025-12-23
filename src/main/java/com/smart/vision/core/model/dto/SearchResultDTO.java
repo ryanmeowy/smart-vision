@@ -1,10 +1,12 @@
 
 package com.smart.vision.core.model.dto;
 
+import co.elastic.clients.elasticsearch._types.FieldValue;
 import lombok.Builder;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.List;
 
 /**
  * image search result model
@@ -49,5 +51,9 @@ public class SearchResultDTO implements Serializable {
      * image filename
      */
     private String filename;
+    /**
+     * Search cursor for pagination
+     */
+    private List<FieldValue> sortValues;
 
 }

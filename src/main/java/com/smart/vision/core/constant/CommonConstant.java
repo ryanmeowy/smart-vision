@@ -14,9 +14,9 @@ public class CommonConstant {
 
     public static final String IMAGE_INDEX = "smart_gallery_v1";
 
-    public static final Float HYBRID_SEARCH_DEFAULT_MIN_SCORE = 0.6f;
-
-    public static final Integer DEFAULT_NUM_CANDIDATES = 10;
+    public static final Float MINIMUM_SIMILARITY = 0.6f;
+    // 候选集大小, 必须大于topK, 候选集越大,召回准确率越高,召回速度越慢
+    public static final Integer DEFAULT_NUM_CANDIDATES = 10_000;
 
     public static final Long DEFAULT_STS_DURATION_SECONDS = 15 * 60L;
 
@@ -45,5 +45,23 @@ public class CommonConstant {
     public static final String X_OSS_PROCESS_EMBEDDING = "image/resize,l_2048,m_lfit/format,jpg/quality,q_75";
 
     public static final String X_OSS_PROCESS_OCR = "image/resize,l_4096,m_lfit/format,jpg";
+
+    public static final float DEFAULT_EMBEDDING_BOOST = 0.9f;
+
+    public static final float DEFAULT_OCR_BOOST = 0.5f;
+
+    public static final float DEFAULT_FIELD_NAME_BOOST = 0.2f;
+
+    public static final int NUM_CANDIDATES_FACTOR = 5;
+
+    public static final int DEFAULT_TOP_K = 100;
+
+    public static final String EMBEDDING_FIELD = "imageEmbedding";
+
+    public static final String OCR_FIELD = "ocrContent";
+
+    public static final String FILE_NAME_FIELD = "filename";
+
+    public static final Integer DEFAULT_RESULT_LIMIT = 20;
 }
 

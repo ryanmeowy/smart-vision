@@ -5,7 +5,7 @@ import lombok.Getter;
 /**
  * Presigned URL validity
  *
- * @author ryan
+ * @author Ryan
  * @since 2025/12/19
  */
 @Getter

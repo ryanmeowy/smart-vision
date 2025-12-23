@@ -29,24 +29,11 @@ import static com.smart.vision.core.constant.CommonConstant.DEFAULT_STS_DURATION
  */
 @Service
 @RequiredArgsConstructor
-
 public class OssServiceImpl implements OssService {
 
     @Qualifier("OSSConfig")
     private final OSSConfig ossConfig;
 
-    /**
-     * Fetches a temporary STS (Security Token Service) token for OSS access
-     * This implementation uses Alibaba Cloud STS AssumeRole API to obtain temporary
-     * security credentials. The process involves:
-     * 1. Creating a DefaultProfile with configured credentials
-     * 2. Building an AssumeRoleRequest with role ARN and session parameters
-     * 3. Calling STS service to get temporary credentials
-     * 4. Extracting credentials and returning as StsTokenDTO
-     *
-     * @return StsTokenDTO containing the temporary credentials (AccessKeyId, AccessKeySecret, SecurityToken)
-     * @throws ClientException if there's an error communicating with the STS service or invalid configuration
-     */
     @Override
     public StsTokenDTO fetchStsToken() throws ClientException {
         String roleArn = ossConfig.getRoleArn();

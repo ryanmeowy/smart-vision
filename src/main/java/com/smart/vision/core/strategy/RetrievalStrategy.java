@@ -1,6 +1,6 @@
 package com.smart.vision.core.strategy;
 
-import com.smart.vision.core.model.dto.ImageSearchResult;
+import com.smart.vision.core.model.dto.ImageSearchResultDTO;
 import com.smart.vision.core.model.dto.SearchQueryDTO;
 import com.smart.vision.core.model.enums.StrategyTypeEnum;
 
@@ -24,7 +24,7 @@ public interface RetrievalStrategy {
      * @param queryVector vector representation of user query (maybe null)
      * @return list of matched documents
      */
-    List<ImageSearchResult> search(SearchQueryDTO query, List<Float> queryVector);
+    List<ImageSearchResultDTO> search(SearchQueryDTO query, List<Float> queryVector);
 
 
     /**

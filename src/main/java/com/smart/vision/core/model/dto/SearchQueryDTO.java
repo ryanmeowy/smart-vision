@@ -1,6 +1,9 @@
 package com.smart.vision.core.model.dto;
 
+import co.elastic.clients.elasticsearch._types.FieldValue;
 import lombok.Data;
+
+import java.util.List;
 
 /**
  * image search request model
@@ -15,13 +18,17 @@ public class SearchQueryDTO {
      */
     private String keyword;
     /**
-     * page size
+     * topK
      */
-    private Integer limit;
+    private Integer topK;
+    /**
+     * page number
+     */
+    private Integer pageNo;
     /**
      * minimum similarity threshold
      */
-    private Float minScore;
+    private Float similarity;
     /**
      * whether to enable OCR hybrid search
      */
@@ -31,4 +38,15 @@ public class SearchQueryDTO {
      * @see com.smart.vision.core.model.enums.StrategyTypeEnum
      */
     private String searchType;
+
+    /**
+     * Maximum number of results to return
+     */
+    private Integer limit;
+
+    /**
+     * Search cursor for pagination
+     */
+    private List<FieldValue> searchAfter;
+
 }

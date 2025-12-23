@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -28,6 +29,9 @@ public class SearchApiController {
 
     @PostMapping("/search")
     public Result<List<SearchResultDTO>> search(@RequestBody SearchQueryDTO query) {
+        if (null == query || null == query.getKeyword()) {
+            return Result.success(Collections.emptyList());
+        }
         return Result.success(searchService.search(query));
     }
 
