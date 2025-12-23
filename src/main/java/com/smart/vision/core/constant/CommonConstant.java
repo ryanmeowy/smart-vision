@@ -34,6 +34,8 @@ public class CommonConstant {
 
     public static final String TAG_MODEL_NAME = "qwen-vl-plus";
 
+    public static final String IMAGE_GEN_MODEL_NAME = "qwen-vl-max";
+
     public static final String HOT_SEARCH_KEY = "search:hot:ranking";
 
     public static final int MAX_HOT_WORDS = 10; // 返回前10个
@@ -66,5 +68,6 @@ public class CommonConstant {
 
     public static final String VECTOR_CACHE_PREFIX = "search:vector:";
 
+    public static final Long SSE_TIMEOUT = 60_000L;
 }
 
