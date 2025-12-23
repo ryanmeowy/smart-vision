@@ -21,7 +21,9 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
-import static com.smart.vision.core.constant.CommonConstant.*;
+import static com.smart.vision.core.constant.CommonConstant.DUPLICATE_THRESHOLD;
+import static com.smart.vision.core.constant.CommonConstant.X_OSS_PROCESS_EMBEDDING;
+import static com.smart.vision.core.constant.CommonConstant.X_OSS_PROCESS_OCR;
 import static com.smart.vision.core.model.enums.PresignedValidityEnum.SHORT_TERM_VALIDITY;
 
 /**
@@ -43,13 +45,6 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
     private final ImageRepository imageRepository;
     private final AliyunTaggingManager aliyunTaggingManager;
 
-    /**
-     * Processes a batch of image items concurrently for vector indexing and storage
-     * and provides detailed error reporting for failed items
-     *
-     * @param items list of batch process requests containing OSS keys and metadata
-     * @return BatchUploadResultDTO containing processing statistics and detailed failure information
-     */
     public BatchUploadResultDTO processBatchItems(List<BatchProcessDTO> items) {
         List<ImageDocument> successDocs = Collections.synchronizedList(new ArrayList<>());
         List<BatchUploadResultDTO.BatchFailureItem> failures = Collections.synchronizedList(new ArrayList<>());

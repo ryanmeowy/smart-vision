@@ -2,7 +2,7 @@ package com.smart.vision.core.service.convert;
 
 import com.google.common.collect.Lists;
 import com.smart.vision.core.manager.OssManager;
-import com.smart.vision.core.model.dto.ImageSearchResult;
+import com.smart.vision.core.model.dto.ImageSearchResultDTO;
 import com.smart.vision.core.model.dto.SearchResultDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
 import com.smart.vision.core.model.enums.PresignedValidityEnum;
@@ -23,8 +23,8 @@ public class ImageDocConvertor {
 
     private final OssManager ossManager;
 
-    public List<SearchResultDTO> convert2SearchResultDTO(List<ImageSearchResult> resultList) {
-        for (ImageSearchResult result : resultList) {
+    public List<SearchResultDTO> convert2SearchResultDTO(List<ImageSearchResultDTO> resultList) {
+        for (ImageSearchResultDTO result : resultList) {
             ImageDocument doc = result.getDocument();
             String presignedUrl = ossManager.getPresignedUrl(doc.getImagePath(), PresignedValidityEnum.LONG_TERM_VALIDITY.getValidity());
             SearchResultDTO.builder()
@@ -33,6 +33,7 @@ public class ImageDocConvertor {
                     .ocrText(doc.getOcrContent())
                     .id(doc.getId())
                     .filename(doc.getFilename())
+                    .sortValues(result.getSortValues())
                     .build();
         }
         return Lists.newArrayList();

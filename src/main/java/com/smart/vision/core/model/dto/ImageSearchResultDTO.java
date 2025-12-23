@@ -1,18 +1,21 @@
 package com.smart.vision.core.model.dto;
 
+import co.elastic.clients.elasticsearch._types.FieldValue;
 import com.smart.vision.core.model.entity.ImageDocument;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.List;
+
 /**
  * Image search result model
  *
- * @author ryan
+ * @author Ryan
  * @since 2025/12/23
  */
 @Data
 @Builder
-public class ImageSearchResult {
+public class ImageSearchResultDTO {
     /**
      * The image document containing metadata and content information
      */
@@ -22,5 +25,9 @@ public class ImageSearchResult {
      * The similarity score between the search query and this image result
      */
     private Double score;
+    /**
+     * Search cursor for pagination
+     */
+    private List<FieldValue> sortValues;
 }
   

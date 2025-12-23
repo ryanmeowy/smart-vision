@@ -1,7 +1,7 @@
 
 package com.smart.vision.core.repository;
 
-import com.smart.vision.core.model.dto.ImageSearchResult;
+import com.smart.vision.core.model.dto.ImageSearchResultDTO;
 import com.smart.vision.core.model.dto.SearchQueryDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
 
@@ -21,16 +21,16 @@ public interface ImageRepositoryCustom {
      * @param queryVector text converted to vector
      * @return list of matching documents
      */
-    List<ImageSearchResult> hybridSearch(SearchQueryDTO query, List<Float> queryVector);
+    List<ImageSearchResultDTO> hybridSearch(SearchQueryDTO query, List<Float> queryVector);
 
     /**
      * Search for similar documents based on vector (supports excluding specific ID)
      * @param vector Array of vectors
-     * @param limit Number of results
+     * @param topK Number of results
      * @param excludeDocId Document ID to exclude (usually exclude itself when searching for similar)
      * @return List of documents
      */
-    List<ImageSearchResult> searchSimilar(List<Float> vector, int limit, String excludeDocId);
+    List<ImageSearchResultDTO> searchSimilar(List<Float> vector, Integer topK, String excludeDocId);
 
     /**
      * Check if there is an extremely similar image (used for deduplication)

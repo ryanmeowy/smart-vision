@@ -17,9 +17,6 @@ public interface ImageIngestionService {
 
     /**
      * Processes a batch of image items for vector indexing and storage
-     * This method takes a list of batch process requests containing OSS keys and file names,
-     * downloads the images from OSS, generates vector embeddings using AI models,
-     * and indexes the data in Elasticsearch for search functionality
      *
      * @param items list of batch process requests containing OSS keys and metadata
      * @return BatchUploadResultDTO containing processing statistics and results

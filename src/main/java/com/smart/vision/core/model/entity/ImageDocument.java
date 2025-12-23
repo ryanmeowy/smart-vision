@@ -50,7 +50,9 @@ public class ImageDocument {
      */
     private String filename;
 
+    /**
+     * AI tags
+     */
     @Field(type = FieldType.Keyword)
     private List<String> tags;
-
 }
