@@ -91,17 +91,22 @@ AI 服务（Embedding）通常是系统中最大的**耗时瓶颈**和**成本�
 *   **OSS-IP 前置处理**：在图片送入 AI 模型前，利用 OSS 自身的图像处理能力进行**在线压缩（Resize/Format/Quality）**。实测将 10MB 的原图压缩至 500KB 喂给 AI，在不损失向量精度的前提下，将 AI 服务的 I/O 耗时降低了 **80%**。
 *   **语义缓存 (Semantic Cache)**：在 Service 层引入 Redis，对高频搜索词的向量结果进行缓存（TTL 24h）。对于热点词汇（如“红色跑车”），系统响应时间从 500ms 骤降至 **20ms**，大幅减少了 Token 开销。
 
+#### 4. 数据丰满化与分面筛选 (Data Enrichment & Faceting)
+单纯的向量检索难以满足“只看卡通风格”或“只找户外场景”这类结构化筛选需求。
+*   **多模态理解**：在入库流水线中引入 **Qwen-VL** 视觉大模型，对图片进行深度语义理解，自动生成“风格”、“场景”、“主体”等结构化标签。
+*   **结构化落地**：将 LLM 生成的非结构化描述清洗为 JSON 数组，存入 Elasticsearch 的 `tags` 字段。这使得系统不仅支持模糊的语义搜图，还能支持精确的 **分面搜索 (Faceted Search)** 和统计分析，填补了向量检索在精确过滤上的短板。
+
 ---
 
 ## 🛠 技术栈清单
 
-*   **Language**: Java 21 (LTS)
+*   **Language**: Java 21 
 *   **Framework**: Spring Boot 3.3.x
 *   **Search Engine**: Elasticsearch 8.13 (HNSW + BM25)
 *   **AI Model**: Aliyun DashScope (通义万相 Embedding / 通义千问 OCR)
 *   **Storage**: Aliyun OSS (Object Storage Service)
 *   **Cache**: Redis 7.x
-*   **Frontend**: Vue 3 + Vite + Element Plus (Google Material Design Style)
+*   **Frontend**: Vue 3 + Vite + Element Plus 
 
 ---
 
