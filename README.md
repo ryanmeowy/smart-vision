@@ -1,8 +1,8 @@
 # 🌌 SmartVision - 企业级多模态 RAG 检索引擎
 
 [![Java 21](https://img.shields.io/badge/JDK-21-orange.svg)](https://openjdk.org/)
-[![Spring Boot 3.2](https://img.shields.io/badge/Spring%20Boot-3.2-green.svg)](https://spring.io/projects/spring-boot)
-[![Elasticsearch 8](https://img.shields.io/badge/Elasticsearch-8.11+-blue.svg)](https://www.elastic.co/)
+[![Spring Boot 3.5.8](https://img.shields.io/badge/Spring%20Boot-3.5.8-green.svg)](https://spring.io/projects/spring-boot)
+[![Elasticsearch 8.18.8](https://img.shields.io/badge/Elasticsearch-8.18.8-blue.svg)](https://www.elastic.co/)
 [![Architecture](https://img.shields.io/badge/Architecture-Cloud%20Native-purple.svg)](#)
 
 > **SmartVision** 是一个验证 **"Java + AI"** 在企业级搜索场景落地可能性的工程实践项目。
@@ -87,7 +87,7 @@ graph TD
 *   **状态机管理**：前端配合实现了由 `Ready` -> `Uploading` -> `Processing` -> `Finish` 组成的完整状态机，即使网络波动导致 OSS 上传部分失败，也能针对单个文件进行断点重试，保证数据最终一致性。
 
 #### 3. AI 成本与延迟的极致优化
-AI 服务（Embedding）通常是系统中最大的**耗时瓶颈**和**成本中心**。我引入了多级优化手段：
+AI 服务（Embedding）通常是系统中最大的**耗时瓶颈**和**成本中心**。本项目引入了多级优化手段：
 *   **OSS-IP 前置处理**：在图片送入 AI 模型前，利用 OSS 自身的图像处理能力进行**在线压缩（Resize/Format/Quality）**。实测将 10MB 的原图压缩至 500KB 喂给 AI，在不损失向量精度的前提下，将 AI 服务的 I/O 耗时降低了 **80%**。
 *   **语义缓存 (Semantic Cache)**：在 Service 层引入 Redis，对高频搜索词的向量结果进行缓存（TTL 24h）。对于热点词汇（如“红色跑车”），系统响应时间从 500ms 骤降至 **20ms**，大幅减少了 Token 开销。
 
@@ -101,8 +101,8 @@ AI 服务（Embedding）通常是系统中最大的**耗时瓶颈**和**成本�
 ## 🛠 技术栈清单
 
 *   **Language**: Java 21 
-*   **Framework**: Spring Boot 3.3.x
-*   **Search Engine**: Elasticsearch 8.13 (HNSW + BM25)
+*   **Framework**: Spring Boot 3.5.8
+*   **Search Engine**: Elasticsearch 8.18.8 (HNSW + BM25)
 *   **AI Model**: Aliyun DashScope (通义万相 Embedding / 通义千问 OCR)
 *   **Storage**: Aliyun OSS (Object Storage Service)
 *   **Cache**: Redis 7.x

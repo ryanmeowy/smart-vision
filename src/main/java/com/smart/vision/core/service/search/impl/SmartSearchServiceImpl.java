@@ -12,11 +12,17 @@ import com.smart.vision.core.service.search.SmartSearchService;
 import com.smart.vision.core.strategy.RetrievalStrategy;
 import com.smart.vision.core.strategy.StrategyFactory;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.DigestUtils;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+import static com.smart.vision.core.constant.CommonConstant.VECTOR_CACHE_PREFIX;
 
 /**
  * Smart search service implementation
@@ -24,6 +30,7 @@ import java.util.List;
  * @author Ryan
  * @since 2025/12/15
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SmartSearchServiceImpl implements SmartSearchService {
@@ -32,12 +39,17 @@ public class SmartSearchServiceImpl implements SmartSearchService {
     private final ImageDocConvertor imageDocConvertor;
     private final HotSearchManager hotSearchManager;
     private final StrategyFactory strategyFactory;
+    private final RedisTemplate<String, List<Float>> redisTemplate;
 
     public List<SearchResultDTO> search(SearchQueryDTO query) {
         if (StringUtils.hasText(query.getKeyword())) {
             hotSearchManager.incrementScore(query.getKeyword());
         }
-        List<Float> queryVector = embeddingManager.embedText(query.getKeyword());
+        List<Float> queryVector = getVectorFromCache(query.getKeyword());
+        if (CollectionUtils.isEmpty(queryVector)) {
+            queryVector = embeddingManager.embedText(query.getKeyword());
+            cacheVector(query.getKeyword(), queryVector);
+        }
         RetrievalStrategy strategy = strategyFactory.getStrategy(query.getSearchType());
         List<ImageSearchResultDTO> docs = strategy.search(query, queryVector);
         return imageDocConvertor.convert2SearchResultDTO(docs);
@@ -56,4 +68,26 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         List<ImageSearchResultDTO> similarDocs = imageRepository.searchSimilar(embedding, 10, docId);
         return imageDocConvertor.convert2SearchResultDTO(similarDocs);
     }
+
+    private List<Float> getVectorFromCache(String text) {
+        if (!StringUtils.hasText(text)) return null;
+        String key = buildVectorCacheKey(text);
+        List<Float> cachedValue = redisTemplate.opsForValue().get(key);
+        if (cachedValue != null) {
+            log.info("hit vector cache: {}", text);
+            return cachedValue;
+        }
+        return null;
+    }
+
+    private void cacheVector(String text, List<Float> vector) {
+        if (!StringUtils.hasText(text) || vector == null || vector.isEmpty()) return;
+        String key = buildVectorCacheKey(text);
+        redisTemplate.opsForValue().set(key, vector, 24, TimeUnit.HOURS);
+    }
+
+    private String buildVectorCacheKey(String text) {
+        return VECTOR_CACHE_PREFIX + DigestUtils.md5DigestAsHex(text.trim().toLowerCase().getBytes());
+    }
+
 }
