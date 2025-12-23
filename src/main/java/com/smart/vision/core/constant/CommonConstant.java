@@ -63,5 +63,8 @@ public class CommonConstant {
     public static final String FILE_NAME_FIELD = "filename";
 
     public static final Integer DEFAULT_RESULT_LIMIT = 20;
+
+    public static final String VECTOR_CACHE_PREFIX = "search:vector:";
+
 }
 
