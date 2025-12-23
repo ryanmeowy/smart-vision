@@ -44,7 +44,7 @@ graph TD
         Controller[API Layer]
         AsyncService[异步编排层]
         Strategy[检索策略层]
-        ACL[防腐层 (ACL)]
+        ACL["防腐层 (ACL)"]
     end
 
     subgraph "基础设施 (Infrastructure)"
