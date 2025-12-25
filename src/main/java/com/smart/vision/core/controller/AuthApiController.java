@@ -72,7 +72,7 @@ public class AuthApiController {
 
     @RequireAuth
     @GetMapping("/sts")
-    public Result<StsTokenDTO> getStsToken() {
+    public Result<String> getStsToken() {
         try {
             return Result.success(ossService.fetchStsToken());
         } catch (ClientException e) {

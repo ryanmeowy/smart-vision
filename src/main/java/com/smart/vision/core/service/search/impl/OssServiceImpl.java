@@ -6,9 +6,11 @@ import com.aliyuncs.auth.sts.AssumeRoleRequest;
 import com.aliyuncs.auth.sts.AssumeRoleResponse;
 import com.aliyuncs.exceptions.ClientException;
 import com.aliyuncs.profile.DefaultProfile;
+import com.google.gson.Gson;
 import com.smart.vision.core.config.OSSConfig;
 import com.smart.vision.core.model.dto.StsTokenDTO;
 import com.smart.vision.core.service.search.OssService;
+import com.smart.vision.core.util.AesUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -33,9 +35,10 @@ public class OssServiceImpl implements OssService {
 
     @Qualifier("OSSConfig")
     private final OSSConfig ossConfig;
+    private final Gson gson;
 
     @Override
-    public StsTokenDTO fetchStsToken() throws ClientException {
+    public String fetchStsToken() throws ClientException {
         String roleArn = ossConfig.getRoleArn();
         DefaultProfile profile = DefaultProfile.getProfile(DEFAULT_REGION, ossConfig.getAccessKeyId(), ossConfig.getAccessKeySecret());
         IAcsClient client = new DefaultAcsClient(profile);
@@ -48,9 +51,11 @@ public class OssServiceImpl implements OssService {
         AssumeRoleResponse.Credentials credentials = Optional.ofNullable(response)
                 .map(AssumeRoleResponse::getCredentials)
                 .orElse(new AssumeRoleResponse.Credentials());
-        return new StsTokenDTO(
+        StsTokenDTO stsTokenDTO = new StsTokenDTO(
                 credentials.getAccessKeyId(),
                 credentials.getAccessKeySecret(),
                 credentials.getSecurityToken());
+        String json = gson.toJson(stsTokenDTO);
+        return AesUtil.encrypt(json);
     }
 }

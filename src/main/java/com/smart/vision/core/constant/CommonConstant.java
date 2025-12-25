@@ -18,7 +18,7 @@ public class CommonConstant {
     // 候选集大小, 必须大于topK, 候选集越大,召回准确率越高,召回速度越慢
     public static final Integer DEFAULT_NUM_CANDIDATES = 10_000;
 
-    public static final Long DEFAULT_STS_DURATION_SECONDS = 15 * 60L;
+    public static final Long DEFAULT_STS_DURATION_SECONDS = 5 * 60L;
 
     public static final String DEFAULT_REGION = "cn-shanghai";
     //The default maximum batch size.
@@ -69,5 +69,8 @@ public class CommonConstant {
     public static final String VECTOR_CACHE_PREFIX = "search:vector:";
 
     public static final Long SSE_TIMEOUT = 60_000L;
+
+    public static final String ALGORITHM = "AES/CBC/PKCS5Padding";
+
 }
 
