@@ -108,7 +108,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         ImageDocument duplicate = imageRepository.findDuplicate(vector, DUPLICATE_THRESHOLD);
         if (duplicate != null) {
             log.info("Duplicate image detected: {} is highly similar to {} in the database, skipping storage", item.getFileName(), duplicate.getId());
-            throw new RuntimeException("Duplicate image (Skipped)");
+            throw new RuntimeException("重复图片, 已跳过");
         }
 
         ImageDocument doc = new ImageDocument();

@@ -1,6 +1,7 @@
 package com.smart.vision.core.service.search;
 
 import com.aliyuncs.exceptions.ClientException;
+import com.smart.vision.core.model.dto.StsTokenDTO;
 
 /**
  * OSS Service Interface
@@ -20,6 +21,6 @@ public interface OssService {
      * @return StsTokenDTO containing the temporary credentials (AccessKeyId, AccessKeySecret, SecurityToken)
      * @throws ClientException if there's an error communicating with the STS service
      */
-    String fetchStsToken() throws ClientException;
+    StsTokenDTO fetchStsToken() throws ClientException;
 
 }

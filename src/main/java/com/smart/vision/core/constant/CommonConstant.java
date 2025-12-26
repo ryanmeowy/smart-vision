@@ -14,11 +14,11 @@ public class CommonConstant {
 
     public static final String IMAGE_INDEX = "smart_gallery_v1";
 
-    public static final Float MINIMUM_SIMILARITY = 0.6f;
+    public static final Float MINIMUM_SIMILARITY = 0.2f;
     // 候选集大小, 必须大于topK, 候选集越大,召回准确率越高,召回速度越慢
     public static final Integer DEFAULT_NUM_CANDIDATES = 10_000;
 
-    public static final Long DEFAULT_STS_DURATION_SECONDS = 5 * 60L;
+    public static final Long DEFAULT_STS_DURATION_SECONDS = 15 * 60L;
 
     public static final String DEFAULT_REGION = "cn-shanghai";
     //The default maximum batch size.
@@ -50,7 +50,7 @@ public class CommonConstant {
 
     public static final float DEFAULT_EMBEDDING_BOOST = 0.9f;
 
-    public static final float DEFAULT_OCR_BOOST = 0.5f;
+    public static final float DEFAULT_OCR_BOOST = 0.7f;
 
     public static final float DEFAULT_FIELD_NAME_BOOST = 0.2f;
 

@@ -38,7 +38,7 @@ public class OssServiceImpl implements OssService {
     private final Gson gson;
 
     @Override
-    public String fetchStsToken() throws ClientException {
+    public StsTokenDTO fetchStsToken() throws ClientException {
         String roleArn = ossConfig.getRoleArn();
         DefaultProfile profile = DefaultProfile.getProfile(DEFAULT_REGION, ossConfig.getAccessKeyId(), ossConfig.getAccessKeySecret());
         IAcsClient client = new DefaultAcsClient(profile);
@@ -55,7 +55,8 @@ public class OssServiceImpl implements OssService {
                 credentials.getAccessKeyId(),
                 credentials.getAccessKeySecret(),
                 credentials.getSecurityToken());
-        String json = gson.toJson(stsTokenDTO);
-        return AesUtil.encrypt(json);
+//        String json = gson.toJson(stsTokenDTO);
+        return stsTokenDTO;
+//        return AesUtil.encrypt(json);
     }
 }

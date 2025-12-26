@@ -2,6 +2,7 @@ package com.smart.vision.core.repository.impl;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.SortOrder;
+import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.elasticsearch.core.search.HitsMetadata;
@@ -46,42 +47,46 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
 
     @Override
     public List<ImageSearchResultDTO> hybridSearch(SearchQueryDTO query, List<Float> queryVector) {
+        SearchRequest.Builder requestBuilder = new SearchRequest.Builder()
+                .index(IMAGE_INDEX)
+                .size(query.getLimit());
+
+//        if (query.getKeyword() != null && !query.getKeyword().isEmpty()) {
+//            requestBuilder.query(q -> q
+//                    .bool(b -> b
+//                            .should(s -> s.match(m -> m.field(OCR_FIELD).query(query.getKeyword()).boost(DEFAULT_OCR_BOOST)))
+////                            .should(s -> s.match(m -> m.field(FILE_NAME_FIELD).query(query.getKeyword()).boost(DEFAULT_FIELD_NAME_BOOST)))
+//                    )
+//            );
+//        }
+
+        // 3. 构建 KNN (处理 vector 可能为空的情况)
+        if (queryVector != null && !queryVector.isEmpty()) {
+            requestBuilder.knn(k -> k
+                            .field(EMBEDDING_FIELD)
+                            .queryVector(queryVector)
+                            .k(query.getTopK())
+//                            .numCandidates(Math.max(100, query.getTopK() * 2))
+                            .boost(DEFAULT_EMBEDDING_BOOST)
+                            .similarity(null == query.getSimilarity() ? MINIMUM_SIMILARITY : query.getSimilarity())
+
+            );
+        }
+
+        // 4. 处理排序
+        requestBuilder.sort(so -> so.score(sc -> sc.order(SortOrder.Desc)));
+        requestBuilder.sort(so -> so.field(f -> f.field("id.keyword").order(SortOrder.Asc)));
+
+        // 5. 关键：只有当 searchAfter 不为空时才设置
+        if (query.getSearchAfter() != null && !query.getSearchAfter().isEmpty()) {
+             requestBuilder.searchAfter(query.getSearchAfter());
+        }
+        SearchRequest request = requestBuilder.build();
         try {
-            SearchResponse<ImageDocument> response = esClient.search(s -> s
-                            .index(IMAGE_INDEX)
-                            .query(q -> q
-                                    .bool(b -> b
-                                            // 1. OCR text matching (BM25)
-                                            .should(builder -> builder
-                                                    .match(m -> m
-                                                            .field(OCR_FIELD)
-                                                            .query(query.getKeyword())
-                                                            .boost(DEFAULT_OCR_BOOST)
-                                                    ))
-                                            // 2. Filename/URL exact/tokenized matching
-                                            .should(builder -> builder
-                                                    .match(m -> m
-                                                            .field(FILE_NAME_FIELD)
-                                                            .query(query.getKeyword())
-                                                            .boost(DEFAULT_FIELD_NAME_BOOST)
-                                                    ))
-                                    )
-                            )
-                            // 3. Vector KNN search (HNSW index)
-                            .knn(builder -> builder
-                                    .field(EMBEDDING_FIELD)
-                                    .queryVector(queryVector)
-                                    .k(query.getTopK())
-                                    .numCandidates(Math.min(NUM_CANDIDATES_FACTOR * query.getTopK(), DEFAULT_NUM_CANDIDATES))
-                                    .boost(DEFAULT_EMBEDDING_BOOST)
-                                    .similarity(null == query.getSimilarity() ? MINIMUM_SIMILARITY : query.getSimilarity()))
-                            .sort(so -> so.score(sc -> sc.order(SortOrder.Desc)))
-                            .sort(so -> so.field(f -> f.field("id").order(SortOrder.Asc)))
-                            .searchAfter(query.getSearchAfter())
-                            .size(query.getLimit()),
-                    ImageDocument.class);
+//            log.info("Hybrid search request: {}", request);
+            SearchResponse<ImageDocument> response = esClient.search(request, ImageDocument.class);
             return convert2Doc(response);
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.error("Hybrid search execution failed", e);
             return Collections.emptyList();
         }

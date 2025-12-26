@@ -34,7 +34,7 @@ public class AliyunOcrManager {
     @Retryable(retryFor = Exception.class, backoff = @Backoff(delay = 1000, multiplier = 2))
     public String extractText(String imageUrl) throws Exception {
         if (imageUrl == null || imageUrl.isEmpty()) {
-            return "";
+            return null;
         }
         RecognizeGeneralRequest request = new RecognizeGeneralRequest();
         request.setUrl(imageUrl);
@@ -44,10 +44,14 @@ public class AliyunOcrManager {
 
     private String parseOcrResult(RecognizeGeneralResponse response) {
         if (response == null || response.getBody() == null || response.getBody().getData() == null) {
-            return "";
+            return null;
         }
         JsonObject jsonObject = JsonParser.parseString(response.getBody().getData()).getAsJsonObject();
-        return jsonObject.get("content").toString();
+        String content = jsonObject.get("content").toString();
+        if (content == null || content.isEmpty() || content.equals("\"\"")) {
+            return null;
+        }
+        return content;
     }
 
     @Recover

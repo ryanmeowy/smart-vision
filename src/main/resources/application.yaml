@@ -25,7 +25,10 @@ aliyun:
 app:
   security:
     admin-secret: ${APP_ADMIN_SECRET}
-    # AES key
     encrypt-key: ${APP_ENCRYPT_KEY}
-    # Offset
     encrypt-iv: ${APP_ENCRYPT_IV}
+
+logging:
+  level:
+    co.elastic.clients: TRACE
+    org.springframework.boot.autoconfigure.elasticsearch: DEBUG

@@ -34,7 +34,7 @@ public class AuthApiController {
     /**
      * Remote refresh upload token interface
      */
-    @PostMapping("/refresh-token")
+    @GetMapping("/refresh-token")
     public Result<String> refreshToken(@RequestHeader("X-Admin-Secret") String secret,
                                        @RequestParam(required = false) String code) {
         if (!adminSecret.equals(secret)) {
@@ -56,7 +56,7 @@ public class AuthApiController {
         return Result.success(newToken);
     }
 
-    @PostMapping("/clean-token")
+    @GetMapping("/clean-token")
     public Result<Void> cleanToken(@RequestHeader("X-Admin-Secret") String secret) {
         if (!adminSecret.equals(secret)) {
             // prevent timing attack
@@ -72,7 +72,7 @@ public class AuthApiController {
 
     @RequireAuth
     @GetMapping("/sts")
-    public Result<String> getStsToken() {
+    public Result<StsTokenDTO> getStsToken() {
         try {
             return Result.success(ossService.fetchStsToken());
         } catch (ClientException e) {

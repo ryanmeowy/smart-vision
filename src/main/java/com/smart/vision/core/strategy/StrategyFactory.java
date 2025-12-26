@@ -38,17 +38,6 @@ public class StrategyFactory {
     public RetrievalStrategy getStrategy(String searchType) {
         StrategyTypeEnum strategyType = StrategyTypeEnum.getByCode(searchType);
         return Optional.ofNullable(strategies.get(strategyType))
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "No retrieval strategy found for type: " + strategyType));
-    }
-
-    /**
-     * Get strategy by type with fallback to HYBRID strategy
-     *
-     * @param strategyType the type of strategy to retrieve
-     * @return the retrieval strategy or HYBRID strategy as fallback
-     */
-    public RetrievalStrategy getStrategyWithFallback(StrategyTypeEnum strategyType) {
-        return strategies.getOrDefault(strategyType, strategies.get(StrategyTypeEnum.HYBRID));
+                .orElseGet(() -> strategies.get(StrategyTypeEnum.HYBRID));
     }
 }

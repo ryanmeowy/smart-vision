@@ -23,11 +23,19 @@ import static com.smart.vision.core.constant.CommonConstant.ALGORITHM;
 @Component
 public class AesUtil {
 
-    @Value("${app.security.encrypt-key}")
     private static String key;
 
-    @Value("${app.security.encrypt-iv}")
     private static String iv;
+
+    @Value("${app.security.encrypt-key}")
+    public void setKey(String key) {
+        AesUtil.key = key;
+    }
+
+    @Value("${app.security.encrypt-iv}")
+    public void setIv(String iv) {
+        AesUtil.iv = iv;
+    }
 
     /**
      * Encrypt string
