@@ -1,5 +1,6 @@
 package com.smart.vision.core.service.ingestion.impl;
 
+import cn.hutool.core.util.IdUtil;
 import com.smart.vision.core.component.EsBatchTemplate;
 import com.smart.vision.core.manager.AliyunOcrManager;
 import com.smart.vision.core.manager.AliyunTaggingManager;
@@ -75,7 +76,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
                 for (ImageDocument doc : successDocs) {
                     failures.add(BatchUploadResultDTO.BatchFailureItem.builder()
                             .objectKey(doc.getImagePath())
-                            .filename(doc.getFilename())
+                            .filename(doc.getRawFilename())
                             .errorMessage("Database writes failed")
                             .build());
                 }
@@ -112,9 +113,9 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         }
 
         ImageDocument doc = new ImageDocument();
-        doc.setId(UUID.randomUUID().toString().replace("-", ""));
+        doc.setId(IdUtil.getSnowflakeNextId());
         doc.setImagePath(item.getKey());
-        doc.setFilename(item.getFileName());
+        doc.setRawFilename(item.getFileName());
         doc.setImageEmbedding(vector);
         doc.setOcrContent(ocrText);
         doc.setCreateTime(System.currentTimeMillis());

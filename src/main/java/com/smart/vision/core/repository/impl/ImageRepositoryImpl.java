@@ -22,15 +22,11 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.smart.vision.core.constant.CommonConstant.DEFAULT_EMBEDDING_BOOST;
-import static com.smart.vision.core.constant.CommonConstant.DEFAULT_FIELD_NAME_BOOST;
 import static com.smart.vision.core.constant.CommonConstant.DEFAULT_NUM_CANDIDATES;
-import static com.smart.vision.core.constant.CommonConstant.DEFAULT_OCR_BOOST;
 import static com.smart.vision.core.constant.CommonConstant.EMBEDDING_FIELD;
-import static com.smart.vision.core.constant.CommonConstant.FILE_NAME_FIELD;
 import static com.smart.vision.core.constant.CommonConstant.IMAGE_INDEX;
 import static com.smart.vision.core.constant.CommonConstant.MINIMUM_SIMILARITY;
 import static com.smart.vision.core.constant.CommonConstant.NUM_CANDIDATES_FACTOR;
-import static com.smart.vision.core.constant.CommonConstant.OCR_FIELD;
 
 /**
  * Hybrid search implementation
@@ -75,11 +71,11 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
 
         // 4. 处理排序
         requestBuilder.sort(so -> so.score(sc -> sc.order(SortOrder.Desc)));
-        requestBuilder.sort(so -> so.field(f -> f.field("id.keyword").order(SortOrder.Asc)));
+        requestBuilder.sort(so -> so.field(f -> f.field("id").order(SortOrder.Asc)));
 
         // 5. 关键：只有当 searchAfter 不为空时才设置
         if (query.getSearchAfter() != null && !query.getSearchAfter().isEmpty()) {
-             requestBuilder.searchAfter(query.getSearchAfter());
+            requestBuilder.searchAfter(query.getSearchAfter());
         }
         SearchRequest request = requestBuilder.build();
         try {
@@ -102,7 +98,7 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
                 .filter(hit -> hit.source() != null)
                 .map(hit -> {
                     ImageDocument doc = hit.source();
-                    doc.setId(hit.id());
+                    doc.setId(Long.parseLong(Optional.ofNullable(hit.id()).orElse("0")));
                     return ImageSearchResultDTO.builder()
                             .document(doc)
                             .score(hit.score())
