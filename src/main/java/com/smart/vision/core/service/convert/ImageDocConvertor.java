@@ -32,8 +32,8 @@ public class ImageDocConvertor {
                     .score(result.getScore())
                     .url(presignedUrl)
                     .ocrText(doc.getOcrContent())
-                    .id(doc.getId())
-                    .filename(doc.getFilename())
+                    .id(String.valueOf(doc.getId()))
+                    .filename(doc.getFileName())
                     .sortValues(result.getSortValues())
                     .build();
             resultDTOList.add(resultDTO);

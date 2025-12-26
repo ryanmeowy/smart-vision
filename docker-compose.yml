@@ -9,7 +9,7 @@ services:
       - discovery.type=single-node # 单节点模式
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m" # 分配内存，根据机器资源调整
       - xpack.security.enabled=false # 测试环境禁用安全验证, 生产环境建议开启并配置。
-      - ELASTIC_PASSWORD=${ES_PASSWORD}    # 使用 .evn 文件中的密码
+      - ELASTIC_PASSWORD=${ES_PASSWORD}    # 使用 .env 文件中的密码
 #      - xpack.security.http.ssl.enabled=true # 启用 HTTP SSL (可选，但推荐)
 #      - xpack.security.http.ssl.keystore.path=cert/http_ca.p12
 #      - xpack.security.http.ssl.truststore.path=cert/http_ca.p12
@@ -41,7 +41,7 @@ services:
     ports:
       - "6379:6379" # 默认端口
     environment:
-      - REDIS_PASSWORD=${REDIS_PASSWORD} # 使用 .evn 文件中的密码
+      - REDIS_PASSWORD=${REDIS_PASSWORD} # 使用 .env 文件中的密码
     volumes:
       - redis_data:/data # 持久化
     networks:
