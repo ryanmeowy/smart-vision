@@ -18,13 +18,10 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
-import static com.smart.vision.core.constant.CommonConstant.DUPLICATE_THRESHOLD;
-import static com.smart.vision.core.constant.CommonConstant.X_OSS_PROCESS_EMBEDDING;
-import static com.smart.vision.core.constant.CommonConstant.X_OSS_PROCESS_OCR;
+import static com.smart.vision.core.constant.CommonConstant.*;
 import static com.smart.vision.core.model.enums.PresignedValidityEnum.SHORT_TERM_VALIDITY;
 
 /**
@@ -121,6 +118,14 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         doc.setCreateTime(System.currentTimeMillis());
         doc.setTags(tags);
         successDocs.add(doc);
+    }
+
+    private double dotProduct(List<Float> vector1, List<Float> vector2) {
+        double dotProduct = 0.0;
+        for (int i = 0; i < vector1.size(); i++) {
+            dotProduct += vector1.get(i) * vector2.get(i);
+        }
+        return dotProduct;
     }
 
 
