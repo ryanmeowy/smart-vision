@@ -36,7 +36,7 @@ public class AuthInterceptor implements HandlerInterceptor {
             if (serverToken == null || !serverToken.equals(clientToken)) {
                 response.setStatus(401);
                 response.setContentType("application/json;charset=UTF-8");
-                response.getWriter().write("{\"code\": 401, \"message\": \"口令无效或已过期，请联系管理员刷新\"}");
+                response.getWriter().write("{\"code\": 401, \"message\": \"The token is invalid or expired, please contact the administrator to refresh it\"}");
                 return false;
             }
         }

@@ -1,6 +1,9 @@
 package com.smart.vision.core.service.ingestion.impl;
 
+import cn.hutool.core.util.IdUtil;
+import com.aliyun.core.utils.StringUtils;
 import com.smart.vision.core.component.EsBatchTemplate;
+import com.smart.vision.core.manager.AliyunGenManager;
 import com.smart.vision.core.manager.AliyunOcrManager;
 import com.smart.vision.core.manager.AliyunTaggingManager;
 import com.smart.vision.core.manager.BailianEmbeddingManager;
@@ -17,7 +20,6 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -44,6 +46,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
     private final Executor embedTaskExecutor;
     private final ImageRepository imageRepository;
     private final AliyunTaggingManager aliyunTaggingManager;
+    private final AliyunGenManager genManager;
 
     public BatchUploadResultDTO processBatchItems(List<BatchProcessDTO> items) {
         List<ImageDocument> successDocs = Collections.synchronizedList(new ArrayList<>());
@@ -75,7 +78,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
                 for (ImageDocument doc : successDocs) {
                     failures.add(BatchUploadResultDTO.BatchFailureItem.builder()
                             .objectKey(doc.getImagePath())
-                            .filename(doc.getFilename())
+                            .filename(doc.getRawFilename())
                             .errorMessage("Database writes failed")
                             .build());
                 }
@@ -101,20 +104,20 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         List<Float> vector = embeddingManager.embedImage(tempUrl2Embed);
         String tempUrl2OCR = ossManager.getAiPresignedUrl(item.getKey(), SHORT_TERM_VALIDITY.getValidity(), X_OSS_PROCESS_OCR);
         String ocrText = ocrManager.extractText(tempUrl2OCR);
-        // AI tag
         List<String> tags = aliyunTaggingManager.generateTags(tempUrl2OCR);
 
         // Set threshold to 0.98 (Highly similar)
         ImageDocument duplicate = imageRepository.findDuplicate(vector, DUPLICATE_THRESHOLD);
         if (duplicate != null) {
             log.info("Duplicate image detected: {} is highly similar to {} in the database, skipping storage", item.getFileName(), duplicate.getId());
-            throw new RuntimeException("Duplicate image (Skipped)");
+            throw new RuntimeException("重复图片, 已跳过");
         }
 
         ImageDocument doc = new ImageDocument();
-        doc.setId(UUID.randomUUID().toString().replace("-", ""));
+        doc.setId(IdUtil.getSnowflakeNextId());
         doc.setImagePath(item.getKey());
-        doc.setFilename(item.getFileName());
+        doc.setRawFilename(item.getFileName());
+        doc.setFileName(genFileName(tempUrl2OCR));
         doc.setImageEmbedding(vector);
         doc.setOcrContent(ocrText);
         doc.setCreateTime(System.currentTimeMillis());
@@ -122,5 +125,15 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         successDocs.add(doc);
     }
 
+    private String genFileName(String imageUrl) {
+        if (StringUtils.isBlank(imageUrl)) {
+            return StringUtils.EMPTY;
+        }
+        String name = genManager.GenFileName(imageUrl);
+        if (StringUtils.isBlank(name)) {
+            return StringUtils.EMPTY;
+        }
+        return String.format("%s-%s", name, System.currentTimeMillis());
+    }
 
 }

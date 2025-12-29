@@ -43,7 +43,7 @@ public class EsBatchTemplate {
             return 0;
         }
 
-        Class<?> clazz = items.get(0).getClass();
+        Class<?> clazz = items.getFirst().getClass();
         IndexCoordinates indexCoordinates = elasticsearchConverter.getMappingContext()
                 .getRequiredPersistentEntity(clazz)
                 .getIndexCoordinates();

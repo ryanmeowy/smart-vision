@@ -51,9 +51,14 @@ public class SearchResultDTO implements Serializable {
      * image filename
      */
     private String filename;
+
     /**
      * Search cursor for pagination
      */
     private List<FieldValue> sortValues;
 
+    /**
+     * AI tags
+     */
+    private List<String> tags;
 }

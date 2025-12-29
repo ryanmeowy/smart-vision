@@ -1,5 +1,7 @@
 package com.smart.vision.core.model.entity;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
@@ -23,32 +25,44 @@ public class ImageDocument {
      * Image ID (ES Doc ID)
      */
     @Id
-    private String id;
+    @Field(type = FieldType.Long)
+    private Long id;
 
     /**
      * Image path (relative)
      */
+    @Field(type = FieldType.Keyword)
     private String imagePath;
 
     /**
      * OCR extracted text
      */
+    @Field(type = FieldType.Text, analyzer = "ik_max_word", searchAnalyzer = "ik_smart")
     private String ocrContent;
 
     /**
      * Core vector field, dims correspond to Aliyun model dimensions
      */
+    @Field(type = FieldType.Dense_Vector, dims = 1024, similarity = "cosine")
     private List<Float> imageEmbedding;
 
     /**
      * Creation time
      */
+    @Field(type = FieldType.Long)
     private Long createTime;
 
     /**
-     * Filename
+     * original file name
      */
-    private String filename;
+    @Field(type = FieldType.Keyword)
+    private String rawFilename;
+
+    /**
+     * file name
+     */
+    @Field(type = FieldType.Text, analyzer = "ik_max_word", searchAnalyzer = "ik_smart")
+    private String fileName;
 
     /**
      * AI tags

@@ -1,15 +1,10 @@
 package com.smart.vision.core.manager;
 
-import com.alibaba.dashscope.embeddings.MultiModalEmbedding;
-import com.alibaba.dashscope.embeddings.MultiModalEmbeddingItemBase;
-import com.alibaba.dashscope.embeddings.MultiModalEmbeddingItemImage;
-import com.alibaba.dashscope.embeddings.MultiModalEmbeddingItemText;
-import com.alibaba.dashscope.embeddings.MultiModalEmbeddingParam;
-import com.alibaba.dashscope.embeddings.MultiModalEmbeddingResult;
-import com.alibaba.dashscope.embeddings.MultiModalEmbeddingResultItem;
+import com.alibaba.dashscope.embeddings.*;
 import com.alibaba.dashscope.exception.ApiException;
 import com.alibaba.dashscope.exception.NoApiKeyException;
 import com.google.common.collect.Lists;
+import com.smart.vision.core.util.VectorUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.retry.annotation.Backoff;
@@ -52,7 +47,7 @@ public class BailianEmbeddingManager {
             return Collections.emptyList();
         }
         MultiModalEmbeddingItemBase item = new MultiModalEmbeddingItemImage(imageUrl);
-        return callSdk(Lists.newArrayList(item));
+        return VectorUtil.l2Normalize(callSdk(Lists.newArrayList(item)));
     }
 
     @Retryable(
@@ -64,7 +59,7 @@ public class BailianEmbeddingManager {
             return Collections.emptyList();
         }
         MultiModalEmbeddingItemBase item = new MultiModalEmbeddingItemText(text);
-        return callSdk(Lists.newArrayList(item));
+        return VectorUtil.l2Normalize(callSdk(Lists.newArrayList(item)));
     }
 
 

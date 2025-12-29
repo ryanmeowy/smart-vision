@@ -38,13 +38,14 @@ public class HotSearchManager {
      */
     @Async("hotWordsTaskExecutor")
     public void incrementScore(String keyword) {
-        if (keyword == null || keyword.trim().length() < 2) {
+        if (keyword == null) {
             return;
         }
         
         // Normalization: remove spaces, convert to lowercase (prevent "Red" and "red" from being counted separately)
         String normalizedWord = keyword.trim().toLowerCase();
-        
+
+        // mock blocked words, this can be replaced with a database query
         if (MOCK_BLOCKED_WORDS.contains(normalizedWord) || normalizedWord.length() > 20) {
             return;
         }

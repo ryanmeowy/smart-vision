@@ -5,7 +5,6 @@ import com.alibaba.dashscope.aigc.multimodalconversation.MultiModalConversationP
 import com.alibaba.dashscope.aigc.multimodalconversation.MultiModalConversationResult;
 import com.alibaba.dashscope.common.MultiModalMessage;
 import com.alibaba.dashscope.exception.NoApiKeyException;
-import com.alibaba.dashscope.exception.UploadFileException;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +21,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.smart.vision.core.constant.CommonConstant.TAG_MODEL_NAME;
+import static com.smart.vision.core.constant.CommonConstant.TAG_REGEX;
+import static com.smart.vision.core.model.enums.PromptEnum.TAG_GEN;
 
 /**
  * AliyunTaggingManager is responsible for generating tags for images
@@ -37,10 +38,7 @@ public class AliyunTaggingManager {
     @Value("${DASHSCOPE_API_KEY}")
     private String apiKey;
 
-    public static final String PROMPT =
-            "请分析这张图片，提取 3-5 个核心标签，包含物体、场景、风格。" +
-            "请直接返回一个 JSON 字符串数组，不要包含 Markdown 格式或其他废话。" +
-            "例如：[\"风景\", \"雪山\", \"日落\"]";
+    private final Pattern TAG_RESULT_PATTERN = Pattern.compile(TAG_REGEX, Pattern.DOTALL);
 
     /**
      * Call VL model to generate tags
@@ -54,7 +52,7 @@ public class AliyunTaggingManager {
                             // Image part
                             Map.of("image", imageUrl),
                             // Text Prompt (strict format)
-                            Map.of("text", PROMPT)
+                            Map.of("text", TAG_GEN.getPrompt())
                     ))
                     .build();
 
@@ -67,7 +65,7 @@ public class AliyunTaggingManager {
             MultiModalConversation conv = new MultiModalConversation();
             MultiModalConversationResult result = conv.call(param);
 
-            String content = result.getOutput().getChoices().get(0).getMessage().getContent().toString();
+            String content = result.getOutput().getChoices().getFirst().getMessage().getContent().toString();
             return parseTags(content);
 
         } catch (NoApiKeyException e) {
@@ -87,13 +85,12 @@ public class AliyunTaggingManager {
      */
     private List<String> parseTags(String content) {
         try {
-            String regex = "```json\\s*(\\[.*?])\\s*```";
-            Pattern pattern = Pattern.compile(regex, Pattern.DOTALL);
-            Matcher matcher = pattern.matcher(content);
+            Matcher matcher = TAG_RESULT_PATTERN.matcher(content);
             if (matcher.find()) {
                 String jsonArray = matcher.group(1);
                 Gson gson = new Gson();
-                return gson.fromJson(jsonArray, new TypeToken<List<String>>() {}.getType());
+                return gson.fromJson(jsonArray, new TypeToken<List<String>>() {
+                }.getType());
             }
             return Collections.emptyList();
         } catch (Exception e) {

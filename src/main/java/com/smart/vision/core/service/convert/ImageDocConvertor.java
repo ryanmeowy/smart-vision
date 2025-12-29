@@ -24,18 +24,21 @@ public class ImageDocConvertor {
     private final OssManager ossManager;
 
     public List<SearchResultDTO> convert2SearchResultDTO(List<ImageSearchResultDTO> resultList) {
+        List<SearchResultDTO> resultDTOList = Lists.newArrayList();
         for (ImageSearchResultDTO result : resultList) {
             ImageDocument doc = result.getDocument();
             String presignedUrl = ossManager.getPresignedUrl(doc.getImagePath(), PresignedValidityEnum.LONG_TERM_VALIDITY.getValidity());
-            SearchResultDTO.builder()
+            SearchResultDTO resultDTO = SearchResultDTO.builder()
                     .score(result.getScore())
                     .url(presignedUrl)
                     .ocrText(doc.getOcrContent())
-                    .id(doc.getId())
-                    .filename(doc.getFilename())
+                    .id(String.valueOf(doc.getId()))
+                    .filename(doc.getFileName())
                     .sortValues(result.getSortValues())
+                    .tags(doc.getTags())
                     .build();
+            resultDTOList.add(resultDTO);
         }
-        return Lists.newArrayList();
+        return resultDTOList;
     }
 }

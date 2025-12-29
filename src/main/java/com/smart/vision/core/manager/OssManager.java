@@ -1,5 +1,6 @@
 package com.smart.vision.core.manager;
 
+import com.aliyun.oss.HttpMethod;
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.model.GeneratePresignedUrlRequest;
 import com.smart.vision.core.config.OSSConfig;
@@ -48,12 +49,13 @@ public class OssManager {
         Date expiration = new Date(System.currentTimeMillis() + validityTime);
         GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(
                 ossConfig.getBucketName(),
-                objectKey);
+                objectKey,
+                HttpMethod.GET);
         request.setExpiration(expiration);
         // [Core] Add OSS image processing parameters (x-oss-process)
         // Strategy: Limit maximum width to 1024px, compress quality to 90%
         // This size is sufficient for embedding semantic understanding and typically only takes up a few hundred KB
-        request.setProcess(processParam);
+        request.addQueryParameter("x-oss-process", processParam);
         URL url = ossClient.generatePresignedUrl(request);
         return url.toString();
     }
