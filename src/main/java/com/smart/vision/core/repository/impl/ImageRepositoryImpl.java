@@ -120,10 +120,11 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
         SearchRequest.Builder requestBuilder = new SearchRequest.Builder()
                 .index(IMAGE_INDEX)
                 .size(topK);
-        requestBuilder.query(q -> q.bool(b -> b.mustNot(mn -> mn.term(t -> t.field("id").value(excludeDocId)))));
+        requestBuilder.query(q -> q.bool(b -> b.mustNot(mn -> mn.term(t -> t.field("id").value(Long.parseLong(excludeDocId))))));
         requestBuilder.knn(builder -> builder
                 .field(EMBEDDING_FIELD)
                 .queryVector(vector)
+                .filter(f -> f.bool(b -> b.mustNot(mn -> mn.term(t -> t.field("id").value(Long.parseLong(excludeDocId))))))
                 .k(topK)
                 .numCandidates(Math.min(NUM_CANDIDATES_FACTOR * topK, DEFAULT_NUM_CANDIDATES))
                 .similarity(SIMILAR_QUERIES_SIMILARITY));
