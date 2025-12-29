@@ -43,11 +43,6 @@ public class SearchResultDTO implements Serializable {
     private String highlight;
 
     /**
-     * additional metadata (width, height, size, etc.)
-     */
-    private Object metadata;
-
-    /**
      * image filename
      */
     private String filename;

@@ -34,7 +34,7 @@ public class CommonConstant {
     // Check for extremely similar images (used for deduplication)
     public static final Double DUPLICATE_THRESHOLD = 0.98;
 
-    public static final String TAG_MODEL_NAME = "qwen-vl-plus";
+    public static final String VISION_MODEL_NAME = "qwen-vl-plus";
 
     public static final String IMAGE_GEN_MODEL_NAME = "qwen-vl-max";
 
@@ -76,7 +76,7 @@ public class CommonConstant {
 
     public static final String ALGORITHM = "AES/CBC/PKCS5Padding";
 
-    public static final String IMAGE_NAME_GEN_REGEX = "\\[\\{text=([^}]+)}]";
+    public static final String AI_RESPONSE_REGEX = "\\[\\{text=([^}]+)}]";
 
     public static final String URL_REGEX = "^(https?|ftp)://[\\w\\-]+(\\.[\\w\\-]+)+([\\w\\-.,@?^=%&:/~+#]*[\\w\\-@?^=%&/~+#])?$";
 
