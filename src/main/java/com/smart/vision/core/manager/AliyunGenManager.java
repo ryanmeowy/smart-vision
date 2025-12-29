@@ -24,9 +24,7 @@ import java.util.concurrent.Executor;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.smart.vision.core.constant.CommonConstant.IMAGE_GEN_MODEL_NAME;
-import static com.smart.vision.core.constant.CommonConstant.IMAGE_NAME_GEN_REGEX;
-import static com.smart.vision.core.constant.CommonConstant.SSE_TIMEOUT;
+import static com.smart.vision.core.constant.CommonConstant.*;
 import static com.smart.vision.core.model.enums.PromptEnum.getPromptByType;
 
 /**
@@ -44,6 +42,8 @@ public class AliyunGenManager {
     @Value("${DASHSCOPE_API_KEY}")
     private String apiKey;
     private final Executor imageGenTaskExecutor;
+
+    private static final Pattern TEXT_PATTERN = Pattern.compile(AI_RESPONSE_REGEX);
 
     public SseEmitter streamGenerateCopy(String imageUrl, String promptType) {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT);
@@ -67,9 +67,12 @@ public class AliyunGenManager {
 
                 // Subscribe to the stream and send to SSE
                 flowable.blockingForEach(result -> {
-                    String delta = result.getOutput().getChoices().getFirst().getMessage().getContent().toString();
-                    if (delta != null && !delta.isEmpty()) {
-                        emitter.send(SseEmitter.event().data(delta));
+                    String rawData = result.getOutput().getChoices().getFirst().getMessage().getContent().toString();
+                    if (rawData != null && !rawData.isEmpty()) {
+                        Matcher matcher = TEXT_PATTERN.matcher(rawData);
+                        if (matcher.find()) {
+                            emitter.send(SseEmitter.event().data(matcher.group(1)));
+                        }
                     }
                 });
                 emitter.complete();
@@ -97,7 +100,7 @@ public class AliyunGenManager {
         try {
             MultiModalConversationResult callResult = conv.call(param);
             String rawName = callResult.getOutput().getChoices().getFirst().getMessage().getContent().toString();
-            Matcher matcher = Pattern.compile(IMAGE_NAME_GEN_REGEX).matcher(rawName);
+            Matcher matcher = TEXT_PATTERN.matcher(rawName);
             return matcher.find() ? matcher.group(1) : Strings.EMPTY;
         } catch (NoApiKeyException e) {
             log.error("API Key is not configured: {}", e.getMessage());

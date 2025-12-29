@@ -20,7 +20,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.smart.vision.core.constant.CommonConstant.TAG_MODEL_NAME;
+import static com.smart.vision.core.constant.CommonConstant.VISION_MODEL_NAME;
 import static com.smart.vision.core.constant.CommonConstant.TAG_REGEX;
 import static com.smart.vision.core.model.enums.PromptEnum.TAG_GEN;
 
@@ -57,7 +57,7 @@ public class AliyunTaggingManager {
                     .build();
 
             MultiModalConversationParam param = MultiModalConversationParam.builder()
-                    .model(TAG_MODEL_NAME)
+                    .model(VISION_MODEL_NAME)
                     .message(userMessage)
                     .apiKey(apiKey)
                     .build();

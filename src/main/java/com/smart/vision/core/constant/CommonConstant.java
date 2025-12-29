@@ -34,7 +34,7 @@ public class CommonConstant {
     // Check for extremely similar images (used for deduplication)
     public static final Double DUPLICATE_THRESHOLD = 0.98;
 
-    public static final String TAG_MODEL_NAME = "qwen-vl-plus";
+    public static final String VISION_MODEL_NAME = "qwen-vl-plus";
 
     public static final String IMAGE_GEN_MODEL_NAME = "qwen-vl-max";
 
@@ -50,9 +50,11 @@ public class CommonConstant {
 
     public static final String X_OSS_PROCESS_OCR = "image/resize,l_4096,m_lfit/format,jpg";
 
-    public static final float DEFAULT_EMBEDDING_BOOST = 1.2f;
+    public static final float DEFAULT_EMBEDDING_BOOST = 0.9f;
 
-    public static final float DEFAULT_OCR_BOOST = 0.7f;
+    public static final float DEFAULT_OCR_BOOST = 0.5f;
+
+    public static final float DEFAULT_TAG_BOOST = 0.2f;
 
     public static final float DEFAULT_FIELD_NAME_BOOST = 0.2f;
 
@@ -64,10 +66,6 @@ public class CommonConstant {
 
     public static final String EMBEDDING_FIELD = "imageEmbedding";
 
-    public static final String OCR_FIELD = "ocrContent";
-
-    public static final String FILE_NAME_FIELD = "filename";
-
     public static final Integer DEFAULT_RESULT_LIMIT = 20;
 
     public static final String VECTOR_CACHE_PREFIX = "search:vector:";
@@ -76,7 +74,7 @@ public class CommonConstant {
 
     public static final String ALGORITHM = "AES/CBC/PKCS5Padding";
 
-    public static final String IMAGE_NAME_GEN_REGEX = "\\[\\{text=([^}]+)}]";
+    public static final String AI_RESPONSE_REGEX = "\\[\\{text=([^}]+)}]";
 
     public static final String URL_REGEX = "^(https?|ftp)://[\\w\\-]+(\\.[\\w\\-]+)+([\\w\\-.,@?^=%&:/~+#]*[\\w\\-@?^=%&/~+#])?$";
 

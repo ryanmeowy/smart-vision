@@ -3,11 +3,7 @@ package com.smart.vision.core.service.ingestion.impl;
 import cn.hutool.core.util.IdUtil;
 import com.aliyun.core.utils.StringUtils;
 import com.smart.vision.core.component.EsBatchTemplate;
-import com.smart.vision.core.manager.AliyunGenManager;
-import com.smart.vision.core.manager.AliyunOcrManager;
-import com.smart.vision.core.manager.AliyunTaggingManager;
-import com.smart.vision.core.manager.BailianEmbeddingManager;
-import com.smart.vision.core.manager.OssManager;
+import com.smart.vision.core.manager.*;
 import com.smart.vision.core.model.dto.BatchProcessDTO;
 import com.smart.vision.core.model.dto.BatchUploadResultDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
@@ -23,9 +19,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
-import static com.smart.vision.core.constant.CommonConstant.DUPLICATE_THRESHOLD;
-import static com.smart.vision.core.constant.CommonConstant.X_OSS_PROCESS_EMBEDDING;
-import static com.smart.vision.core.constant.CommonConstant.X_OSS_PROCESS_OCR;
+import static com.smart.vision.core.constant.CommonConstant.*;
 import static com.smart.vision.core.model.enums.PresignedValidityEnum.SHORT_TERM_VALIDITY;
 
 /**
@@ -99,11 +93,11 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
      * @param item        the batch process request containing OSS key and file metadata
      * @param successDocs synchronized list to collect successfully processed documents
      */
-    private void processSingleItem(BatchProcessDTO item, List<ImageDocument> successDocs) throws Exception {
+    private void processSingleItem(BatchProcessDTO item, List<ImageDocument> successDocs) {
         String tempUrl2Embed = ossManager.getAiPresignedUrl(item.getKey(), SHORT_TERM_VALIDITY.getValidity(), X_OSS_PROCESS_EMBEDDING);
         List<Float> vector = embeddingManager.embedImage(tempUrl2Embed);
         String tempUrl2OCR = ossManager.getAiPresignedUrl(item.getKey(), SHORT_TERM_VALIDITY.getValidity(), X_OSS_PROCESS_OCR);
-        String ocrText = ocrManager.extractText(tempUrl2OCR);
+        String ocrText = ocrManager.fetchOcrContent(tempUrl2OCR);
         List<String> tags = aliyunTaggingManager.generateTags(tempUrl2OCR);
 
         // Set threshold to 0.98 (Highly similar)

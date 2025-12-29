@@ -34,43 +34,87 @@ IO 与逻辑的读写分离 (CQRS):
 
 ```mermaid
 graph TD
-    User((User))
-    Gateway[Nginx / Gateway]
+    %% ================= 样式定义 =================
+    classDef user fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
+    classDef frontend fill:#b3e5fc,stroke:#0288d1,stroke-width:2px;
+    classDef backend fill:#fff9c4,stroke:#fbc02d,stroke-width:2px;
+    classDef infra fill:#ffccbc,stroke:#d84315,stroke-width:2px;
     
-    subgraph "前端应用 (Vue3)"
-        Uploader[直传组件]
-        SearchUI[瀑布流展示]
+    %% ================= 1. 用户层 =================
+    subgraph Layer_1 [👤 用户接入层 / User Layer]
+        User((User)):::user
     end
 
-    subgraph "核心服务 (Spring Boot)"
-        Controller[API Layer]
-        AsyncService[异步编排层]
-        Strategy[检索策略层]
-        ACL["防腐层 (ACL)"]
+    %% ================= 2. 前端应用层 =================
+    subgraph Layer_2 [💻 前端应用层 / Frontend Layer]
+        Uploader[直传组件]:::frontend
+        SearchUI[瀑布流展示]:::frontend
     end
 
-    subgraph "基础设施 (Infrastructure)"
-        Redis[(Redis Cluster)]
-        ES[(Elasticsearch 8.x)]
-        OSS[Aliyun OSS]
-        AI_SaaS[Aliyun DashScope]
+    %% ================= 3. 核心服务层 =================
+    subgraph Layer_3 [⚙️ 核心服务层 / Core Service Layer]
+        Gateway[Nginx / Gateway]:::backend
+        
+        subgraph SpringBoot [Spring Boot Application]
+            Controller[API Layer]:::backend
+            
+            subgraph Business_Logic [业务逻辑]
+                AsyncService["异步编排层<br>(IngestionService)"]:::backend
+                SearchService["搜索业务层<br>(SearchService)"]:::backend
+            end
+            
+            subgraph ACL_Layer [防腐层 / Anti-Corruption Layer]
+                ACL_AI["AI Manager<br>(Embedding/OCR)"]:::backend
+                ACL_OSS["OSS Manager<br>(Sign URL)"]:::backend
+                Strategy["检索策略层<br>(Repository Impl)"]:::backend
+            end
+        end
     end
 
-    %% 写入链路
-    User --> Uploader
-    Uploader -- "1. STS Token" --> Controller
-    Uploader -- "2. PutObject (直传)" --> OSS
-    Uploader -- "3. Submit Keys" --> Controller
-    Controller -- "4. Async Process" --> AsyncService
-    AsyncService -- "5. 向量化/OCR" --> AI_SaaS
-    AsyncService -- "6. Bulk Insert" --> ES
+    %% ================= 4. 基础设施层 =================
+    subgraph Layer_4 [🏗️ 基础设施层 / Infrastructure Layer]
+        Redis[(Redis Cluster)]:::infra
+        ES[(Elasticsearch 8.x)]:::infra
+        OSS[Aliyun OSS]:::infra
+        AI_SaaS["Aliyun DashScope<br>(Embedding / Qwen-VL)"]:::infra
+    end
 
-    %% 读取链路
-    User --> SearchUI
-    SearchUI -- "Search" --> Controller
-    Controller -- "Hit Cache?" --> Redis
-    Controller -- "Hybrid Query" --> Strategy
-    Strategy -- "KNN + BM25" --> ES
+    %% ==========================================
+    %% 链路连接
+    %% ==========================================
+
+    %% 0. 接入
+    User -- "1-1 Upload Images" --> Uploader
+    User -- "2-1 Input Keywords" --> SearchUI
+
+    %% 1. 写入链路 (Write Path) - 红色
+    Uploader -- "1-2 STS Token" --> Gateway
+    Uploader -- "1-3 PutObject (直传)" --> OSS
+    Uploader -- "1-4 Submit Keys" --> Gateway
+    Gateway -- "1-5 Request" -->Controller
+    Controller -- "1-6 Async Task" --> AsyncService
+    AsyncService -- "1-7 调用能力" --> ACL_AI
+    ACL_AI -- "1-8 SDK Request" --> AI_SaaS
+    AsyncService -- "1-9 签名 URL" --> ACL_OSS
+    AsyncService -- "1-10 Bulk Insert" --> Strategy
+    Strategy -- "1-11 Save" --> ES
+
+    %% 2. 读取链路 (Read Path) - 蓝色
+    SearchUI -- "2-2 Search" --> Gateway
+    Gateway --"2-3 Request"--> Controller
+    Controller --"2-4 Sync Call"--> SearchService
+    SearchService -- "2-5 Hit Cache?" --> Redis
+    SearchService -- "2-6 Miss? Get Vector" --> ACL_AI
+    ACL_AI -- "2-7 SDK Request" --> AI_SaaS
+    SearchService -- "2-8 Hybrid Query" --> Strategy
+    Strategy -- "2-9 KNN + BM25" --> ES
+
+    %% ================= 样式微调 =================
+    %% 写入链路 (红)
+    linkStyle 0,2,3,4,5,6,7,8,9,10,11 stroke:#d84315,stroke-width:2px;
+
+    %% 读取链路 (蓝)
+     linkStyle 1,12,13,14,15,16,17,18,19 stroke:#1565c0,stroke-width:2px;
 ```
 
 ---
