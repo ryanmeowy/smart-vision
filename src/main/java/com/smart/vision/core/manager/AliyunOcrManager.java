@@ -104,7 +104,7 @@ public class AliyunOcrManager {
                 .role("user")
                 .content(Arrays.asList(
                         Map.of("image", imageUrl),
-                        Map.of("text", OCR)
+                        Map.of("text", OCR.getPrompt())
                 ))
                 .build();
 
