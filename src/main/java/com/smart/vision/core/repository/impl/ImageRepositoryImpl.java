@@ -26,12 +26,11 @@ import static com.smart.vision.core.constant.CommonConstant.DEFAULT_FIELD_NAME_B
 import static com.smart.vision.core.constant.CommonConstant.DEFAULT_NUM_CANDIDATES;
 import static com.smart.vision.core.constant.CommonConstant.DEFAULT_OCR_BOOST;
 import static com.smart.vision.core.constant.CommonConstant.EMBEDDING_FIELD;
-import static com.smart.vision.core.constant.CommonConstant.FILE_NAME_FIELD;
 import static com.smart.vision.core.constant.CommonConstant.IMAGE_INDEX;
 import static com.smart.vision.core.constant.CommonConstant.MINIMUM_SIMILARITY;
 import static com.smart.vision.core.constant.CommonConstant.NUM_CANDIDATES_FACTOR;
-import static com.smart.vision.core.constant.CommonConstant.OCR_FIELD;
 import static com.smart.vision.core.constant.CommonConstant.SIMILAR_QUERIES_SIMILARITY;
+import static com.smart.vision.core.constant.CommonConstant.DEFAULT_TAG_BOOST;
 import static com.smart.vision.core.util.ScoreUtil.formatDisplayScore;
 
 /**
@@ -56,8 +55,9 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
         if (query.getKeyword() != null && !query.getKeyword().isEmpty()) {
             requestBuilder.query(q -> q
                     .bool(b -> b
-                            .should(s -> s.match(m -> m.field(OCR_FIELD).query(query.getKeyword()).boost(DEFAULT_OCR_BOOST)))
-                            .should(s -> s.match(m -> m.field(FILE_NAME_FIELD).query(query.getKeyword()).boost(DEFAULT_FIELD_NAME_BOOST)))
+                            .should(s -> s.match(m -> m.field("ocrContent").query(query.getKeyword()).boost(DEFAULT_OCR_BOOST)))
+                            .should(s -> s.match(m -> m.field("tags").query(query.getKeyword()).boost(DEFAULT_TAG_BOOST)))
+                            .should(s -> s.match(m -> m.field("filename").query(query.getKeyword()).boost(DEFAULT_FIELD_NAME_BOOST)))
                     )
             );
         }

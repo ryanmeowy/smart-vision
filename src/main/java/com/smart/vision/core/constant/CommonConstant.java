@@ -50,9 +50,11 @@ public class CommonConstant {
 
     public static final String X_OSS_PROCESS_OCR = "image/resize,l_4096,m_lfit/format,jpg";
 
-    public static final float DEFAULT_EMBEDDING_BOOST = 1.2f;
+    public static final float DEFAULT_EMBEDDING_BOOST = 0.9f;
 
-    public static final float DEFAULT_OCR_BOOST = 0.7f;
+    public static final float DEFAULT_OCR_BOOST = 0.5f;
+
+    public static final float DEFAULT_TAG_BOOST = 0.2f;
 
     public static final float DEFAULT_FIELD_NAME_BOOST = 0.2f;
 
@@ -63,10 +65,6 @@ public class CommonConstant {
     public static final int SIMILARITY_TOP_K = 10;
 
     public static final String EMBEDDING_FIELD = "imageEmbedding";
-
-    public static final String OCR_FIELD = "ocrContent";
-
-    public static final String FILE_NAME_FIELD = "filename";
 
     public static final Integer DEFAULT_RESULT_LIMIT = 20;
 
