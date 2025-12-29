@@ -1,7 +1,9 @@
 package com.smart.vision.core.service.ingestion.impl;
 
 import cn.hutool.core.util.IdUtil;
+import com.aliyun.core.utils.StringUtils;
 import com.smart.vision.core.component.EsBatchTemplate;
+import com.smart.vision.core.manager.AliyunGenManager;
 import com.smart.vision.core.manager.AliyunOcrManager;
 import com.smart.vision.core.manager.AliyunTaggingManager;
 import com.smart.vision.core.manager.BailianEmbeddingManager;
@@ -21,7 +23,9 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
-import static com.smart.vision.core.constant.CommonConstant.*;
+import static com.smart.vision.core.constant.CommonConstant.DUPLICATE_THRESHOLD;
+import static com.smart.vision.core.constant.CommonConstant.X_OSS_PROCESS_EMBEDDING;
+import static com.smart.vision.core.constant.CommonConstant.X_OSS_PROCESS_OCR;
 import static com.smart.vision.core.model.enums.PresignedValidityEnum.SHORT_TERM_VALIDITY;
 
 /**
@@ -42,6 +46,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
     private final Executor embedTaskExecutor;
     private final ImageRepository imageRepository;
     private final AliyunTaggingManager aliyunTaggingManager;
+    private final AliyunGenManager genManager;
 
     public BatchUploadResultDTO processBatchItems(List<BatchProcessDTO> items) {
         List<ImageDocument> successDocs = Collections.synchronizedList(new ArrayList<>());
@@ -99,7 +104,6 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         List<Float> vector = embeddingManager.embedImage(tempUrl2Embed);
         String tempUrl2OCR = ossManager.getAiPresignedUrl(item.getKey(), SHORT_TERM_VALIDITY.getValidity(), X_OSS_PROCESS_OCR);
         String ocrText = ocrManager.extractText(tempUrl2OCR);
-        // AI tag
         List<String> tags = aliyunTaggingManager.generateTags(tempUrl2OCR);
 
         // Set threshold to 0.98 (Highly similar)
@@ -113,6 +117,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         doc.setId(IdUtil.getSnowflakeNextId());
         doc.setImagePath(item.getKey());
         doc.setRawFilename(item.getFileName());
+        doc.setFileName(genFileName(tempUrl2OCR));
         doc.setImageEmbedding(vector);
         doc.setOcrContent(ocrText);
         doc.setCreateTime(System.currentTimeMillis());
@@ -120,13 +125,15 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         successDocs.add(doc);
     }
 
-    private double dotProduct(List<Float> vector1, List<Float> vector2) {
-        double dotProduct = 0.0;
-        for (int i = 0; i < vector1.size(); i++) {
-            dotProduct += vector1.get(i) * vector2.get(i);
+    private String genFileName(String imageUrl) {
+        if (StringUtils.isBlank(imageUrl)) {
+            return StringUtils.EMPTY;
         }
-        return dotProduct;
+        String name = genManager.GenFileName(imageUrl);
+        if (StringUtils.isBlank(name)) {
+            return StringUtils.EMPTY;
+        }
+        return String.format("%s-%s", name, System.currentTimeMillis());
     }
-
 
 }

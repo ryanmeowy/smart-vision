@@ -7,25 +7,32 @@ import com.alibaba.dashscope.common.MultiModalMessage;
 import com.alibaba.dashscope.common.Role;
 import com.alibaba.dashscope.exception.NoApiKeyException;
 import com.alibaba.dashscope.exception.UploadFileException;
+import com.smart.vision.core.model.enums.PromptEnum;
 import io.reactivex.Flowable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.logging.log4j.util.Strings;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.Executor;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.smart.vision.core.constant.CommonConstant.IMAGE_GEN_MODEL_NAME;
+import static com.smart.vision.core.constant.CommonConstant.IMAGE_NAME_GEN_REGEX;
 import static com.smart.vision.core.constant.CommonConstant.SSE_TIMEOUT;
-import static com.smart.vision.core.model.enums.ImageGenStyleEnum.getPromptByType;
+import static com.smart.vision.core.model.enums.PromptEnum.getPromptByType;
 
 /**
  * AliyunGenManager is a management class for handling operations related to Aliyun generation.
  * This class primarily facilitates image generation through Aliyun multimodal conversation API.
- * 
+ *
  * @author Ryan
  * @since 2025/12/23
  */
@@ -55,7 +62,6 @@ public class AliyunGenManager {
                         .apiKey(apiKey)
                         .build();
 
-                // Call streaming API
                 MultiModalConversation conv = new MultiModalConversation();
                 Flowable<MultiModalConversationResult> flowable = conv.streamCall(param);
 
@@ -63,7 +69,6 @@ public class AliyunGenManager {
                 flowable.blockingForEach(result -> {
                     String delta = result.getOutput().getChoices().getFirst().getMessage().getContent().toString();
                     if (delta != null && !delta.isEmpty()) {
-                        // Send data chunk
                         emitter.send(SseEmitter.event().data(delta));
                     }
                 });
@@ -74,5 +79,35 @@ public class AliyunGenManager {
             }
         });
         return emitter;
+    }
+
+    @Retryable(retryFor = Exception.class, backoff = @Backoff(delay = 1000, multiplier = 2))
+    public String GenFileName(String imageUrl) {
+        MultiModalMessage userMessage = MultiModalMessage.builder()
+                .role(Role.USER.getValue())
+                .content(Arrays.asList(Map.of("image", imageUrl), Map.of("text", PromptEnum.NAME_GEN.getPrompt())))
+                .build();
+        MultiModalConversationParam param = MultiModalConversationParam.builder()
+                .model(IMAGE_GEN_MODEL_NAME)
+                .message(userMessage)
+                .apiKey(apiKey)
+                .build();
+
+        MultiModalConversation conv = new MultiModalConversation();
+        try {
+            MultiModalConversationResult callResult = conv.call(param);
+            String rawName = callResult.getOutput().getChoices().getFirst().getMessage().getContent().toString();
+            Matcher matcher = Pattern.compile(IMAGE_NAME_GEN_REGEX).matcher(rawName);
+            return matcher.find() ? matcher.group(1) : Strings.EMPTY;
+        } catch (NoApiKeyException e) {
+            log.error("API Key is not configured: {}", e.getMessage());
+            return Strings.EMPTY;
+        } catch (UploadFileException e) {
+            log.error("File upload failed: {}", e.getMessage());
+            return Strings.EMPTY;
+        } catch (Exception e) {
+            log.error("Generation failed: {}", e.getMessage());
+            return Strings.EMPTY;
+        }
     }
 }

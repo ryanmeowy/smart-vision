@@ -3,13 +3,11 @@ package com.smart.vision.core.controller;
 import com.aliyuncs.exceptions.ClientException;
 import com.smart.vision.core.annotation.RequireAuth;
 import com.smart.vision.core.model.Result;
-import com.smart.vision.core.model.dto.StsTokenDTO;
 import com.smart.vision.core.service.search.OssService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -72,7 +70,7 @@ public class AuthApiController {
 
     @RequireAuth
     @GetMapping("/sts")
-    public Result<StsTokenDTO> getStsToken() {
+    public Result<String> getStsToken() {
         try {
             return Result.success(ossService.fetchStsToken());
         } catch (ClientException e) {

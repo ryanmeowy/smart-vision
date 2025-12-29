@@ -15,7 +15,7 @@ public class CommonConstant {
     public static final String IMAGE_INDEX = "smart_gallery_v1";
 
     public static final Float MINIMUM_SIMILARITY = 0.2f;
-    // 候选集大小, 必须大于topK, 候选集越大,召回准确率越高,召回速度越慢
+    // Candidate set size, must be greater than topK. The larger the candidate set, the higher the recall accuracy, but the slower the recall speed.
     public static final Integer DEFAULT_NUM_CANDIDATES = 10_000;
 
     public static final Long DEFAULT_STS_DURATION_SECONDS = 15 * 60L;
@@ -48,7 +48,7 @@ public class CommonConstant {
 
     public static final String X_OSS_PROCESS_OCR = "image/resize,l_4096,m_lfit/format,jpg";
 
-    public static final float DEFAULT_EMBEDDING_BOOST = 0.9f;
+    public static final float DEFAULT_EMBEDDING_BOOST = 1.2f;
 
     public static final float DEFAULT_OCR_BOOST = 0.7f;
 
@@ -72,5 +72,18 @@ public class CommonConstant {
 
     public static final String ALGORITHM = "AES/CBC/PKCS5Padding";
 
+    public static final String IMAGE_NAME_GEN_REGEX = "\\[\\{text=([^}]+)}]";
+
+    public static final String URL_REGEX = "^(https?|ftp)://[\\w\\-]+(\\.[\\w\\-]+)+([\\w\\-.,@?^=%&:/~+#]*[\\w\\-@?^=%&/~+#])?$";
+
+    public static final String SINGLE_LETTER_REGEX = "^[a-zA-Z]$";
+
+    public static final String PUNCTUATION_REGEX = "[\\pP\\pS\\p{Zs}\\p{Zl}\\p{Zp}]";
+
+    public static final String WHITE_SPACE_REGEX = "\\s+";
+
+    public static final String DIGIT_REGEX = "^[0-9]+$";
+
+    public static final String TAG_REGEX = "```json\\s*(\\[.*?])\\s*```";
 }
 

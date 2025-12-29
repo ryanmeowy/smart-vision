@@ -44,7 +44,8 @@ public class HotSearchManager {
         
         // Normalization: remove spaces, convert to lowercase (prevent "Red" and "red" from being counted separately)
         String normalizedWord = keyword.trim().toLowerCase();
-        
+
+        // mock blocked words, this can be replaced with a database query
         if (MOCK_BLOCKED_WORDS.contains(normalizedWord) || normalizedWord.length() > 20) {
             return;
         }

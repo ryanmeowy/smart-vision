@@ -22,11 +22,16 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.smart.vision.core.constant.CommonConstant.DEFAULT_EMBEDDING_BOOST;
+import static com.smart.vision.core.constant.CommonConstant.DEFAULT_FIELD_NAME_BOOST;
 import static com.smart.vision.core.constant.CommonConstant.DEFAULT_NUM_CANDIDATES;
+import static com.smart.vision.core.constant.CommonConstant.DEFAULT_OCR_BOOST;
 import static com.smart.vision.core.constant.CommonConstant.EMBEDDING_FIELD;
+import static com.smart.vision.core.constant.CommonConstant.FILE_NAME_FIELD;
 import static com.smart.vision.core.constant.CommonConstant.IMAGE_INDEX;
 import static com.smart.vision.core.constant.CommonConstant.MINIMUM_SIMILARITY;
 import static com.smart.vision.core.constant.CommonConstant.NUM_CANDIDATES_FACTOR;
+import static com.smart.vision.core.constant.CommonConstant.OCR_FIELD;
+import static com.smart.vision.core.util.ScoreUtil.formatDisplayScore;
 
 /**
  * Hybrid search implementation
@@ -47,33 +52,30 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
                 .index(IMAGE_INDEX)
                 .size(query.getLimit());
 
-//        if (query.getKeyword() != null && !query.getKeyword().isEmpty()) {
-//            requestBuilder.query(q -> q
-//                    .bool(b -> b
-//                            .should(s -> s.match(m -> m.field(OCR_FIELD).query(query.getKeyword()).boost(DEFAULT_OCR_BOOST)))
-////                            .should(s -> s.match(m -> m.field(FILE_NAME_FIELD).query(query.getKeyword()).boost(DEFAULT_FIELD_NAME_BOOST)))
-//                    )
-//            );
-//        }
+        if (query.getKeyword() != null && !query.getKeyword().isEmpty()) {
+            requestBuilder.query(q -> q
+                    .bool(b -> b
+                            .should(s -> s.match(m -> m.field(OCR_FIELD).query(query.getKeyword()).boost(DEFAULT_OCR_BOOST)))
+                            .should(s -> s.match(m -> m.field(FILE_NAME_FIELD).query(query.getKeyword()).boost(DEFAULT_FIELD_NAME_BOOST)))
+                    )
+            );
+        }
 
-        // 3. 构建 KNN (处理 vector 可能为空的情况)
-        if (queryVector != null && !queryVector.isEmpty()) {
+        if (!CollectionUtils.isEmpty(queryVector)) {
             requestBuilder.knn(k -> k
                             .field(EMBEDDING_FIELD)
                             .queryVector(queryVector)
                             .k(query.getTopK())
-//                            .numCandidates(Math.max(100, query.getTopK() * 2))
+                            .numCandidates(Math.max(100, query.getTopK() * 2))
                             .boost(DEFAULT_EMBEDDING_BOOST)
                             .similarity(null == query.getSimilarity() ? MINIMUM_SIMILARITY : query.getSimilarity())
 
             );
         }
 
-        // 4. 处理排序
         requestBuilder.sort(so -> so.score(sc -> sc.order(SortOrder.Desc)));
         requestBuilder.sort(so -> so.field(f -> f.field("id").order(SortOrder.Asc)));
 
-        // 5. 关键：只有当 searchAfter 不为空时才设置
         if (query.getSearchAfter() != null && !query.getSearchAfter().isEmpty()) {
             requestBuilder.searchAfter(query.getSearchAfter());
         }
@@ -96,16 +98,17 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
 
         return hits.stream()
                 .filter(hit -> hit.source() != null)
+                .filter(hit -> hit.id() != null)
+                .filter(hit -> hit.score() != null)
                 .map(hit -> {
                     ImageDocument doc = hit.source();
-                    doc.setId(Long.parseLong(Optional.ofNullable(hit.id()).orElse("0")));
+                    doc.setId(Long.parseLong(hit.id()));
                     return ImageSearchResultDTO.builder()
                             .document(doc)
-                            .score(hit.score())
+                            .score(formatDisplayScore(hit.score()))
                             .sortValues(hit.sort())
                             .build();
                 }).collect(Collectors.toList());
-
     }
 
     @Override
@@ -152,7 +155,7 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
             );
 
             if (!response.hits().hits().isEmpty()) {
-                return response.hits().hits().get(0).source();
+                return response.hits().hits().getFirst().source();
             }
             return null;
         } catch (IOException e) {
