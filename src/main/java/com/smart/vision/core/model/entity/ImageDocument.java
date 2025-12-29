@@ -26,7 +26,6 @@ public class ImageDocument {
      */
     @Id
     @Field(type = FieldType.Long)
-    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
 
     /**

@@ -38,7 +38,7 @@ public class HotSearchManager {
      */
     @Async("hotWordsTaskExecutor")
     public void incrementScore(String keyword) {
-        if (keyword == null || keyword.trim().length() < 2) {
+        if (keyword == null) {
             return;
         }
         

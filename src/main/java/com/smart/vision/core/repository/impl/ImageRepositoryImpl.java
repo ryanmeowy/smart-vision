@@ -31,6 +31,7 @@ import static com.smart.vision.core.constant.CommonConstant.IMAGE_INDEX;
 import static com.smart.vision.core.constant.CommonConstant.MINIMUM_SIMILARITY;
 import static com.smart.vision.core.constant.CommonConstant.NUM_CANDIDATES_FACTOR;
 import static com.smart.vision.core.constant.CommonConstant.OCR_FIELD;
+import static com.smart.vision.core.constant.CommonConstant.SIMILAR_QUERIES_SIMILARITY;
 import static com.smart.vision.core.util.ScoreUtil.formatDisplayScore;
 
 /**
@@ -63,12 +64,12 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
 
         if (!CollectionUtils.isEmpty(queryVector)) {
             requestBuilder.knn(k -> k
-                            .field(EMBEDDING_FIELD)
-                            .queryVector(queryVector)
-                            .k(query.getTopK())
-                            .numCandidates(Math.max(100, query.getTopK() * 2))
-                            .boost(DEFAULT_EMBEDDING_BOOST)
-                            .similarity(null == query.getSimilarity() ? MINIMUM_SIMILARITY : query.getSimilarity())
+                    .field(EMBEDDING_FIELD)
+                    .queryVector(queryVector)
+                    .k(query.getTopK())
+                    .numCandidates(Math.max(100, query.getTopK() * 2))
+                    .boost(DEFAULT_EMBEDDING_BOOST)
+                    .similarity(null == query.getSimilarity() ? MINIMUM_SIMILARITY : query.getSimilarity())
 
             );
         }
@@ -116,21 +117,21 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
         if (CollectionUtils.isEmpty(vector)) {
             return Collections.emptyList();
         }
+        SearchRequest.Builder requestBuilder = new SearchRequest.Builder()
+                .index(IMAGE_INDEX)
+                .size(topK);
+        requestBuilder.query(q -> q.bool(b -> b.mustNot(mn -> mn.term(t -> t.field("id").value(excludeDocId)))));
+        requestBuilder.knn(builder -> builder
+                .field(EMBEDDING_FIELD)
+                .queryVector(vector)
+                .k(topK)
+                .numCandidates(Math.min(NUM_CANDIDATES_FACTOR * topK, DEFAULT_NUM_CANDIDATES))
+                .similarity(SIMILAR_QUERIES_SIMILARITY));
+        requestBuilder.sort(so -> so.score(sc -> sc.order(SortOrder.Desc)));
+        requestBuilder.sort(so -> so.field(f -> f.field("id").order(SortOrder.Asc)));
+        SearchRequest request = requestBuilder.build();
         try {
-            SearchResponse<ImageDocument> response = esClient.search(s -> s
-                            .index(IMAGE_INDEX)
-                            .query(q -> q
-                                    .bool(b -> b.mustNot(mn -> mn.ids(i -> i.values(excludeDocId)))))
-                            .knn(builder -> builder
-                                    .field(EMBEDDING_FIELD)
-                                    .queryVector(vector)
-                                    .k(topK)
-                                    .numCandidates(Math.min(NUM_CANDIDATES_FACTOR * topK, DEFAULT_NUM_CANDIDATES))
-                                    .boost(DEFAULT_EMBEDDING_BOOST)
-                                    .similarity(MINIMUM_SIMILARITY))
-                            .size(topK),
-                    ImageDocument.class
-            );
+            SearchResponse<ImageDocument> response = esClient.search(request, ImageDocument.class);
             return convert2Doc(response);
         } catch (IOException e) {
             log.error("Execution of finding similar failed", e);

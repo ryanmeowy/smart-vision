@@ -15,6 +15,8 @@ public class CommonConstant {
     public static final String IMAGE_INDEX = "smart_gallery_v1";
 
     public static final Float MINIMUM_SIMILARITY = 0.2f;
+
+    public static final Float SIMILAR_QUERIES_SIMILARITY = 0.6f;
     // Candidate set size, must be greater than topK. The larger the candidate set, the higher the recall accuracy, but the slower the recall speed.
     public static final Integer DEFAULT_NUM_CANDIDATES = 10_000;
 
@@ -57,6 +59,8 @@ public class CommonConstant {
     public static final int NUM_CANDIDATES_FACTOR = 5;
 
     public static final int DEFAULT_TOP_K = 100;
+
+    public static final int SIMILARITY_TOP_K = 10;
 
     public static final String EMBEDDING_FIELD = "imageEmbedding";
 

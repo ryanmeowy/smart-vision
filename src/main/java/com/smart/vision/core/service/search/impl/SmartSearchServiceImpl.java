@@ -19,9 +19,11 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.DigestUtils;
 import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import static com.smart.vision.core.constant.CommonConstant.SIMILARITY_TOP_K;
 import static com.smart.vision.core.constant.CommonConstant.VECTOR_CACHE_PREFIX;
 
 /**
@@ -65,8 +67,30 @@ public class SmartSearchServiceImpl implements SmartSearchService {
             throw new RuntimeException("The image has not been vectorized yet");
         }
         // Perform search (find the 10 most similar images)
-        List<ImageSearchResultDTO> similarDocs = imageRepository.searchSimilar(embedding, 10, docId);
-        return imageDocConvertor.convert2SearchResultDTO(similarDocs);
+        List<ImageSearchResultDTO> similarDocs = imageRepository.searchSimilar(embedding, SIMILARITY_TOP_K, docId);
+        return imageDocConvertor.convert2SearchResultDTO(similarFilter(similarDocs));
+    }
+
+    public List<ImageSearchResultDTO> similarFilter(List<ImageSearchResultDTO> results) {
+        if (results.isEmpty()) return results;
+        List<ImageSearchResultDTO> filtered = new ArrayList<>();
+        if (results.getFirst().getScore() < 0.7) return filtered;
+        filtered.add(results.getFirst());
+        for (int i = 1; i < results.size(); i++) {
+            double prevScore = results.get(i - 1).getScore();
+            double currScore = results.get(i).getScore();
+
+            // Relative drop: if the current score drops by 40% compared to the previous one (ratio < 0.6)
+            // Absolute drop: or directly falls below 0.4 (hard limit)
+            boolean isBigDrop = (currScore / prevScore) < 0.6;
+            boolean isTooLow = currScore < 0.4;
+
+            if (isBigDrop || isTooLow) {
+                break;
+            }
+            filtered.add(results.get(i));
+        }
+        return filtered;
     }
 
     private List<Float> getVectorFromCache(String text) {
