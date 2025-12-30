@@ -26,7 +26,6 @@ import static com.smart.vision.core.constant.CommonConstant.DEFAULT_FIELD_NAME_B
 import static com.smart.vision.core.constant.CommonConstant.DEFAULT_NUM_CANDIDATES;
 import static com.smart.vision.core.constant.CommonConstant.DEFAULT_OCR_BOOST;
 import static com.smart.vision.core.constant.CommonConstant.DEFAULT_TAG_BOOST;
-import static com.smart.vision.core.constant.CommonConstant.EMBEDDING_FIELD;
 import static com.smart.vision.core.constant.CommonConstant.IMAGE_INDEX;
 import static com.smart.vision.core.constant.CommonConstant.MINIMUM_SIMILARITY;
 import static com.smart.vision.core.constant.CommonConstant.NUM_CANDIDATES_FACTOR;
@@ -64,7 +63,7 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
 
         if (!CollectionUtils.isEmpty(queryVector)) {
             requestBuilder.knn(k -> k
-                    .field(EMBEDDING_FIELD)
+                    .field("imageEmbedding")
                     .queryVector(queryVector)
                     .k(query.getTopK())
                     .numCandidates(Math.max(100, query.getTopK() * 2))
@@ -121,7 +120,7 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
                 .size(topK);
         requestBuilder.query(q -> q.bool(b -> b.mustNot(mn -> mn.term(t -> t.field("id").value(Long.parseLong(excludeDocId))))));
         requestBuilder.knn(builder -> builder
-                .field(EMBEDDING_FIELD)
+                .field("imageEmbedding")
                 .queryVector(vector)
                 .filter(f -> f.bool(b -> b.mustNot(mn -> mn.term(t -> t.field("id").value(Long.parseLong(excludeDocId))))))
                 .k(topK)
@@ -145,7 +144,7 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
             SearchResponse<ImageDocument> response = esClient.search(s -> s
                             .index(IMAGE_INDEX)
                             .knn(k -> k
-                                    .field(EMBEDDING_FIELD)
+                                    .field("imageEmbedding")
                                     .queryVector(vector)
                                     .k(1) // top 1
                                     .numCandidates(10)

@@ -64,8 +64,6 @@ public class CommonConstant {
 
     public static final int SIMILARITY_TOP_K = 10;
 
-    public static final String EMBEDDING_FIELD = "imageEmbedding";
-
     public static final Integer DEFAULT_RESULT_LIMIT = 20;
 
     public static final String VECTOR_CACHE_PREFIX = "search:vector:";
