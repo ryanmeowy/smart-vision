@@ -1,4 +1,4 @@
-# 🌌 SmartVision - 企业级多模态 RAG 检索引擎
+# 🌌 SmartVision - 多模态 RAG 检索引擎
 
 [![Java 21](https://img.shields.io/badge/JDK-21-orange.svg)](https://openjdk.org/)
 [![Spring Boot 3.5.8](https://img.shields.io/badge/Spring%20Boot-3.5.8-green.svg)](https://spring.io/projects/spring-boot)
@@ -31,8 +31,6 @@
 IO 与逻辑的读写分离 (CQRS):
 - 写链路：采用 客户端直传 OSS 方案，将重 IO 的图片上传流量与后端逻辑剥离；后端采用 异步流水线 处理数据入库，确保写入高负载不阻塞读取请求。
 - 读链路：搜索请求独立处理，配合 Redis 语义缓存，保证毫秒级查询响应。
-
-![img.png](image/img.png)
 
 ```mermaid
 graph TD
@@ -96,8 +94,8 @@ graph TD
     Gateway -- "1-5 Request" -->Controller
     Controller -- "1-6 Async Task" --> AsyncService
     AsyncService -- "1-7 调用能力" --> ACL_AI
-    ACL_AI -- "1-8 SDK Request" --> AI_SaaS
-    AsyncService -- "1-9 签名 URL" --> ACL_OSS
+    AsyncService -- "1-8 签名 URL" --> ACL_OSS
+    ACL_AI -- "1-9 SDK Request" --> AI_SaaS
     AsyncService -- "1-10 Bulk Insert" --> Strategy
     Strategy -- "1-11 Save" --> ES
 
@@ -121,13 +119,13 @@ graph TD
 
 ---
 
-## ⚡️ 核心技术 (Key Features)
+## ⚡️ 核心点 (Key Point)
 
 #### 1. 生产级的“混合召回”策略 (Hybrid Retrieval Strategy)
 单纯的 HNSW 向量检索在实际业务中往往不够用。本项目制定了一套**多路召回 + 动态加权**的策略：
 *   **语义路 (Semantic Path)**：利用 `multimodal-embedding-v1` 模型提取 1024 维视觉特征，解决“搜感觉、搜风格”的问题。
 *   **文本路 (Lexical Path)**：集成 OCR 提取图片文字，结合 ES 的 `ik_max_word` 和 `ik_smart` 分词器，解决“搜发票号、搜广告语”的问题。
-*   **排序逻辑**：通过自定义评分公式（`Vector_Score * 系数a + BM25_Score * 系数b`），在保留语义相关性的同时，让包含精准关键词的结果置顶。
+*   **排序逻辑**：通过自定义的分段线性插值映射算法，在保留语义相关性的同时，让包含精准关键词的结果置顶。
 
 #### 2. “零阻塞”上传 (Zero-Blocking Upload)
 针对图片上传这种 **I/O 密集型** 任务，摒弃了传统的“前端->后端->OSS”的数据流链路，改为 **客户端直传 (STS)** 模式：
