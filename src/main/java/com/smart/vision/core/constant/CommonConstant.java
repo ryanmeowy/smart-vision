@@ -52,9 +52,9 @@ public class CommonConstant {
 
     public static final float DEFAULT_EMBEDDING_BOOST = 0.9f;
 
-    public static final float DEFAULT_OCR_BOOST = 0.5f;
+    public static final float DEFAULT_OCR_BOOST = 0.4f;
 
-    public static final float DEFAULT_TAG_BOOST = 0.2f;
+    public static final float DEFAULT_TAG_BOOST = 0.4f;
 
     public static final float DEFAULT_FIELD_NAME_BOOST = 0.2f;
 
