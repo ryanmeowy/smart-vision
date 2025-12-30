@@ -155,7 +155,7 @@ AI 服务（Embedding/LLM）通常是系统的性能瓶颈与成本中心，本�
 | **Search** | Elasticsearch 8.18 | HNSW 向量索引 + BM25 倒排索引 |
 | **AI / LLM** | Aliyun DashScope | 通义万相 (Embedding), Qwen-VL (OCR/Tagging) |
 | **Storage** | Aliyun OSS | 对象存储，结合 OSS SDK 进行图片预处理 |
-| **Cache** | Redis 7.x | 语义缓存与分布式锁 |
+| **Cache** | Redis 7.x | 语义缓存 |
 | **Frontend** | Vue 3, TypeScript, Vite | 瀑布流展示与上传组件 |
 
 ---
