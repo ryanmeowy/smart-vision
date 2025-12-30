@@ -1,5 +1,4 @@
 package com.smart.vision.core.util;
-
 /**
  * Utility class for score formatting.
  * Provides methods to format raw scores into display scores based on predefined intervals.
@@ -10,42 +9,71 @@ package com.smart.vision.core.util;
 public class ScoreUtil {
 
     /**
-     * Formats the raw score into a display score based on specific intervals.
-     * Interval 1: [0.0, 0.5) -> 0% ~ 40%
-     * Formula: y = (x / 0.5) * 40
-     * Interval 2: [0.5, 0.7) -> 40% ~ 80%
-     * Formula: y = 40 + ((x - 0.5) / 0.2) * 40
-     * Interval 3: [0.7, +∞] -> 80% ~ 99%
-     * Formula: y = 80 + ((x - 0.7) / 0.3) * 19
-     * If the input exceeds 1.0, the score is capped at 99.0.
+     * score mapping algorithm
+     * Mapping rules:
+     * 1. [0.0, 0.4) -> [0.0, 0.65) : Power function (Square), slow start, accelerated sprint in the later stage
+     * 2. [0.4, 0.7) -> [0.65, 0.9) : Linear interpolation, smooth transition
+     * 3. [0.7, +∞)  -> [0.9, 1.0] : Exponential decay (Asymptotic), infinitely approaching 1.0
      *
-     * @param rawScore The raw score to be formatted.
-     * @return The formatted display score.
+     * @param rawScore Original score (ES Score)
+     * @return Double percentage from 0.0 to 0.99
      */
-    public static double formatDisplayScore(double rawScore) {
-        // Defensive handling: scores less than 0 are directly set to zero
-        if (rawScore < 0.0) {
-            return 0.0;
+    public static double mapScoreToPercentage(Double rawScore) {
+        if (rawScore == null || rawScore <= 0) {
+            return 0;
         }
 
-        // First interval: [0.0, 0.5) -> 0% ~ 40%
-        // Formula: y = (x / 0.5) * 40
-        if (rawScore < 0.5) {
-            return (rawScore / 0.5) * 0.40;
+        double result;
+
+        if (rawScore < 0.4) {
+            // --- Segment 1: Slow -> Fast (Quadratic Curve) ---
+            // Formula: Ratio * (x / Range)^2
+            // Input 0.2 (halfway) -> Output 0.65 * 0.25 = 0.16 (far below halfway)
+            // Input 0.39 (close to endpoint) -> Close to 0.65
+            result = 0.65 * Math.pow(rawScore / 0.4, 2);
+        
+        } else if (rawScore < 0.7) {
+            // --- Segment 2: Smooth rise (Linear) ---
+            // Span: Input 0.3, Output 0.25
+            // Slope: 0.25 / 0.3 ≈ 0.83
+            result = 0.65 + ((rawScore - 0.4) / 0.3) * 0.25;
+        
+        } else {
+            // --- Segment 3: Marginal decrease (Exponential Decay) ---
+            // Formula: Max - (Max - Base) * e^(-k * dx)
+            // Function characteristic: The larger x, the slower the growth, never exceeding 1.0
+            // k=2.0 is an empirical coefficient controlling the saturation speed
+            result = 1.0 - 0.1 * Math.exp(-2.0 * (rawScore - 0.7));
         }
+        return result;
+    }
 
-        // Second interval: [0.5, 0.7) -> 40% ~ 80%
-        // Formula: y = 40 + ((x - 0.5) / 0.2) * 40
-        if (rawScore < 0.7) {
-            return 0.40 + ((rawScore - 0.5) / 0.2) * 0.40;
-        }
+    // --- Test validation ---
+    public static void main(String[] args) {
+        // 1. Low score segment test (slow start)
+        test(0.1); // Expected: very low
+        test(0.2);
+        test(0.35); // Expected: rapid rise
+        test(0.39); // Expected: close to 65%
 
-        // Third interval: [0.7, +∞] -> 80% ~ 99%
-        // Assume the normal full score is 1.0. Formula: y = 80 + ((x - 0.7) / 0.3) * 19
-        // If the input exceeds 1.0 (e.g., due to boost), use min to forcibly cap it at 99.0
-        double result = 0.80 + ((rawScore - 0.7) / 0.3) * 0.19;
+        System.out.println("----------------");
+        
+        // 2. Middle score segment test (smooth)
+        test(0.4);  // Exactly 65%
+        test(0.55); // Middle value
+        test(0.69); // Close to 90%
 
-        // Cap at 99.0
-        return Math.min(result, 0.99);
+        System.out.println("----------------");
+
+        // 3. High score segment test (marginal decrease)
+        test(0.7);  // Exactly 90%
+        test(0.8);  // 91%
+        test(1.5);  // 98%
+        test(3.0);  // 99%
+        test(10.0); // 100% (extreme value)
+    }
+
+    private static void test(double score) {
+        System.out.printf("Raw: %-5s -> Result: %d%%%n", score, (int) (mapScoreToPercentage(score) * 100));
     }
 }
