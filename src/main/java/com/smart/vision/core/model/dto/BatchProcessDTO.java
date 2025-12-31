@@ -24,4 +24,10 @@ public class BatchProcessDTO {
      * original file name
      */
     private String fileName;
+
+    /**
+     * File fingerprint (MD5)
+     */
+    private String fileHash;
+
 }

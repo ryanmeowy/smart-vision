@@ -1,25 +1,35 @@
 package com.smart.vision.core.service.ingestion.impl;
 
 import cn.hutool.core.util.IdUtil;
-import com.aliyun.core.utils.StringUtils;
 import com.smart.vision.core.component.EsBatchTemplate;
-import com.smart.vision.core.manager.*;
+import com.smart.vision.core.manager.AliyunGenManager;
+import com.smart.vision.core.manager.AliyunOcrManager;
+import com.smart.vision.core.manager.AliyunTaggingManager;
+import com.smart.vision.core.manager.BailianEmbeddingManager;
+import com.smart.vision.core.manager.OssManager;
 import com.smart.vision.core.model.dto.BatchProcessDTO;
 import com.smart.vision.core.model.dto.BatchUploadResultDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
-import com.smart.vision.core.repository.ImageRepository;
 import com.smart.vision.core.service.ingestion.ImageIngestionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.logging.log4j.util.Strings;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
-import static com.smart.vision.core.constant.CommonConstant.*;
+import static com.smart.vision.core.constant.CommonConstant.HASH_INDEX_PREFIX;
+import static com.smart.vision.core.constant.CommonConstant.X_OSS_PROCESS_EMBEDDING;
+import static com.smart.vision.core.constant.CommonConstant.X_OSS_PROCESS_OCR;
 import static com.smart.vision.core.model.enums.PresignedValidityEnum.SHORT_TERM_VALIDITY;
 
 /**
@@ -38,15 +48,22 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
     private final AliyunOcrManager ocrManager;
     private final EsBatchTemplate esBatchTemplate;
     private final Executor embedTaskExecutor;
-    private final ImageRepository imageRepository;
     private final AliyunTaggingManager aliyunTaggingManager;
     private final AliyunGenManager genManager;
+    private final StringRedisTemplate redisTemplate;
+    
 
     public BatchUploadResultDTO processBatchItems(List<BatchProcessDTO> items) {
+        Set<String> seenHashes = new HashSet<>();
+        List<BatchProcessDTO> uniqueItems = items.stream()
+                .filter(x -> Objects.nonNull(x.getFileHash()))
+                .filter(x -> seenHashes.add(x.getFileHash()))
+                .toList();
+
         List<ImageDocument> successDocs = Collections.synchronizedList(new ArrayList<>());
         List<BatchUploadResultDTO.BatchFailureItem> failures = Collections.synchronizedList(new ArrayList<>());
 
-        List<CompletableFuture<Void>> futures = items.stream()
+        List<CompletableFuture<Void>> futures = uniqueItems.stream()
                 .map(item -> CompletableFuture.runAsync(() -> {
                     try {
                         processSingleItem(item, successDocs);
@@ -100,12 +117,11 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         String ocrText = ocrManager.fetchOcrContent(tempUrl2OCR);
         List<String> tags = aliyunTaggingManager.generateTags(tempUrl2OCR);
 
-        // Set threshold to 0.98 (Highly similar)
-        ImageDocument duplicate = imageRepository.findDuplicate(vector, DUPLICATE_THRESHOLD);
-        if (duplicate != null) {
-            log.info("Duplicate image detected: {} is highly similar to {} in the database, skipping storage", item.getFileName(), duplicate.getId());
+        if (redisTemplate.hasKey(HASH_INDEX_PREFIX + item.getFileHash())) {
+            log.info("Duplicate image hash [{}] [{}]", item.getFileHash(), item.getFileName());
             throw new RuntimeException("重复图片, 已跳过");
         }
+        redisTemplate.opsForValue().set(HASH_INDEX_PREFIX + item.getFileHash(), "1");
 
         ImageDocument doc = new ImageDocument();
         doc.setId(IdUtil.getSnowflakeNextId());
@@ -116,16 +132,17 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         doc.setOcrContent(ocrText);
         doc.setCreateTime(System.currentTimeMillis());
         doc.setTags(tags);
+        doc.setFileHash(item.getFileHash());
         successDocs.add(doc);
     }
 
     private String genFileName(String imageUrl) {
-        if (StringUtils.isBlank(imageUrl)) {
-            return StringUtils.EMPTY;
+        if (!StringUtils.hasText(imageUrl)) {
+            return Strings.EMPTY;
         }
         String name = genManager.GenFileName(imageUrl);
-        if (StringUtils.isBlank(name)) {
-            return StringUtils.EMPTY;
+        if (!StringUtils.hasText(name)) {
+            return Strings.EMPTY;
         }
         return String.format("%s-%s", name, System.currentTimeMillis());
     }

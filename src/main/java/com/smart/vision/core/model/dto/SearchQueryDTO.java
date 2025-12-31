@@ -1,6 +1,5 @@
 package com.smart.vision.core.model.dto;
 
-import co.elastic.clients.elasticsearch._types.FieldValue;
 import lombok.Data;
 
 import java.util.List;
@@ -47,6 +46,6 @@ public class SearchQueryDTO {
     /**
      * Search cursor for pagination
      */
-    private List<FieldValue> searchAfter;
+    private List<Object> searchAfter;
 
 }

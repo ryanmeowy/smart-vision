@@ -68,6 +68,8 @@ public class CommonConstant {
 
     public static final String VECTOR_CACHE_PREFIX = "search:vector:";
 
+    public static final String HASH_INDEX_PREFIX = "img:hash:";
+
     public static final Long SSE_TIMEOUT = 60_000L;
 
     public static final String ALGORITHM = "AES/CBC/PKCS5Padding";

@@ -1,6 +1,7 @@
 package com.smart.vision.core.repository.impl;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
@@ -76,7 +77,7 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
         requestBuilder.sort(so -> so.field(f -> f.field("id").order(SortOrder.Asc)));
 
         if (query.getSearchAfter() != null && !query.getSearchAfter().isEmpty()) {
-            requestBuilder.searchAfter(query.getSearchAfter());
+            requestBuilder.searchAfter(query.getSearchAfter().stream().map(FieldValue::of).collect(Collectors.toList()));
         }
         SearchRequest request = requestBuilder.build();
         try {
@@ -105,9 +106,18 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
                     return ImageSearchResultDTO.builder()
                             .document(doc)
                             .score(mapScoreToPercentage(hit.score()))
-                            .sortValues(hit.sort())
+                            .sortValues(hit.sort().stream().map(this::unwrapFieldValue).collect(Collectors.toList()))
                             .build();
                 }).collect(Collectors.toList());
+    }
+
+    private Object unwrapFieldValue(FieldValue fv) {
+        if (fv == null) return null;
+        if (fv.isDouble()) return fv.doubleValue();
+        if (fv.isLong()) return String.valueOf(fv.longValue());
+        if (fv.isString()) return fv.stringValue();
+        if (fv.isBoolean()) return fv.booleanValue();
+        return fv._get();
     }
 
     @Override

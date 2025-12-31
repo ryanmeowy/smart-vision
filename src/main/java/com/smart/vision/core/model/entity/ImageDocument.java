@@ -69,4 +69,10 @@ public class ImageDocument {
      */
     @Field(type = FieldType.Keyword)
     private List<String> tags;
+
+    /**
+     * File fingerprint (MD5)
+     */
+    @Field(type = FieldType.Keyword)
+    private String fileHash;
 }
