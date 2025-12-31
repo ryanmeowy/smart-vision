@@ -10,7 +10,6 @@ import com.smart.vision.core.manager.OssManager;
 import com.smart.vision.core.model.dto.BatchProcessDTO;
 import com.smart.vision.core.model.dto.BatchUploadResultDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
-import com.smart.vision.core.repository.ImageRepository;
 import com.smart.vision.core.service.ingestion.ImageIngestionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,9 +26,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.stream.Collectors;
 
-import static com.smart.vision.core.constant.CommonConstant.DUPLICATE_THRESHOLD;
 import static com.smart.vision.core.constant.CommonConstant.HASH_INDEX_PREFIX;
 import static com.smart.vision.core.constant.CommonConstant.X_OSS_PROCESS_EMBEDDING;
 import static com.smart.vision.core.constant.CommonConstant.X_OSS_PROCESS_OCR;
@@ -51,7 +48,6 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
     private final AliyunOcrManager ocrManager;
     private final EsBatchTemplate esBatchTemplate;
     private final Executor embedTaskExecutor;
-    private final ImageRepository imageRepository;
     private final AliyunTaggingManager aliyunTaggingManager;
     private final AliyunGenManager genManager;
     private final StringRedisTemplate redisTemplate;
