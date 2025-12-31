@@ -1,6 +1,5 @@
 package com.smart.vision.core.model.dto;
 
-import co.elastic.clients.elasticsearch._types.FieldValue;
 import com.smart.vision.core.model.entity.ImageDocument;
 import lombok.Builder;
 import lombok.Data;
@@ -28,6 +27,6 @@ public class ImageSearchResultDTO {
     /**
      * Search cursor for pagination
      */
-    private List<FieldValue> sortValues;
+    private List<Object> sortValues;
 }
   

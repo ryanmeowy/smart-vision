@@ -3,7 +3,11 @@ package com.smart.vision.core.service.ingestion.impl;
 import cn.hutool.core.util.IdUtil;
 import com.aliyun.core.utils.StringUtils;
 import com.smart.vision.core.component.EsBatchTemplate;
-import com.smart.vision.core.manager.*;
+import com.smart.vision.core.manager.AliyunGenManager;
+import com.smart.vision.core.manager.AliyunOcrManager;
+import com.smart.vision.core.manager.AliyunTaggingManager;
+import com.smart.vision.core.manager.BailianEmbeddingManager;
+import com.smart.vision.core.manager.OssManager;
 import com.smart.vision.core.model.dto.BatchProcessDTO;
 import com.smart.vision.core.model.dto.BatchUploadResultDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
@@ -19,7 +23,9 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
-import static com.smart.vision.core.constant.CommonConstant.*;
+import static com.smart.vision.core.constant.CommonConstant.DUPLICATE_THRESHOLD;
+import static com.smart.vision.core.constant.CommonConstant.X_OSS_PROCESS_EMBEDDING;
+import static com.smart.vision.core.constant.CommonConstant.X_OSS_PROCESS_OCR;
 import static com.smart.vision.core.model.enums.PresignedValidityEnum.SHORT_TERM_VALIDITY;
 
 /**
