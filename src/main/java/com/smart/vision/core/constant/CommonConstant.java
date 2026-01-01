@@ -87,5 +87,7 @@ public class CommonConstant {
     public static final String DIGIT_REGEX = "^[0-9]+$";
 
     public static final String TAG_REGEX = "```json\\s*(\\[.*?])\\s*```";
+
+    public static final Integer MAX_INPUT_LENGTH = 50;
 }
 
