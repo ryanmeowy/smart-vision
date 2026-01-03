@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Collections;
 import java.util.List;
 
+import static com.smart.vision.core.constant.CommonConstant.MAX_INPUT_LENGTH;
+
 /**
  * rest api controller for vision search functionality;
  *
@@ -29,7 +31,7 @@ public class SearchApiController {
 
     @PostMapping("/search")
     public Result<List<SearchResultDTO>> search(@RequestBody SearchQueryDTO query) {
-        if (null == query || null == query.getKeyword()) {
+        if (null == query || null == query.getKeyword() || query.getKeyword().length() > MAX_INPUT_LENGTH) {
             return Result.success(Collections.emptyList());
         }
         return Result.success(searchService.search(query));
