@@ -2,11 +2,9 @@ package com.smart.vision.core.model.context;
 
 import co.elastic.clients.elasticsearch._types.SortOptions;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
-import co.elastic.clients.elasticsearch._types.query_dsl.QueryBase;
 import co.elastic.clients.util.ObjectBuilder;
 import lombok.Builder;
 import lombok.Data;
-import org.springframework.data.elasticsearch.core.query.BaseQuery;
 
 import java.util.List;
 
@@ -25,6 +23,8 @@ public class QueryContext {
     @Data
     @Builder
     public static class KnnQuery {
+        private String fieldName;
+        private List<Float> queryVector;
         private Integer topK;
         private Float similarity;
         private Integer numCandidates;

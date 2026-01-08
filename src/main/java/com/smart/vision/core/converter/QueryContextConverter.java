@@ -12,6 +12,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
+import static com.smart.vision.core.constant.CommonConstant.DEFAULT_EMBEDDING_BOOST;
+import static com.smart.vision.core.constant.CommonConstant.DEFAULT_NUM_CANDIDATES;
 import static com.smart.vision.core.constant.CommonConstant.SMART_GALLERY_V1;
 
 @Component
@@ -62,8 +64,8 @@ public class QueryContextConverter {
         return QueryContext.KnnQuery.builder()
                 .topK(query.getTopK())
                 .similarity(query.getSimilarity())
-                .boost(query.getSimilarity())
-                .numCandidates(Math.max(100, query.getTopK() * 2))
+                .boost(DEFAULT_EMBEDDING_BOOST)
+                .numCandidates(Math.max(DEFAULT_NUM_CANDIDATES, query.getTopK() * 2))
                 .build();
     }
 }

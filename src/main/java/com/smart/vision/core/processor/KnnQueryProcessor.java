@@ -8,23 +8,20 @@ import org.springframework.stereotype.Component;
 
 import java.util.Objects;
 
-import static com.smart.vision.core.constant.CommonConstant.DEFAULT_EMBEDDING_BOOST;
-import static com.smart.vision.core.constant.CommonConstant.MINIMUM_SIMILARITY;
-
 @Component
 public class KnnQueryProcessor implements QueryProcessor{
     @Override
     public void process(QueryContext context, SearchRequest.Builder builder) {
-//        invokeIfPresent(context::getQueryVector, CollectionUtil::isNotEmpty, v -> {
-//            builder.knn(k -> k
-//                    .field("imageEmbedding")
-//                    .queryVector(v)
-//                    .k(context.getTopK())
-//                    .numCandidates(Math.max(100, context.getTopK() * 2))
-//                    .boost(DEFAULT_EMBEDDING_BOOST)
-//                    .similarity(null == context.getSimilarity() ? MINIMUM_SIMILARITY : context.getSimilarity())
-//            );
-//        });
+        invokeIfPresent(context::getKnnQuery, Objects::nonNull, kq -> {
+            KnnSearch.Builder knnBuilder = new KnnSearch.Builder();
+            knnBuilder.field(kq.getFieldName());
+            knnBuilder.queryVector(kq.getQueryVector());
+            builder.knn(knnBuilder.build());
+
+        });
+
+
+
         invokeIfPresent(context::getQueryVector, CollectionUtil::isNotEmpty, v -> {
             KnnSearch.Builder knnBuilder = new KnnSearch.Builder();
             knnBuilder.field("imageEmbedding");
