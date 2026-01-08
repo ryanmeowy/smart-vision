@@ -5,9 +5,9 @@ import com.smart.vision.core.model.context.QueryContext;
 import com.smart.vision.core.model.context.SortContext;
 import com.smart.vision.core.model.dto.SearchQueryDTO;
 import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -18,37 +18,28 @@ import static com.smart.vision.core.constant.CommonConstant.SMART_GALLERY_V1;
 
 @Component
 public class QueryContextConverter {
-    public QueryContext context4HybridSearch(SearchQueryDTO query, List<Float> queryVector, SortContext... sortContext) {
+    public QueryContext context4HybridSearch(SearchQueryDTO query, List<Float> queryVector, List<SortContext> sortContextList) {
         return QueryContext.builder()
-                .keyword(query.getKeyword())
-                .queryVector(queryVector)
                 .indexName(SMART_GALLERY_V1)
                 .limit(query.getLimit())
                 .searchAfter(query.getSearchAfter())
-                .sortOptions(convert2SortOptions(sortContext))
-                .knnQuery(convert2KnnQuery(query))
-                .fieldQuery(convert2FieldQuery(query))
+                .sortOptions(convert2SortOptions(sortContextList))
+                .knnQuery(knnQuery4HybridSearch(query, queryVector))
                 .build();
     }
 
-    private List<QueryContext.FieldQuery> convert2FieldQuery(SearchQueryDTO query) {
-        return null;
-    }
-
-
-    private List<SortOptions> convert2SortOptions(SortContext... sortContextList) {
-        if (sortContextList == null || sortContextList.length == 0) {
+    private List<SortOptions> convert2SortOptions(List<SortContext> sortContextList) {
+        if (CollectionUtils.isEmpty(sortContextList)) {
             return Collections.emptyList();
         }
-
-        List<SortContext> sortContexts = Arrays.stream(sortContextList).filter(Objects::nonNull)
+        sortContextList = sortContextList.stream().filter(Objects::nonNull)
                 .filter(x -> null != x.getKind())
                 .filter(x -> null != x.getOrder())
                 .filter(x -> x.getKind() != SortOptions.Kind.Score && null == x.getField())
                 .toList();
 
         List<SortOptions> sortOptionsList = new ArrayList<>();
-        for (SortContext sortContext : sortContexts) {
+        for (SortContext sortContext : sortContextList) {
             if (SortOptions.Kind.Score == sortContext.getKind()) {
                 sortOptionsList.add(new SortOptions.Builder().score(sc -> sc.order(sortContext.getOrder())).build());
             }
@@ -60,12 +51,22 @@ public class QueryContextConverter {
         return sortOptionsList;
     }
 
-    private QueryContext.KnnQuery convert2KnnQuery(SearchQueryDTO query) {
+    private QueryContext.KnnQuery knnQuery4HybridSearch(SearchQueryDTO query, List<Float> queryVector) {
         return QueryContext.KnnQuery.builder()
+                .fieldName("imageEmbedding")
+                .queryVector(queryVector)
                 .topK(query.getTopK())
                 .similarity(query.getSimilarity())
                 .boost(DEFAULT_EMBEDDING_BOOST)
                 .numCandidates(Math.max(DEFAULT_NUM_CANDIDATES, query.getTopK() * 2))
                 .build();
+    }
+
+    public QueryContext context4SimilarSearch(List<Float> vector, Integer topK, String excludeDocId, List<SortContext> sortContextList) {
+        return QueryContext.builder()
+                .indexName(SMART_GALLERY_V1)
+                .limit(topK)
+                .sortOptions(convert2SortOptions(sortContextList))
+
     }
 }
