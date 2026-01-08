@@ -2,6 +2,7 @@ package com.smart.vision.core.service.search;
 
 import com.smart.vision.core.model.dto.SearchQueryDTO;
 import com.smart.vision.core.model.dto.SearchResultDTO;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -36,4 +37,6 @@ public interface SmartSearchService {
      * @return list of search results with image metadata, scores, and highlighted content
      */
     List<SearchResultDTO> searchByVector(String docId);
+
+    List<SearchResultDTO> searchByImage(MultipartFile file, int limit);
 }

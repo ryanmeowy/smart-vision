@@ -12,7 +12,7 @@ import java.util.List;
  */
 public class CommonConstant {
 
-    public static final String IMAGE_INDEX = "smart_gallery_v1";
+    public static final String SMART_GALLERY_V1 = "smart_gallery_v1";
 
     public static final Float MINIMUM_SIMILARITY = 0.2f;
 
@@ -89,5 +89,9 @@ public class CommonConstant {
     public static final String TAG_REGEX = "```json\\s*(\\[.*?])\\s*```";
 
     public static final Integer MAX_INPUT_LENGTH = 50;
+
+    public static final String IMAGE_MD5_CACHE_PREFIX = "search:img:md5:";
+
+    public static final Integer IMAGE_MAX_SIZE = 10 * 1024 * 1024;
 }
 

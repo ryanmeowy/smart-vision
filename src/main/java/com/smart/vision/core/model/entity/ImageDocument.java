@@ -1,7 +1,5 @@
 package com.smart.vision.core.model.entity;
 
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
@@ -10,7 +8,7 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.List;
 
-import static com.smart.vision.core.constant.CommonConstant.IMAGE_INDEX;
+import static com.smart.vision.core.constant.CommonConstant.SMART_GALLERY_V1;
 
 /**
  * image doc model for elasticsearch
@@ -19,7 +17,7 @@ import static com.smart.vision.core.constant.CommonConstant.IMAGE_INDEX;
  * @since 2025/12/15
  */
 @Data
-@Document(indexName = IMAGE_INDEX) // index name
+@Document(indexName = SMART_GALLERY_V1) // index name
 public class ImageDocument {
     /**
      * Image ID (ES Doc ID)

@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.net.URL;
 import java.util.Date;
@@ -58,5 +59,9 @@ public class OssManager {
         request.addQueryParameter("x-oss-process", processParam);
         URL url = ossClient.generatePresignedUrl(request);
         return url.toString();
+    }
+
+    public String uploadFile(MultipartFile file) {
+        return null;
     }
 }

@@ -1,7 +1,9 @@
 package com.smart.vision.core.service.search.impl;
 
+import com.google.common.collect.Lists;
 import com.smart.vision.core.manager.BailianEmbeddingManager;
 import com.smart.vision.core.manager.HotSearchManager;
+import com.smart.vision.core.manager.OssManager;
 import com.smart.vision.core.model.dto.ImageSearchResultDTO;
 import com.smart.vision.core.model.dto.SearchQueryDTO;
 import com.smart.vision.core.model.dto.SearchResultDTO;
@@ -18,13 +20,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.DigestUtils;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import static com.smart.vision.core.constant.CommonConstant.IMAGE_MD5_CACHE_PREFIX;
 import static com.smart.vision.core.constant.CommonConstant.SIMILARITY_TOP_K;
 import static com.smart.vision.core.constant.CommonConstant.VECTOR_CACHE_PREFIX;
+import static com.smart.vision.core.constant.CommonConstant.X_OSS_PROCESS_EMBEDDING;
+import static com.smart.vision.core.model.enums.PresignedValidityEnum.SHORT_TERM_VALIDITY;
 
 /**
  * Smart search service implementation
@@ -42,6 +48,7 @@ public class SmartSearchServiceImpl implements SmartSearchService {
     private final HotSearchManager hotSearchManager;
     private final StrategyFactory strategyFactory;
     private final RedisTemplate<String, List<Float>> redisTemplate;
+    private final OssManager ossManager;
 
     public List<SearchResultDTO> search(SearchQueryDTO query) {
         if (StringUtils.hasText(query.getKeyword())) {
@@ -114,4 +121,29 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         return VECTOR_CACHE_PREFIX + DigestUtils.md5DigestAsHex(text.trim().toLowerCase().getBytes());
     }
 
+    @Override
+    public List<SearchResultDTO> searchByImage(MultipartFile file, int limit) {
+        try {
+            String md5 = DigestUtils.md5DigestAsHex(file.getInputStream());
+            String cacheKey = IMAGE_MD5_CACHE_PREFIX + md5;
+            List<Float> vector = redisTemplate.opsForValue().get(cacheKey);
+            if (vector != null) {
+                log.info("Cache hit, MD5: {}", md5);
+            } else {
+                log.info("Cache missed, processing new image, MD5: {}", md5);
+                String objectKey = ossManager.uploadFile(file);
+                String tempAiUrl = ossManager.getAiPresignedUrl(objectKey, SHORT_TERM_VALIDITY.getValidity(), X_OSS_PROCESS_EMBEDDING);
+                vector = embeddingManager.embedImage(tempAiUrl);
+
+                redisTemplate.opsForValue().set(cacheKey, vector, 1, TimeUnit.DAYS);
+            }
+            SearchQueryDTO searchQueryDTO = new SearchQueryDTO();
+            searchQueryDTO.setLimit(limit);
+            List<ImageSearchResultDTO> imageSearchResultDTOS = imageRepository.hybridSearch(searchQueryDTO, vector);
+            return imageDocConvertor.convert2SearchResultDTO(imageSearchResultDTOS);
+        } catch (Exception e) {
+            log.error("Failed to search by image", e);
+            return Lists.newArrayList();
+        }
+    }
 }

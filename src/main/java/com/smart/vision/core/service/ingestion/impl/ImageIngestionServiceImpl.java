@@ -114,7 +114,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         String tempUrl2Embed = ossManager.getAiPresignedUrl(item.getKey(), SHORT_TERM_VALIDITY.getValidity(), X_OSS_PROCESS_EMBEDDING);
         List<Float> vector = embeddingManager.embedImage(tempUrl2Embed);
         String tempUrl2OCR = ossManager.getAiPresignedUrl(item.getKey(), SHORT_TERM_VALIDITY.getValidity(), X_OSS_PROCESS_OCR);
-        String ocrText = ocrManager.fetchOcrContent(tempUrl2OCR);
+        String ocrText = ocrManager.llmOcrContent(tempUrl2OCR);
         List<String> tags = aliyunTaggingManager.generateTags(tempUrl2OCR);
 
         if (redisTemplate.hasKey(HASH_INDEX_PREFIX + item.getFileHash())) {
