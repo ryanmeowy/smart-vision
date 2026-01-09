@@ -19,5 +19,8 @@ public class GeneralQueryProcessor implements QueryProcessor {
         invokeIfPresent(context::getSearchAfter, CollectionUtil::isNotEmpty,
                 objects -> builder.searchAfter(context.getSearchAfter().stream().map(FieldValue::of).collect(Collectors.toList())));
         invokeIfPresent(context::getSortOptions, CollectionUtil::isNotEmpty, builder::sort);
+        invokeIfPresent(context::getId, StringUtils::hasText,
+                id -> invokeIfPresent(context::getFilter, CollectionUtil::isNotEmpty,
+                        f -> f.forEach(x -> builder.query(x.apply(id)))));
     }
 }

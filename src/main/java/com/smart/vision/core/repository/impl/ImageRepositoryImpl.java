@@ -18,16 +18,10 @@ import com.smart.vision.core.repository.ImageRepositoryCustom;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
-import org.springframework.util.CollectionUtils;
 
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
-
-import static com.smart.vision.core.constant.CommonConstant.DEFAULT_NUM_CANDIDATES;
-import static com.smart.vision.core.constant.CommonConstant.NUM_CANDIDATES_FACTOR;
-import static com.smart.vision.core.constant.CommonConstant.SIMILAR_QUERIES_SIMILARITY;
-import static com.smart.vision.core.constant.CommonConstant.SMART_GALLERY_V1;
 
 /**
  * Hybrid search implementation
@@ -61,24 +55,11 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
 
     @Override
     public List<ImageSearchResultDTO> searchSimilar(List<Float> vector, Integer topK, String excludeDocId) {
-        SearchRequest.Builder requestBuilder = new SearchRequest.Builder()
-                .index(SMART_GALLERY_V1)
-                .size(topK);
+        SearchRequest.Builder requestBuilder = new SearchRequest.Builder();
         QueryContext context = contextConverter.context4SimilarSearch(vector, topK, excludeDocId, defaultSort());
-
-        requestBuilder.query(q -> q.bool(b -> b.mustNot(mn -> mn.term(t -> t.field("id").value(Long.parseLong(excludeDocId))))));
-        requestBuilder.knn(builder -> builder
-                .field("imageEmbedding")
-                .queryVector(vector)
-                .filter(f -> f.bool(b -> b.mustNot(mn -> mn.term(t -> t.field("id").value(Long.parseLong(excludeDocId))))))
-                .k(topK)
-                .numCandidates(Math.min(NUM_CANDIDATES_FACTOR * topK, DEFAULT_NUM_CANDIDATES))
-                .similarity(SIMILAR_QUERIES_SIMILARITY));
-        requestBuilder.sort(so -> so.score(sc -> sc.order(SortOrder.Desc)));
-        requestBuilder.sort(so -> so.field(f -> f.field("id").order(SortOrder.Asc)));
-        SearchRequest request = requestBuilder.build();
+        queryProcessorList.forEach(x -> x.process(context, requestBuilder));
         try {
-            SearchResponse<ImageDocument> response = esClient.search(request, ImageDocument.class);
+            SearchResponse<ImageDocument> response = esClient.search(requestBuilder.build(), ImageDocument.class);
             return converter.convert2Doc(response);
         } catch (IOException e) {
             log.error("Execution of finding similar failed", e);
@@ -88,25 +69,13 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
 
     @Override
     public ImageDocument findDuplicate(List<Float> vector, double threshold) {
+        SearchRequest.Builder requestBuilder = new SearchRequest.Builder();
+        QueryContext context = contextConverter.context4DuplicateSearch(vector, threshold);
+        queryProcessorList.forEach(x -> x.process(context, requestBuilder));
         try {
-            SearchResponse<ImageDocument> response = esClient.search(s -> s
-                            .index(SMART_GALLERY_V1)
-                            .knn(k -> k
-                                    .field("imageEmbedding")
-                                    .queryVector(vector)
-                                    .k(1) // top 1
-                                    .numCandidates(10)
-                                    .similarity((float) threshold)
-                            )
-                            .size(1),
-                    ImageDocument.class
-            );
-
-            if (!response.hits().hits().isEmpty()) {
-                return response.hits().hits().getFirst().source();
-            }
-            return null;
-        } catch (IOException e) {
+            SearchResponse<ImageDocument> response = esClient.search(requestBuilder.build(), ImageDocument.class);
+            return response.hits().hits().getFirst().source();
+        } catch (Exception e) {
             log.error("Duplicate check failed", e);
             return null;
         }

@@ -1,9 +1,13 @@
 package com.smart.vision.core.converter;
 
 import co.elastic.clients.elasticsearch._types.SortOptions;
+import com.google.common.collect.Lists;
 import com.smart.vision.core.model.context.QueryContext;
 import com.smart.vision.core.model.context.SortContext;
 import com.smart.vision.core.model.dto.SearchQueryDTO;
+import com.smart.vision.core.query.HybridSearchKeywordMatcher;
+import com.smart.vision.core.query.SimilarSearchIdMatcher;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
@@ -14,17 +18,26 @@ import java.util.Objects;
 
 import static com.smart.vision.core.constant.CommonConstant.DEFAULT_EMBEDDING_BOOST;
 import static com.smart.vision.core.constant.CommonConstant.DEFAULT_NUM_CANDIDATES;
+import static com.smart.vision.core.constant.CommonConstant.NUM_CANDIDATES_FACTOR;
+import static com.smart.vision.core.constant.CommonConstant.SIMILAR_QUERIES_SIMILARITY;
 import static com.smart.vision.core.constant.CommonConstant.SMART_GALLERY_V1;
 
 @Component
+@RequiredArgsConstructor
 public class QueryContextConverter {
+
+    private final HybridSearchKeywordMatcher hybridSearchKeywordMatcher;
+    private final SimilarSearchIdMatcher similarSearchIdMatcher;
+
     public QueryContext context4HybridSearch(SearchQueryDTO query, List<Float> queryVector, List<SortContext> sortContextList) {
         return QueryContext.builder()
                 .indexName(SMART_GALLERY_V1)
+                .keyword(query.getKeyword())
                 .limit(query.getLimit())
                 .searchAfter(query.getSearchAfter())
                 .sortOptions(convert2SortOptions(sortContextList))
                 .knnQuery(knnQuery4HybridSearch(query, queryVector))
+                .keywordFunc(Lists.newArrayList(hybridSearchKeywordMatcher::match))
                 .build();
     }
 
@@ -58,15 +71,48 @@ public class QueryContextConverter {
                 .topK(query.getTopK())
                 .similarity(query.getSimilarity())
                 .boost(DEFAULT_EMBEDDING_BOOST)
-                .numCandidates(Math.max(DEFAULT_NUM_CANDIDATES, query.getTopK() * 2))
+                .numCandidates(Math.max(DEFAULT_NUM_CANDIDATES, query.getTopK() * NUM_CANDIDATES_FACTOR))
                 .build();
     }
 
-    public QueryContext context4SimilarSearch(List<Float> vector, Integer topK, String excludeDocId, List<SortContext> sortContextList) {
+    public QueryContext context4SimilarSearch(List<Float> queryVector, Integer topK, String excludeDocId, List<SortContext> sortContextList) {
         return QueryContext.builder()
                 .indexName(SMART_GALLERY_V1)
+                .id(excludeDocId)
                 .limit(topK)
                 .sortOptions(convert2SortOptions(sortContextList))
+                .knnQuery(knnQuery4SimilarSearch(queryVector, topK))
+                .filter(Lists.newArrayList(similarSearchIdMatcher::match))
+                .build();
 
+    }
+
+    private QueryContext.KnnQuery knnQuery4SimilarSearch(List<Float> queryVector, Integer topK) {
+        return QueryContext.KnnQuery.builder()
+                .fieldName("imageEmbedding")
+                .queryVector(queryVector)
+                .filter(Lists.newArrayList(similarSearchIdMatcher::match))
+                .topK(topK)
+                .numCandidates(Math.max(NUM_CANDIDATES_FACTOR * topK, DEFAULT_NUM_CANDIDATES))
+                .similarity(SIMILAR_QUERIES_SIMILARITY)
+                .build();
+    }
+
+    public QueryContext context4DuplicateSearch(List<Float> vector, double threshold) {
+        return QueryContext.builder()
+                .indexName(SMART_GALLERY_V1)
+                .limit(1)
+                .knnQuery(knnQuery4DuplicateSearch(vector, threshold))
+                .build();
+    }
+
+    private QueryContext.KnnQuery knnQuery4DuplicateSearch(List<Float> vector, double threshold) {
+        return QueryContext.KnnQuery.builder()
+                .fieldName("imageEmbedding")
+                .queryVector(vector)
+                .topK(1)
+                .numCandidates(DEFAULT_NUM_CANDIDATES)
+                .similarity((float) threshold)
+                .build();
     }
 }
