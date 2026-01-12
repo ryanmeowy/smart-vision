@@ -1,15 +1,11 @@
 package com.smart.vision.core.repository.impl;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import co.elastic.clients.elasticsearch._types.SortOptions;
-import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
-import com.google.common.collect.Lists;
-import com.smart.vision.core.converter.QueryContextConverter;
-import com.smart.vision.core.converter.SearchResultConverter;
+import com.smart.vision.core.builder.QueryContextBuilder;
+import com.smart.vision.core.builder.SearchResultBuilder;
 import com.smart.vision.core.model.context.QueryContext;
-import com.smart.vision.core.model.context.SortContext;
 import com.smart.vision.core.model.dto.ImageSearchResultDTO;
 import com.smart.vision.core.model.dto.SearchQueryDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
@@ -36,13 +32,13 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
 
     private final ElasticsearchClient esClient;
     private final List<QueryProcessor> queryProcessorList;
-    private final SearchResultConverter converter;
-    private final QueryContextConverter contextConverter;
+    private final SearchResultBuilder converter;
+    private final QueryContextBuilder contextConverter;
 
     @Override
     public List<ImageSearchResultDTO> hybridSearch(SearchQueryDTO query, List<Float> queryVector) {
         SearchRequest.Builder requestBuilder = new SearchRequest.Builder();
-        QueryContext context = contextConverter.context4HybridSearch(query, queryVector, defaultSort());
+        QueryContext context = contextConverter.context4HybridSearch(query, queryVector, null);
         queryProcessorList.forEach(x -> x.process(context, requestBuilder));
         try {
             SearchResponse<ImageDocument> response = esClient.search(requestBuilder.build(), ImageDocument.class);
@@ -56,7 +52,7 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
     @Override
     public List<ImageSearchResultDTO> searchSimilar(List<Float> vector, Integer topK, String excludeDocId) {
         SearchRequest.Builder requestBuilder = new SearchRequest.Builder();
-        QueryContext context = contextConverter.context4SimilarSearch(vector, topK, excludeDocId, defaultSort());
+        QueryContext context = contextConverter.context4SimilarSearch(vector, topK, excludeDocId, null);
         queryProcessorList.forEach(x -> x.process(context, requestBuilder));
         try {
             SearchResponse<ImageDocument> response = esClient.search(requestBuilder.build(), ImageDocument.class);
@@ -79,11 +75,5 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
             log.error("Duplicate check failed", e);
             return null;
         }
-    }
-
-    private List<SortContext> defaultSort() {
-        SortContext scoreSort = SortContext.builder().kind(SortOptions.Kind.Score).order(SortOrder.Desc).build();
-        SortContext idSort = SortContext.builder().kind(SortOptions.Kind.Field).field("id").order(SortOrder.Asc).build();
-        return Lists.newArrayList(scoreSort, idSort);
     }
 }

@@ -1,6 +1,7 @@
-package com.smart.vision.core.converter;
+package com.smart.vision.core.builder;
 
 import co.elastic.clients.elasticsearch._types.SortOptions;
+import co.elastic.clients.elasticsearch._types.SortOrder;
 import com.google.common.collect.Lists;
 import com.smart.vision.core.model.context.QueryContext;
 import com.smart.vision.core.model.context.SortContext;
@@ -24,7 +25,7 @@ import static com.smart.vision.core.constant.CommonConstant.SMART_GALLERY_V1;
 
 @Component
 @RequiredArgsConstructor
-public class QueryContextConverter {
+public class QueryContextBuilder {
 
     private final HybridSearchKeywordMatcher hybridSearchKeywordMatcher;
     private final SimilarSearchIdMatcher similarSearchIdMatcher;
@@ -35,7 +36,7 @@ public class QueryContextConverter {
                 .keyword(query.getKeyword())
                 .limit(query.getLimit())
                 .searchAfter(query.getSearchAfter())
-                .sortOptions(convert2SortOptions(sortContextList))
+                .sortOptions(convert2SortOptions(null == sortContextList ? defaultSort() : sortContextList))
                 .knnQuery(knnQuery4HybridSearch(query, queryVector))
                 .keywordFunc(Lists.newArrayList(hybridSearchKeywordMatcher::match))
                 .build();
@@ -80,7 +81,7 @@ public class QueryContextConverter {
                 .indexName(SMART_GALLERY_V1)
                 .id(excludeDocId)
                 .limit(topK)
-                .sortOptions(convert2SortOptions(sortContextList))
+                .sortOptions(convert2SortOptions(null == sortContextList ? defaultSort() : sortContextList))
                 .knnQuery(knnQuery4SimilarSearch(queryVector, topK))
                 .filter(Lists.newArrayList(similarSearchIdMatcher::match))
                 .build();
@@ -114,5 +115,11 @@ public class QueryContextConverter {
                 .numCandidates(DEFAULT_NUM_CANDIDATES)
                 .similarity((float) threshold)
                 .build();
+    }
+
+    private List<SortContext> defaultSort() {
+        SortContext scoreSort = SortContext.builder().kind(SortOptions.Kind.Score).order(SortOrder.Desc).build();
+        SortContext idSort = SortContext.builder().kind(SortOptions.Kind.Field).field("id").order(SortOrder.Asc).build();
+        return Lists.newArrayList(scoreSort, idSort);
     }
 }
