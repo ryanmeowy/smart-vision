@@ -12,13 +12,13 @@ import java.util.List;
  */
 public class CommonConstant {
 
-    public static final String IMAGE_INDEX = "smart_gallery_v1";
+    public static final String SMART_GALLERY_V1 = "smart_gallery_v1";
 
     public static final Float MINIMUM_SIMILARITY = 0.2f;
 
     public static final Float SIMILAR_QUERIES_SIMILARITY = 0.6f;
     // Candidate set size, must be greater than topK. The larger the candidate set, the higher the recall accuracy, but the slower the recall speed.
-    public static final Integer DEFAULT_NUM_CANDIDATES = 10_000;
+    public static final Integer DEFAULT_NUM_CANDIDATES = 100;
 
     public static final Long DEFAULT_STS_DURATION_SECONDS = 15 * 60L;
 
@@ -42,7 +42,7 @@ public class CommonConstant {
 
     public static final int MAX_HOT_WORDS = 10; // 返回前10个
     // Fallback data (used during cold start)
-    public static final List<String>  FALLBACK_WORDS = Lists.newArrayList("森林", "大海", "猫", "赛博朋克", "发票");
+    public static final List<String> FALLBACK_WORDS = Lists.newArrayList("森林", "大海", "猫", "赛博朋克", "发票");
 
     public static final List<String> MOCK_BLOCKED_WORDS = Lists.newArrayList("色情", "暴力", "血腥");
 
@@ -89,5 +89,11 @@ public class CommonConstant {
     public static final String TAG_REGEX = "```json\\s*(\\[.*?])\\s*```";
 
     public static final Integer MAX_INPUT_LENGTH = 50;
+
+    public static final String IMAGE_MD5_CACHE_PREFIX = "search:img:md5:";
+
+    public static final Integer IMAGE_MAX_SIZE = 10 * 1024 * 1024;
+
+    public static final Integer IMAGE_TO_IMAGE_TOP_K = 20;
 }
 

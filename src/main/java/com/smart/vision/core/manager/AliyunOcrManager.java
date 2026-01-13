@@ -99,7 +99,7 @@ public class AliyunOcrManager {
     }
 
     @Retryable(retryFor = {RuntimeException.class}, backoff = @Backoff(delay = 1000, multiplier = 2))
-    public String fetchOcrContent(String imageUrl) {
+    public String llmOcrContent(String imageUrl) {
         MultiModalMessage userMessage = MultiModalMessage.builder()
                 .role("user")
                 .content(Arrays.asList(
