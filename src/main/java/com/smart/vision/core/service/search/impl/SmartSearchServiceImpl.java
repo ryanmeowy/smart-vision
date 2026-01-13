@@ -8,9 +8,11 @@ import com.smart.vision.core.model.dto.ImageSearchResultDTO;
 import com.smart.vision.core.model.dto.SearchQueryDTO;
 import com.smart.vision.core.model.dto.SearchResultDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
+import com.smart.vision.core.model.enums.StrategyTypeEnum;
 import com.smart.vision.core.repository.ImageRepository;
 import com.smart.vision.core.service.convert.ImageDocConvertor;
 import com.smart.vision.core.service.search.SmartSearchService;
+import com.smart.vision.core.strategy.ImageToImageRetrievalStrategy;
 import com.smart.vision.core.strategy.RetrievalStrategy;
 import com.smart.vision.core.strategy.StrategyFactory;
 import lombok.RequiredArgsConstructor;
@@ -135,11 +137,10 @@ public class SmartSearchServiceImpl implements SmartSearchService {
                 String tempAiUrl = ossManager.getAiPresignedUrl(objectKey, SHORT_TERM_VALIDITY.getValidity(), X_OSS_PROCESS_EMBEDDING);
                 vector = embeddingManager.embedImage(tempAiUrl);
 
-                redisTemplate.opsForValue().set(cacheKey, vector, 1, TimeUnit.DAYS);
+                redisTemplate.opsForValue().set(cacheKey, vector, 24, TimeUnit.HOURS);
             }
-            SearchQueryDTO searchQueryDTO = new SearchQueryDTO();
-            searchQueryDTO.setLimit(limit);
-            List<ImageSearchResultDTO> imageSearchResultDTOS = imageRepository.hybridSearch(searchQueryDTO, vector);
+            RetrievalStrategy strategy = strategyFactory.getStrategy(StrategyTypeEnum.IMAGE_TO_IMAGE.getCode());
+            List<ImageSearchResultDTO> imageSearchResultDTOS = strategy.search(null, vector);
             return imageDocConvertor.convert2SearchResultDTO(imageSearchResultDTOS);
         } catch (Exception e) {
             log.error("Failed to search by image", e);

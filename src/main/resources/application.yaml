@@ -8,6 +8,10 @@ spring:
       password: ${REDIS_PASSWORD}
       database: 0
       timeout: 3000ms
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
 
 aliyun:
   oss:

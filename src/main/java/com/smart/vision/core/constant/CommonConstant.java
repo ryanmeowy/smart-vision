@@ -42,7 +42,7 @@ public class CommonConstant {
 
     public static final int MAX_HOT_WORDS = 10; // 返回前10个
     // Fallback data (used during cold start)
-    public static final List<String>  FALLBACK_WORDS = Lists.newArrayList("森林", "大海", "猫", "赛博朋克", "发票");
+    public static final List<String> FALLBACK_WORDS = Lists.newArrayList("森林", "大海", "猫", "赛博朋克", "发票");
 
     public static final List<String> MOCK_BLOCKED_WORDS = Lists.newArrayList("色情", "暴力", "血腥");
 
@@ -93,5 +93,7 @@ public class CommonConstant {
     public static final String IMAGE_MD5_CACHE_PREFIX = "search:img:md5:";
 
     public static final Integer IMAGE_MAX_SIZE = 10 * 1024 * 1024;
+
+    public static final Integer IMAGE_TO_IMAGE_TOP_K = 20;
 }
 

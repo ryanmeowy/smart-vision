@@ -62,6 +62,13 @@ public class OssManager {
     }
 
     public String uploadFile(MultipartFile file) {
-        return null;
+        String fileName = "temp/" + System.currentTimeMillis() + "_" + file.getOriginalFilename();
+        try {
+            ossClient.putObject(ossConfig.getBucketName(), fileName, file.getInputStream());
+            return fileName;
+        } catch (Exception e) {
+            log.error("Failed to upload file to OSS: {}", e.getMessage(), e);
+            return null;
+        }
     }
 }
