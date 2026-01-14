@@ -1,7 +1,7 @@
 package com.smart.vision.core.service.search.impl;
 
 import com.google.common.collect.Lists;
-import com.smart.vision.core.manager.BailianEmbeddingManager;
+import com.smart.vision.core.ai.MultiModalEmbeddingService;
 import com.smart.vision.core.manager.HotSearchManager;
 import com.smart.vision.core.manager.OssManager;
 import com.smart.vision.core.model.dto.ImageSearchResultDTO;
@@ -44,7 +44,7 @@ import static com.smart.vision.core.model.enums.PresignedValidityEnum.SHORT_TERM
 @Service
 @RequiredArgsConstructor
 public class SmartSearchServiceImpl implements SmartSearchService {
-    private final BailianEmbeddingManager embeddingManager;
+    private final MultiModalEmbeddingService embeddingService;
     private final ImageRepository imageRepository;
     private final ImageDocConvertor imageDocConvertor;
     private final HotSearchManager hotSearchManager;
@@ -58,7 +58,7 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         }
         List<Float> queryVector = getVectorFromCache(query.getKeyword());
         if (CollectionUtils.isEmpty(queryVector)) {
-            queryVector = embeddingManager.embedText(query.getKeyword());
+            queryVector = embeddingService.embedText(query.getKeyword());
             cacheVector(query.getKeyword(), queryVector);
         }
         RetrievalStrategy strategy = strategyFactory.getStrategy(query.getSearchType());
@@ -135,7 +135,7 @@ public class SmartSearchServiceImpl implements SmartSearchService {
                 log.info("Cache missed, processing new image, MD5: {}", md5);
                 String objectKey = ossManager.uploadFile(file);
                 String tempAiUrl = ossManager.getAiPresignedUrl(objectKey, SHORT_TERM_VALIDITY.getValidity(), X_OSS_PROCESS_EMBEDDING);
-                vector = embeddingManager.embedImage(tempAiUrl);
+                vector = embeddingService.embedImage(tempAiUrl);
 
                 redisTemplate.opsForValue().set(cacheKey, vector, 24, TimeUnit.HOURS);
             }
