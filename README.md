@@ -130,6 +130,7 @@ graph TD
 *   **语义向量路 (Dense Vector)**：利用 `multimodal-embedding-v1` 模型提取 1024 维视觉特征，处理抽象风格与泛化语义。
 *   **词法索引路 (Sparse Keyword)**：集成 OCR 提取图片文字，结合 Elasticsearch 的 `ik_max_word` 分词器，处理精准文本匹配（如票据号、广告语）。
 *   **动态加权**：支持根据业务场景调整权重系数（$\alpha \cdot S_{vec} + \beta \cdot S_{bm25}$），实现结果重排。
+*   **得分映射**: 通过分段线性插值映射算法, 将文档得分映射为匹配度,实现检索结果的相关性归一化，提供“所见即所得”的置信度反馈。
 
 ### 2. 零阻塞上传 (Zero-Blocking Upload)
 针对 I/O 密集型的图片上传场景，采用 **Presigned URL (STS)** 模式：
