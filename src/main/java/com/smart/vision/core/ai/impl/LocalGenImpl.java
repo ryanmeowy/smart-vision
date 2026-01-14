@@ -1,16 +1,10 @@
 
 package com.smart.vision.core.ai.impl;
 
-import com.alibaba.dashscope.aigc.multimodalconversation.MultiModalConversation;
-import com.alibaba.dashscope.aigc.multimodalconversation.MultiModalConversationParam;
-import com.alibaba.dashscope.aigc.multimodalconversation.MultiModalConversationResult;
-import com.alibaba.dashscope.common.MultiModalMessage;
-import com.alibaba.dashscope.common.Role;
 import com.smart.vision.core.ai.ContentGenerationService;
 import com.smart.vision.core.grpc.VisionProto;
 import com.smart.vision.core.grpc.VisionServiceGrpc;
 import com.smart.vision.core.model.enums.PromptEnum;
-import io.reactivex.Flowable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.client.inject.GrpcClient;
@@ -19,16 +13,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.Executor;
-import java.util.regex.Matcher;
 
-import static com.smart.vision.core.constant.CommonConstant.IMAGE_GEN_MODEL_NAME;
 import static com.smart.vision.core.constant.CommonConstant.SSE_TIMEOUT;
-import static com.smart.vision.core.model.enums.PromptEnum.getPromptByType;
 
 @Slf4j
 @Service
