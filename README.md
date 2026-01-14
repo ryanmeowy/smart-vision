@@ -187,7 +187,7 @@ com.smart.vision.core
 ```
 
 ---
-## ⚙️部署图(Deployment Diagram)
+## ⚙️ 部署图(Deployment Diagram)
 
 ```mermaid
 graph TD
@@ -209,7 +209,7 @@ graph TD
     end
 
     %% ================= 边缘节点 (算力核心) =================
-    subgraph Edge_Node ["🏠 本地 Mac M1 (16G) - 全栈运行"]
+    subgraph Edge_Node ["🏠 本地 Mac"]
         direction TB
         FRPC[FRP Client]:::edge
         
