@@ -1,5 +1,7 @@
+
 package com.smart.vision.core.util;
 
+import com.smart.vision.core.exception.EncryptionException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -19,45 +21,74 @@ import static com.smart.vision.core.constant.CommonConstant.ALGORITHM;
  * @author Ryan
  * @since 2025/12/25
  */
-
 @Component
 public class AesUtil {
 
-    private static String key;
+    private final String keyBase64;
+    private final String ivBase64;
 
-    private static String iv;
-
-    @Value("${app.security.encrypt-key}")
-    public void setKey(String key) {
-        AesUtil.key = key;
+    public AesUtil(@Value("${app.security.encrypt-key}") String keyBase64,
+                   @Value("${app.security.encrypt-iv}") String ivBase64) {
+        this.keyBase64 = keyBase64;
+        this.ivBase64 = ivBase64;
     }
 
-    @Value("${app.security.encrypt-iv}")
-    public void setIv(String iv) {
-        AesUtil.iv = iv;
+    private byte[] decodeKey() {
+        if (keyBase64 == null || keyBase64.isBlank()) {
+            throw new EncryptionException("Encryption key is not configured");
+        }
+        return Base64.getDecoder().decode(keyBase64);
     }
 
-    /**
-     * Encrypt string
-     */
-    public static String encrypt(String content) {
+    private byte[] decodeIv() {
+        if (ivBase64 == null || ivBase64.isBlank()) {
+            throw new EncryptionException("Encryption iv is not configured");
+        }
+        return Base64.getDecoder().decode(ivBase64);
+    }
+
+    private SecretKeySpec keySpec() {
+        byte[] keyBytes = decodeKey();
+        if (keyBytes.length != 32) {
+            throw new EncryptionException("Key must be 32 bytes (AES-256)");
+        }
+        return new SecretKeySpec(keyBytes, "AES");
+    }
+
+    private IvParameterSpec ivSpec() {
+        byte[] ivBytes = decodeIv();
+        if (ivBytes.length != 16) {
+            throw new EncryptionException("IV must be 16 bytes");
+        }
+        return new IvParameterSpec(ivBytes);
+    }
+
+    public String encrypt(String content) {
+        if (content == null) {
+            throw new EncryptionException("Content to encrypt must not be null");
+        }
         try {
-            byte[] keyBytes = Base64.getDecoder().decode(key);
-            byte[] ivBytes = Base64.getDecoder().decode(iv);
-
-            if (keyBytes.length != 32) throw new IllegalArgumentException("Key must be 32 bytes (AES-256)");
-            if (ivBytes.length != 16) throw new IllegalArgumentException("IV must be 16 bytes");
-
-            SecretKeySpec keySpec = new SecretKeySpec(keyBytes, "AES");
-            IvParameterSpec ivSpec = new IvParameterSpec(ivBytes);
-
             Cipher cipher = Cipher.getInstance(ALGORITHM);
-            cipher.init(Cipher.ENCRYPT_MODE, keySpec, ivSpec);
-
+            cipher.init(Cipher.ENCRYPT_MODE, keySpec(), ivSpec());
             byte[] encrypted = cipher.doFinal(content.getBytes(StandardCharsets.UTF_8));
             return Base64.getEncoder().encodeToString(encrypted);
         } catch (Exception e) {
-            throw new RuntimeException("Encryption failed", e);
+            throw new EncryptionException("Encryption failed", e);
+        }
+    }
+
+    public String decrypt(String base64Ciphertext) {
+        if (base64Ciphertext == null) {
+            throw new EncryptionException("Ciphertext must not be null");
+        }
+        try {
+            Cipher cipher = Cipher.getInstance(ALGORITHM);
+            cipher.init(Cipher.DECRYPT_MODE, keySpec(), ivSpec());
+            byte[] decoded = Base64.getDecoder().decode(base64Ciphertext);
+            byte[] decrypted = cipher.doFinal(decoded);
+            return new String(decrypted, StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            throw new EncryptionException("Decryption failed", e);
         }
     }
 }

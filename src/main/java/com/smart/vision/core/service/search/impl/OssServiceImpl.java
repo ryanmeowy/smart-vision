@@ -36,6 +36,7 @@ public class OssServiceImpl implements OssService {
     @Qualifier("OSSConfig")
     private final OSSConfig ossConfig;
     private final Gson gson;
+    private final AesUtil aesUtil;
 
     @Override
     public String fetchStsToken() throws ClientException {
@@ -56,6 +57,6 @@ public class OssServiceImpl implements OssService {
                 credentials.getAccessKeySecret(),
                 credentials.getSecurityToken());
         String json = gson.toJson(stsTokenDTO);
-        return AesUtil.encrypt(json);
+        return aesUtil.encrypt(json);
     }
 }

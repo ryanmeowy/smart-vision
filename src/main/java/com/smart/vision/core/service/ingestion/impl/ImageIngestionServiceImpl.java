@@ -119,7 +119,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
 
         if (redisTemplate.hasKey(HASH_INDEX_PREFIX + item.getFileHash())) {
             log.info("Duplicate image hash [{}] [{}]", item.getFileHash(), item.getFileName());
-            throw new RuntimeException("重复图片, 已跳过");
+            throw new RuntimeException("Duplicate image, skipped.");
         }
         redisTemplate.opsForValue().set(HASH_INDEX_PREFIX + item.getFileHash(), "1");
 

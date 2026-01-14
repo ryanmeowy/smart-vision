@@ -47,33 +47,4 @@ public class ScoreUtil {
         }
         return result;
     }
-
-    // --- Test validation ---
-    public static void main(String[] args) {
-        // 1. Low score segment test (slow start)
-        test(0.1); // Expected: very low
-        test(0.2);
-        test(0.35); // Expected: rapid rise
-        test(0.39); // Expected: close to 65%
-
-        System.out.println("----------------");
-        
-        // 2. Middle score segment test (smooth)
-        test(0.4);  // Exactly 65%
-        test(0.55); // Middle value
-        test(0.69); // Close to 90%
-
-        System.out.println("----------------");
-
-        // 3. High score segment test (marginal decrease)
-        test(0.7);  // Exactly 90%
-        test(0.8);  // 91%
-        test(1.5);  // 98%
-        test(3.0);  // 99%
-        test(10.0); // 100% (extreme value)
-    }
-
-    private static void test(double score) {
-        System.out.printf("Raw: %-5s -> Result: %d%%%n", score, (int) (mapScoreToPercentage(score) * 100));
-    }
 }
