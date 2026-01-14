@@ -2,7 +2,11 @@
 package com.smart.vision.core.ai.impl;
 
 import com.smart.vision.core.ai.ImageOcrService;
+import com.smart.vision.core.grpc.VisionProto;
+import com.smart.vision.core.grpc.VisionServiceGrpc;
+import com.smart.vision.core.model.enums.PromptEnum;
 import lombok.extern.slf4j.Slf4j;
+import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
@@ -11,10 +15,22 @@ import org.springframework.stereotype.Service;
 @Profile("local")
 public class LocalOcrImpl implements ImageOcrService {
 
+    @GrpcClient("vision-python-service")
+    private VisionServiceGrpc.VisionServiceBlockingStub visionStub;
+
+
     @Override
     public String extractText(String imageUrl) {
-        log.info("⚡️ [Local] 调用本地 gRPC 进行 OCR: {}", imageUrl);
-        // TODO: 调用 Python PaddleOCR
-        return "本地OCR识别结果测试";
+        try {
+            VisionProto.GenRequest request = VisionProto.GenRequest.newBuilder()
+                    .setImageUrl(imageUrl)
+                    .setPrompt(PromptEnum.OCR.getPrompt())
+                    .build();
+            VisionProto.OcrResponse ocrResponse = visionStub.extractText(request);
+            return ocrResponse.getFullText();
+        } catch (Exception e) {
+            log.error("gRPC ocr call failed: {}", e.getMessage());
+            throw new RuntimeException("Local model service is unavailable.");
+        }
     }
 }

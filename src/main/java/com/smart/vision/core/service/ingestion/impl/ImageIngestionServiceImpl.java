@@ -138,7 +138,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         if (!StringUtils.hasText(imageUrl)) {
             return Strings.EMPTY;
         }
-        String name = contentGenerationService.GenFileName(imageUrl);
+        String name = contentGenerationService.generateFileName(imageUrl);
         if (!StringUtils.hasText(name)) {
             return Strings.EMPTY;
         }

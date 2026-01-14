@@ -22,7 +22,7 @@ public interface ContentGenerationService {
      * @param imageUrl Image URL
      * @return Unique file name
      */
-    String GenFileName(String imageUrl);
+    String generateFileName(String imageUrl);
 
     /**
      * Generate tags for the image

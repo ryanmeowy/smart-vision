@@ -85,7 +85,7 @@ public class AliyunGenManager {
     }
 
     @Retryable(retryFor = Exception.class, backoff = @Backoff(delay = 1000, multiplier = 2))
-    public String GenFileName(String imageUrl) {
+    public String genFileName(String imageUrl) {
         MultiModalMessage userMessage = MultiModalMessage.builder()
                 .role(Role.USER.getValue())
                 .content(Arrays.asList(Map.of("image", imageUrl), Map.of("text", PromptEnum.NAME_GEN.getPrompt())))
