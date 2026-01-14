@@ -1,6 +1,6 @@
 package com.smart.vision.core.controller;
 
-import com.smart.vision.core.manager.AliyunGenManager;
+import com.smart.vision.core.ai.ContentGenerationService;
 import com.smart.vision.core.manager.OssManager;
 import com.smart.vision.core.model.entity.ImageDocument;
 import com.smart.vision.core.repository.ImageRepository;
@@ -24,7 +24,7 @@ import static com.smart.vision.core.model.enums.PresignedValidityEnum.MEDIUM_TER
 @RequiredArgsConstructor
 public class AiGenController {
 
-    private final AliyunGenManager genManager;
+    private final ContentGenerationService contentGenerationService;
     private final OssManager ossManager;
     private final ImageRepository imageRepository;
 
@@ -35,6 +35,6 @@ public class AiGenController {
         ImageDocument sourceDoc = imageRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Image does not exist or has been deleted"));
         String tempUrl = ossManager.getPresignedUrl(sourceDoc.getImagePath(), MEDIUM_TERM_VALIDITY.getValidity());
-        return genManager.streamGenerateCopy(tempUrl, style);
+        return contentGenerationService.streamGenerateCopy(tempUrl, style);
     }
 }

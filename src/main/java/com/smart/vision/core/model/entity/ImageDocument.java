@@ -17,7 +17,7 @@ import static com.smart.vision.core.constant.CommonConstant.SMART_GALLERY_V1;
  * @since 2025/12/15
  */
 @Data
-@Document(indexName = SMART_GALLERY_V1) // index name
+@Document(indexName = "#{@vectorConfig.getIndexName()}", createIndex = false)
 public class ImageDocument {
     /**
      * Image ID (ES Doc ID)
@@ -41,7 +41,7 @@ public class ImageDocument {
     /**
      * Core vector field, dims correspond to Aliyun model dimensions
      */
-    @Field(type = FieldType.Dense_Vector, dims = 1024, similarity = "cosine")
+    @Field(type = FieldType.Dense_Vector, similarity = "cosine")
     private List<Float> imageEmbedding;
 
     /**

@@ -1,11 +1,10 @@
 package com.smart.vision.core.service.ingestion.impl;
 
 import cn.hutool.core.util.IdUtil;
+import com.smart.vision.core.ai.ContentGenerationService;
+import com.smart.vision.core.ai.ImageOcrService;
+import com.smart.vision.core.ai.MultiModalEmbeddingService;
 import com.smart.vision.core.component.EsBatchTemplate;
-import com.smart.vision.core.manager.AliyunGenManager;
-import com.smart.vision.core.manager.AliyunOcrManager;
-import com.smart.vision.core.manager.AliyunTaggingManager;
-import com.smart.vision.core.manager.BailianEmbeddingManager;
 import com.smart.vision.core.manager.OssManager;
 import com.smart.vision.core.model.dto.BatchProcessDTO;
 import com.smart.vision.core.model.dto.BatchUploadResultDTO;
@@ -44,12 +43,11 @@ import static com.smart.vision.core.model.enums.PresignedValidityEnum.SHORT_TERM
 @RequiredArgsConstructor
 public class ImageIngestionServiceImpl implements ImageIngestionService {
     private final OssManager ossManager;
-    private final BailianEmbeddingManager embeddingManager;
-    private final AliyunOcrManager ocrManager;
+    private final MultiModalEmbeddingService embeddingService;
+    private final ImageOcrService imageOcrService;
     private final EsBatchTemplate esBatchTemplate;
     private final Executor embedTaskExecutor;
-    private final AliyunTaggingManager aliyunTaggingManager;
-    private final AliyunGenManager genManager;
+    private final ContentGenerationService contentGenerationService;
     private final StringRedisTemplate redisTemplate;
     
 
@@ -112,10 +110,10 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
      */
     private void processSingleItem(BatchProcessDTO item, List<ImageDocument> successDocs) {
         String tempUrl2Embed = ossManager.getAiPresignedUrl(item.getKey(), SHORT_TERM_VALIDITY.getValidity(), X_OSS_PROCESS_EMBEDDING);
-        List<Float> vector = embeddingManager.embedImage(tempUrl2Embed);
+        List<Float> vector = embeddingService.embedImage(tempUrl2Embed);
         String tempUrl2OCR = ossManager.getAiPresignedUrl(item.getKey(), SHORT_TERM_VALIDITY.getValidity(), X_OSS_PROCESS_OCR);
-        String ocrText = ocrManager.llmOcrContent(tempUrl2OCR);
-        List<String> tags = aliyunTaggingManager.generateTags(tempUrl2OCR);
+        String ocrText = imageOcrService.extractText(tempUrl2OCR);
+        List<String> tags = contentGenerationService.generateTags(tempUrl2OCR);
 
         if (redisTemplate.hasKey(HASH_INDEX_PREFIX + item.getFileHash())) {
             log.info("Duplicate image hash [{}] [{}]", item.getFileHash(), item.getFileName());
@@ -140,7 +138,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         if (!StringUtils.hasText(imageUrl)) {
             return Strings.EMPTY;
         }
-        String name = genManager.GenFileName(imageUrl);
+        String name = contentGenerationService.GenFileName(imageUrl);
         if (!StringUtils.hasText(name)) {
             return Strings.EMPTY;
         }

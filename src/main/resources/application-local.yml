@@ -1,0 +1,4 @@
+app:
+  vector:
+    index-name: smart_gallery_local_v1
+    dimension: 768

@@ -1,0 +1,44 @@
+{
+  "properties": {
+    "id": {
+      "type": "long"
+    },
+    "imagePath": {
+      "type": "keyword",
+      "index": false
+    },
+    "ocrContent": {
+      "type": "text",
+      "analyzer": "my_ik_analyzer",
+      "search_analyzer": "my_ik_search_analyzer"
+    },
+    "imageEmbedding": {
+      "type": "dense_vector",
+      "dims": "@DIMS@",
+      "index": true,
+      "similarity": "cosine",
+      "index_options": {
+        "type": "hnsw",
+        "m": 16,
+        "ef_construction": 100
+      }
+    },
+    "createTime": {
+      "type": "long"
+    },
+    "rawFilename": {
+      "type": "keyword"
+    },
+    "filename": {
+      "type": "text",
+      "analyzer": "my_ik_analyzer",
+      "search_analyzer": "my_ik_search_analyzer"
+    },
+    "tags": {
+      "type": "keyword"
+    },
+    "fileHash": {
+      "type": "keyword"
+    }
+  }
+}

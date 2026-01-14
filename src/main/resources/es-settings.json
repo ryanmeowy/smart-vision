@@ -1,0 +1,24 @@
+{
+  "analysis": {
+    "filter": {
+      "my_stop_filter": {
+        "type": "stop",
+        "stopwords": [
+          "的", "了", "是", "在", "和", "跟", "吗", "呢", "a", "the", "an", "of"
+        ]
+      }
+    },
+    "analyzer": {
+      "my_ik_analyzer": {
+        "type": "custom",
+        "tokenizer": "ik_max_word",
+        "filter": [ "my_stop_filter" ]
+      },
+      "my_ik_search_analyzer": {
+        "type": "custom",
+        "tokenizer": "ik_smart",
+        "filter": [ "my_stop_filter" ]
+      }
+    }
+  }
+}
