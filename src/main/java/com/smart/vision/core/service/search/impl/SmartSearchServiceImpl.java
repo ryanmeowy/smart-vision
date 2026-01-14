@@ -12,7 +12,6 @@ import com.smart.vision.core.model.enums.StrategyTypeEnum;
 import com.smart.vision.core.repository.ImageRepository;
 import com.smart.vision.core.service.convert.ImageDocConvertor;
 import com.smart.vision.core.service.search.SmartSearchService;
-import com.smart.vision.core.strategy.ImageToImageRetrievalStrategy;
 import com.smart.vision.core.strategy.RetrievalStrategy;
 import com.smart.vision.core.strategy.StrategyFactory;
 import lombok.RequiredArgsConstructor;
