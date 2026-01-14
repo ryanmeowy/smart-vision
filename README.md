@@ -228,7 +228,7 @@ graph TD
     %% ================= 流量链路 =================
 
     %% 1. HTTP 访问
-    User -- "1. http://your-ip" --> Nginx
+    User -- "1. http://xxxx" --> Nginx
 
     %% 2. 静态资源 (云端直接返回，极快)
     Nginx -- "2. Load JS/CSS/HTML" --> StaticFiles
