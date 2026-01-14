@@ -26,6 +26,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static com.smart.vision.core.constant.CommonConstant.IMAGE_MD5_CACHE_PREFIX;
 import static com.smart.vision.core.constant.CommonConstant.SIMILARITY_TOP_K;
@@ -62,7 +63,7 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         }
         RetrievalStrategy strategy = strategyFactory.getStrategy(query.getSearchType());
         List<ImageSearchResultDTO> docs = strategy.search(query, queryVector);
-        return imageDocConvertor.convert2SearchResultDTO(docs);
+        return imageDocConvertor.convert2SearchResultDTO(manualRerank(docs, query.getKeyword()));
     }
 
     public List<SearchResultDTO> searchByVector(String docId) {
@@ -145,5 +146,17 @@ public class SmartSearchServiceImpl implements SmartSearchService {
             log.error("Failed to search by image", e);
             return Lists.newArrayList();
         }
+    }
+
+    private List<ImageSearchResultDTO> manualRerank(List<ImageSearchResultDTO> list, String keyword) {
+        return list.stream()
+                .sorted((o1, o2) -> {
+                    boolean o1Hit = o1.getDocument().getOcrContent().contains(keyword);
+                    boolean o2Hit = o2.getDocument().getOcrContent().contains(keyword);
+                    if (o1Hit && !o2Hit) return -1;
+                    if (!o1Hit && o2Hit) return 1;
+                    return Double.compare(o2.getScore(), o1.getScore());
+                })
+                .collect(Collectors.toList());
     }
 }
