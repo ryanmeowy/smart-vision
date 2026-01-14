@@ -1,7 +1,7 @@
 spring:
   profiles:
     active: cloud
-#    active: local-grpc
+#    active: local
   application:
     name: smart-vision
   data:
