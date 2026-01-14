@@ -21,8 +21,6 @@ import java.util.List;
 
 import static com.smart.vision.core.constant.CommonConstant.IMAGE_MAX_SIZE;
 import static com.smart.vision.core.constant.CommonConstant.MAX_INPUT_LENGTH;
-import static com.smart.vision.core.constant.ErrorMessage.IMAGE_SIZE_ERROR;
-import static com.smart.vision.core.constant.ErrorMessage.UPLOAD_IMAGE_ERROR;
 
 /**
  * rest api controller for vision search functionality;
@@ -61,10 +59,10 @@ public class SearchApiController {
     public Result<List<SearchResultDTO>> searchByImage(@RequestParam("file") MultipartFile file,
                                                        @RequestParam(value = "limit", defaultValue = "20") int limit) {
         if (file.isEmpty()) {
-            return Result.error(UPLOAD_IMAGE_ERROR);
+            return Result.error("Please upload an image");
         }
         if (file.getSize() > IMAGE_MAX_SIZE) {
-            return Result.error(IMAGE_SIZE_ERROR);
+            return Result.error("The image is too large, please upload an image within 10MB");
         }
 
         return Result.success(searchService.searchByImage(file, limit));
