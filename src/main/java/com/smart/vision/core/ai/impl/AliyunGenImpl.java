@@ -24,8 +24,8 @@ public class AliyunGenImpl implements ContentGenerationService {
     }
 
     @Override
-    public String GenFileName(String imageUrl) {
-        return genManager.GenFileName(imageUrl);
+    public String generateFileName(String imageUrl) {
+        return genManager.genFileName(imageUrl);
     }
 
     @Override

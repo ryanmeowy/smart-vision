@@ -25,8 +25,8 @@ public class IndexInitializer {
     private final ElasticsearchClient esClient;
     private final VectorConfig vectorConfig;
 
-    private static final String SETTINGS_PATH = "elasticsearch/es-settings.json";
-    private static final String MAPPING_PATH = "elasticsearch/es-mapping.json";
+    private static final String SETTINGS_PATH = "es-settings.json";
+    private static final String MAPPING_PATH = "es-mapping.json";
 
     @PostConstruct
     public void init() {
@@ -54,7 +54,7 @@ public class IndexInitializer {
 
             log.info("Index [{}] created successfully!", indexName);
 
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.error("Index initialization failed", e);
             throw new RuntimeException("ES Index Init Failed");
         }

@@ -88,7 +88,7 @@ public class EsBatchTemplate {
 
             return items.size();
 
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.error("ES Bulk IO Exception", e);
             throw new RuntimeException("ES batch write system exception");
         }

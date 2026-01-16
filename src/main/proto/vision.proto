@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package ai.inference;
+
+option java_package = "com.smart.vision.core.grpc";
+option java_outer_classname = "VisionProto";
+
+service VisionService {
+  // 1. 获取文本向量
+  rpc EmbedText (TextRequest) returns (EmbeddingResponse);
+
+  // 2. 获取图片向量
+  rpc EmbedImage (ImageRequest) returns (EmbeddingResponse);
+
+  // 3. 提取文字 (OCR)
+  rpc ExtractText (GenRequest) returns (OcrResponse);
+
+  // 4. 生成文件名
+  rpc GenerateFileName (GenRequest) returns (GenFileNameResponse);
+
+  // 5. 生成标签
+  rpc GenerateTags (GenRequest) returns (GenTagsResponse);
+
+  // 6. 流式生成
+  rpc GenerateCaption (GenRequest) returns (stream StringResponse);
+
+}
+
+message TextRequest {
+  string text = 1;
+}
+
+message ImageRequest {
+  string url = 1;
+}
+
+message EmbeddingResponse {
+  repeated float vector = 1;
+  int32 dim = 2;
+}
+
+message OcrResponse {
+  string full_text = 1;
+  repeated string lines = 2;
+}
+
+message GenFileNameResponse {
+  string name = 1;
+}
+
+message GenTagsResponse {
+  repeated string tag = 1;
+}
+
+message GenRequest {
+  string image_url = 1;
+  string prompt = 2;
+}
+
+message StringResponse {
+  string content = 1;
+}

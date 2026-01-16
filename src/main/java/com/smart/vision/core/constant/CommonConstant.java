@@ -12,8 +12,6 @@ import java.util.List;
  */
 public class CommonConstant {
 
-    public static final String SMART_GALLERY_V1 = "smart_gallery_v1";
-
     public static final Float MINIMUM_SIMILARITY = 0.2f;
 
     public static final Float SIMILAR_QUERIES_SIMILARITY = 0.6f;

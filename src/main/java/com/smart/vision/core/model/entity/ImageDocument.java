@@ -8,8 +8,6 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.List;
 
-import static com.smart.vision.core.constant.CommonConstant.SMART_GALLERY_V1;
-
 /**
  * image doc model for elasticsearch
  *

@@ -1,7 +1,10 @@
 package com.smart.vision.core.ai.impl;
 
 import com.smart.vision.core.ai.MultiModalEmbeddingService;
+import com.smart.vision.core.grpc.VisionProto;
+import com.smart.vision.core.grpc.VisionServiceGrpc;
 import lombok.extern.slf4j.Slf4j;
+import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
@@ -12,6 +15,9 @@ import java.util.List;
 @Profile("local")
 public class LocalEmbeddingImpl implements MultiModalEmbeddingService {
 
+    @GrpcClient("vision-python-service")
+    private VisionServiceGrpc.VisionServiceBlockingStub visionStub;
+
     /**
      * Get multimodal vector (image)
      *
@@ -20,8 +26,14 @@ public class LocalEmbeddingImpl implements MultiModalEmbeddingService {
      */
     @Override
     public List<Float> embedImage(String imageUrl) {
-        log.info("⚡️ [Local] 调用本地 gRPC 计算向量: img={}", imageUrl);
-        return List.of();
+        try {
+            VisionProto.ImageRequest request = VisionProto.ImageRequest.newBuilder().setUrl(imageUrl).build();
+            VisionProto.EmbeddingResponse embeddingResponse = visionStub.embedImage(request);
+            return embeddingResponse.getVectorList();
+        } catch (Exception e) {
+            log.error("gRPC image embedding call failed", e);
+            throw new RuntimeException("Local model service is unavailable.");
+        }
     }
 
     /**
@@ -32,7 +44,13 @@ public class LocalEmbeddingImpl implements MultiModalEmbeddingService {
      */
     @Override
     public List<Float> embedText(String text) {
-        log.info("⚡️ [Local] 调用本地 gRPC 计算向量: text={}", text);
-        return List.of();
+        try {
+            VisionProto.TextRequest request = VisionProto.TextRequest.newBuilder().setText(text).build();
+            VisionProto.EmbeddingResponse embeddingResponse = visionStub.embedText(request);
+            return embeddingResponse.getVectorList();
+        } catch (Exception e) {
+            log.error("gRPC text embedding call failed: {}", e.getMessage());
+            throw new RuntimeException("Local model service is unavailable.");
+        }
     }
 }
