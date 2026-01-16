@@ -4,7 +4,7 @@
 [![Spring Boot 3.3](https://img.shields.io/badge/Spring%20Boot-3.3-green.svg)](https://spring.io/projects/spring-boot)
 [![Elasticsearch 8](https://img.shields.io/badge/Elasticsearch-8.11+-blue.svg)](https://www.elastic.co/)
 [![gRPC](https://img.shields.io/badge/gRPC-Protobuf-red.svg)](https://grpc.io/)
-[![License](https://img.shields.io/badge/License-Apache%202.0-grey.svg)](./LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-green)]()
 
 > **SmartVision** 是一个基于 Java 生态 构建的企业级多模态搜索（Multimodal Search）解决方案参考实现。
 >
@@ -187,7 +187,7 @@ com.smart.vision.core
 ```
 
 ---
-## ⚙️部署图(Deployment Diagram)
+## ⚙️ 部署图(Deployment Diagram)
 
 ```mermaid
 graph TD
@@ -209,7 +209,7 @@ graph TD
     end
 
     %% ================= 边缘节点 (算力核心) =================
-    subgraph Edge_Node ["🏠 本地 Mac M1 (16G) - 全栈运行"]
+    subgraph Edge_Node ["🏠 本地 Mac"]
         direction TB
         FRPC[FRP Client]:::edge
         
@@ -228,7 +228,7 @@ graph TD
     %% ================= 流量链路 =================
 
     %% 1. HTTP 访问
-    User -- "1. http://your-ip" --> Nginx
+    User -- "1. http://xxxx" --> Nginx
 
     %% 2. 静态资源 (云端直接返回，极快)
     Nginx -- "2. Load JS/CSS/HTML" --> StaticFiles
@@ -292,8 +292,3 @@ spring.profiles.active: local
 - [ ] **视频模态支持**：增加关键帧提取与视频片段检索
 - [ ] **知识图谱融合**：提取图片实体构建轻量级 SPO 图谱
 
----
-
-## 📄 License
-
-本项目采用 [Apache License 2.0](LICENSE) 开源协议。
