@@ -292,8 +292,3 @@ spring.profiles.active: local
 - [ ] **视频模态支持**：增加关键帧提取与视频片段检索
 - [ ] **知识图谱融合**：提取图片实体构建轻量级 SPO 图谱
 
----
-
-## 📄 License
-
-本项目采用 [Apache License 2.0](LICENSE) 开源协议。
