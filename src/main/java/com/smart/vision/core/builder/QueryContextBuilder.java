@@ -3,6 +3,7 @@ package com.smart.vision.core.builder;
 import co.elastic.clients.elasticsearch._types.SortOptions;
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import com.google.common.collect.Lists;
+import com.smart.vision.core.config.VectorConfig;
 import com.smart.vision.core.model.context.QueryContext;
 import com.smart.vision.core.model.context.SortContext;
 import com.smart.vision.core.model.dto.SearchQueryDTO;
@@ -21,7 +22,6 @@ import static com.smart.vision.core.constant.CommonConstant.DEFAULT_EMBEDDING_BO
 import static com.smart.vision.core.constant.CommonConstant.DEFAULT_NUM_CANDIDATES;
 import static com.smart.vision.core.constant.CommonConstant.NUM_CANDIDATES_FACTOR;
 import static com.smart.vision.core.constant.CommonConstant.SIMILAR_QUERIES_SIMILARITY;
-import static com.smart.vision.core.constant.CommonConstant.SMART_GALLERY_V1;
 
 @Component
 @RequiredArgsConstructor
@@ -29,10 +29,11 @@ public class QueryContextBuilder {
 
     private final HybridSearchKeywordMatcher hybridSearchKeywordMatcher;
     private final SimilarSearchIdMatcher similarSearchIdMatcher;
+    private final VectorConfig vectorConfig;
 
     public QueryContext context4HybridSearch(SearchQueryDTO query, List<Float> queryVector, List<SortContext> sortContextList) {
         return QueryContext.builder()
-                .indexName(SMART_GALLERY_V1)
+                .indexName(vectorConfig.getIndexName())
                 .keyword(query.getKeyword())
                 .limit(query.getLimit())
                 .searchAfter(query.getSearchAfter())
@@ -78,7 +79,7 @@ public class QueryContextBuilder {
 
     public QueryContext context4SimilarSearch(List<Float> queryVector, Integer topK, String excludeDocId, List<SortContext> sortContextList) {
         return QueryContext.builder()
-                .indexName(SMART_GALLERY_V1)
+                .indexName(vectorConfig.getIndexName())
                 .id(excludeDocId)
                 .limit(topK)
                 .sortOptions(convert2SortOptions(null == sortContextList ? defaultSort() : sortContextList))
@@ -101,7 +102,7 @@ public class QueryContextBuilder {
 
     public QueryContext context4DuplicateSearch(List<Float> vector, double threshold) {
         return QueryContext.builder()
-                .indexName(SMART_GALLERY_V1)
+                .indexName(vectorConfig.getIndexName())
                 .limit(1)
                 .knnQuery(knnQuery4DuplicateSearch(vector, threshold))
                 .build();

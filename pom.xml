@@ -38,6 +38,17 @@
         <aliyun-ocr.version>3.1.3</aliyun-ocr.version>
         <hutool.version>5.8.40</hutool.version>
     </properties>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-bom</artifactId>
+                <version>1.60.0</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
     <dependencies>
         <!--↓↓ spring ↓↓-->
         <dependency>
@@ -144,12 +155,10 @@
         <dependency>
             <groupId>io.grpc</groupId>
             <artifactId>grpc-stub</artifactId>
-            <version>1.60.0</version>
         </dependency>
         <dependency>
             <groupId>io.grpc</groupId>
             <artifactId>grpc-protobuf</artifactId>
-            <version>1.60.0</version>
         </dependency>
         <dependency>
             <groupId>javax.annotation</groupId>

@@ -57,7 +57,7 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
         try {
             SearchResponse<ImageDocument> response = esClient.search(requestBuilder.build(), ImageDocument.class);
             return converter.convert2Doc(response);
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.error("Execution of finding similar failed", e);
             return Collections.emptyList();
         }

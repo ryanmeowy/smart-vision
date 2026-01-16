@@ -31,7 +31,7 @@ public class LocalEmbeddingImpl implements MultiModalEmbeddingService {
             VisionProto.EmbeddingResponse embeddingResponse = visionStub.embedImage(request);
             return embeddingResponse.getVectorList();
         } catch (Exception e) {
-            log.error("gRPC image embedding call failed: {}", e.getMessage());
+            log.error("gRPC image embedding call failed", e);
             throw new RuntimeException("Local model service is unavailable.");
         }
     }

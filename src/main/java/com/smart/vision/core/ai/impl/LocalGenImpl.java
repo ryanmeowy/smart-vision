@@ -43,7 +43,7 @@ public class LocalGenImpl implements ContentGenerationService {
                     VisionProto.StringResponse response = stringResponseIterator.next();
                     try {
                         emitter.send(response.getContent());
-                    } catch (IOException e) {
+                    } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
                 }
