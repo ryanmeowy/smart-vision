@@ -196,27 +196,30 @@ graph TD
     classDef cloud fill:#e3f2fd,stroke:#1565c0,stroke-width:2px;
     classDef edge fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
     classDef saas fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,stroke-dasharray: 5 5;
+    classDef db fill:#ffccbc,stroke:#d84315,stroke-width:2px;
 
     %% ================= 外部用户 =================
     User((User / Browser)):::user
 
-    %% ================= 云端节点 (流量入口) =================
-    subgraph Cloud_Node ["☁️ 阿里云 ECS"]
+    %% ================= 云端节点 (流量入口 + 数据中心) =================
+    subgraph Cloud_Node ["☁️ 阿里云 ECS (网关 + 存储)"]
         direction TB
         Nginx["Nginx (80端口)"]:::cloud
         FRPS["FRP Server (7000端口)"]:::cloud
         StaticFiles["前端静态文件<br>(/usr/share/nginx/html)"]:::cloud
+        
+        %% 数据库现在在云端
+        DB[("ES 8.x + Redis<br>(Docker)")]:::db
     end
 
     %% ================= 边缘节点 (算力核心) =================
-    subgraph Edge_Node ["🏠 本地 Mac"]
+    subgraph Edge_Node ["🏠 本地 Mac (业务 + AI计算)"]
         direction TB
         FRPC[FRP Client]:::edge
         
-        subgraph Local_Services [本地 Docker / 进程]
+        subgraph Local_Compute [本地进程]
             Java["Spring Boot (8080)"]:::edge
-            Python["Python gRPC Service<br>(ONNX/PaddleOCR)"]:::edge
-            DB[(ES 8.x + Redis)]:::edge
+            Python["Python gRPC Service<br>(Qwen/CLIP)"]:::edge
         end
     end
 
@@ -230,25 +233,25 @@ graph TD
     %% 1. HTTP 访问
     User -- "1. http://xxxx" --> Nginx
 
-    %% 2. 静态资源 (云端直接返回，极快)
-    Nginx -- "2. Load JS/CSS/HTML" --> StaticFiles
+    %% 2. 静态资源 (云端直接返回)
+    Nginx -- "2. Load Static Files" --> StaticFiles
 
-    %% 3. 动态请求 (穿透)
+    %% 3. 动态请求 (穿透回本地处理业务)
     Nginx -- "3. Proxy /api" --> FRPS
     FRPS <== "4. TCP 隧道 (FRP Tunnel)" ==> FRPC
     FRPC -- "5. Forward" --> Java
 
-    %% 4. 本地计算
-    Java -- "gRPC" --> Python
-    Java -- "Read/Write" --> DB
+    %% 4. 本地计算 & 远程存储交互
+    Java -- "gRPC (Local)" --> Python
+    Java -- "TCP (Remote Connect)" --> DB
 
-    %% 5. OSS 直传 (绕过服务器)
+    %% 5. OSS 直传
     User -.->|"6. Direct Upload (STS)"| OSS
-    Java -.->|"7. Manage Keys/Sign URL"| OSS
+    Java -.->|"7. Sign URL"| OSS
 
     %% ================= 样式微调 =================
     linkStyle 3 stroke:#d84315,stroke-width:3px;
-    linkStyle 8 stroke:#1565c0,stroke-width:2px,stroke-dasharray: 5 5; 
+    linkStyle 8 stroke:#1565c0,stroke-width:2px,stroke-dasharray: 5 5;
 ```
 
 ---
