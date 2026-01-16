@@ -4,7 +4,7 @@
 [![Spring Boot 3.3](https://img.shields.io/badge/Spring%20Boot-3.3-green.svg)](https://spring.io/projects/spring-boot)
 [![Elasticsearch 8](https://img.shields.io/badge/Elasticsearch-8.11+-blue.svg)](https://www.elastic.co/)
 [![gRPC](https://img.shields.io/badge/gRPC-Protobuf-red.svg)](https://grpc.io/)
-[![License](https://img.shields.io/badge/License-Apache%202.0-grey.svg)](./LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-green)]()
 
 > **SmartVision** 是一个基于 Java 生态 构建的企业级多模态搜索（Multimodal Search）解决方案参考实现。
 >
