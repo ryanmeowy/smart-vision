@@ -3,13 +3,13 @@ package com.smart.vision.core.ai.impl;
 import com.smart.vision.core.ai.MultiModalEmbeddingService;
 import com.smart.vision.core.manager.BailianEmbeddingManager;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.annotation.Profile;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 @Service
-@Profile("cloud")
+@ConditionalOnProperty(name = "app.ai.provider", havingValue = "cloud", matchIfMissing = true)
 @RequiredArgsConstructor
 public class AliyunEmbeddingImpl implements MultiModalEmbeddingService {
 
@@ -19,7 +19,7 @@ public class AliyunEmbeddingImpl implements MultiModalEmbeddingService {
      * Get multimodal vector (image)
      *
      * @param imageUrl Image URL (optional)
-     * @return 1024-dimensional (or 768-dimensional) vector
+     * @return 1024-dimensional vector
      */
     @Override
     public List<Float> embedImage(String imageUrl) {
@@ -30,7 +30,7 @@ public class AliyunEmbeddingImpl implements MultiModalEmbeddingService {
      * Get multimodal vector (text)
      *
      * @param text Text (optional)
-     * @return 1024-dimensional (or 768-dimensional) vector
+     * @return 1024-dimensional vector
      */
     @Override
     public List<Float> embedText(String text) {

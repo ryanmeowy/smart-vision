@@ -4,7 +4,6 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.mapping.TypeMapping;
 import co.elastic.clients.elasticsearch.indices.IndexSettings;
 import co.elastic.clients.transport.endpoints.BooleanResponse;
-import com.smart.vision.core.config.VectorConfig;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,22 +16,21 @@ import java.io.InputStream;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 
+import static com.smart.vision.core.constant.CommonConstant.SMART_GALLERY_V2;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class IndexInitializer {
 
     private final ElasticsearchClient esClient;
-    private final VectorConfig vectorConfig;
 
     private static final String SETTINGS_PATH = "es-settings.json";
     private static final String MAPPING_PATH = "es-mapping.json";
 
     @PostConstruct
     public void init() {
-        String indexName = vectorConfig.getIndexName();
-        int dims = vectorConfig.getDimension();
-
+        String indexName = SMART_GALLERY_V2;
         try {
             BooleanResponse exists = esClient.indices().exists(e -> e.index(indexName));
             if (exists.value()) {
@@ -40,11 +38,11 @@ public class IndexInitializer {
                 return;
             }
 
-            log.info("Starting index initialization [{}], vector dimension: {}, loading configuration file...", indexName, dims);
+            log.info("Starting index initialization [{}], loading configuration file...", indexName);
 
             InputStream settingsStream = new ClassPathResource(SETTINGS_PATH).getInputStream();
-            
-            String mappingJson = loadAndProcessMapping(dims);
+
+            String mappingJson = loadAndProcessMapping();
             
             esClient.indices().create(c -> c
                 .index(indexName)
@@ -61,11 +59,10 @@ public class IndexInitializer {
     }
 
     /**
-     * Read the mapping file and replace the @DIMS@ placeholder.
+     * Read the mapping file
      */
-    private String loadAndProcessMapping(int dims) throws IOException {
+    private String loadAndProcessMapping() throws IOException {
         ClassPathResource resource = new ClassPathResource(MAPPING_PATH);
-        String json = StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);
-        return json.replace("\"@DIMS@\"", String.valueOf(dims));
+        return StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);
     }
 }

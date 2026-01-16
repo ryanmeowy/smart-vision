@@ -8,6 +8,8 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.List;
 
+import static com.smart.vision.core.constant.CommonConstant.SMART_GALLERY_V2;
+
 /**
  * image doc model for elasticsearch
  *
@@ -15,7 +17,7 @@ import java.util.List;
  * @since 2025/12/15
  */
 @Data
-@Document(indexName = "#{@vectorConfig.getIndexName()}", createIndex = false)
+@Document(indexName = SMART_GALLERY_V2, createIndex = false)
 public class ImageDocument {
     /**
      * Image ID (ES Doc ID)
@@ -33,13 +35,13 @@ public class ImageDocument {
     /**
      * OCR extracted text
      */
-    @Field(type = FieldType.Text, analyzer = "ik_max_word", searchAnalyzer = "ik_smart")
+    @Field(type = FieldType.Text, analyzer = "my_ik_analyzer", searchAnalyzer = "my_ik_search_analyzer")
     private String ocrContent;
 
     /**
      * Core vector field, dims correspond to Aliyun model dimensions
      */
-    @Field(type = FieldType.Dense_Vector, similarity = "cosine")
+    @Field(type = FieldType.Dense_Vector, similarity = "cosine", dims = 1024)
     private List<Float> imageEmbedding;
 
     /**
@@ -57,7 +59,7 @@ public class ImageDocument {
     /**
      * file name
      */
-    @Field(type = FieldType.Text, analyzer = "ik_max_word", searchAnalyzer = "ik_smart")
+    @Field(type = FieldType.Text, analyzer = "my_ik_analyzer", searchAnalyzer = "my_ik_search_analyzer")
     private String fileName;
 
     /**

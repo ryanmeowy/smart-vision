@@ -14,7 +14,7 @@
     },
     "imageEmbedding": {
       "type": "dense_vector",
-      "dims": "@DIMS@",
+      "dims": 1024,
       "index": true,
       "similarity": "cosine",
       "index_options": {

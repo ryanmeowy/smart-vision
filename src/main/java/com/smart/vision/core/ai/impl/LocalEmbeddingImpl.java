@@ -5,14 +5,14 @@ import com.smart.vision.core.grpc.VisionProto;
 import com.smart.vision.core.grpc.VisionServiceGrpc;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.client.inject.GrpcClient;
-import org.springframework.context.annotation.Profile;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 @Slf4j
 @Service
-@Profile("local")
+@ConditionalOnProperty(name = "app.ai.provider", havingValue = "local")
 public class LocalEmbeddingImpl implements MultiModalEmbeddingService {
 
     @GrpcClient("vision-python-service")
@@ -22,7 +22,7 @@ public class LocalEmbeddingImpl implements MultiModalEmbeddingService {
      * Get multimodal vector (image)
      *
      * @param imageUrl Image URL (optional)
-     * @return 1024-dimensional (or 768-dimensional) vector
+     * @return 1024-dimensional vector
      */
     @Override
     public List<Float> embedImage(String imageUrl) {
@@ -40,7 +40,7 @@ public class LocalEmbeddingImpl implements MultiModalEmbeddingService {
      * Get multimodal vector (text)
      *
      * @param text Text (optional)
-     * @return 1024-dimensional (or 768-dimensional) vector
+     * @return 1024-dimensional vector
      */
     @Override
     public List<Float> embedText(String text) {

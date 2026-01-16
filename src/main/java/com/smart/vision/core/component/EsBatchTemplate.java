@@ -10,7 +10,6 @@ import org.springframework.data.elasticsearch.core.convert.ElasticsearchConverte
 import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import org.springframework.stereotype.Component;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -42,7 +41,7 @@ public class EsBatchTemplate {
         if (items == null || items.isEmpty()) {
             return 0;
         }
-
+        log.info("bulk save item size:{}", items.size());
         Class<?> clazz = items.getFirst().getClass();
         IndexCoordinates indexCoordinates = elasticsearchConverter.getMappingContext()
                 .getRequiredPersistentEntity(clazz)
@@ -63,11 +62,11 @@ public class EsBatchTemplate {
                     continue;
                 }
                 br.operations(op -> op
-                    .index(idx -> idx
-                        .index(indexName)
-                        .id(id)
-                        .document(item)
-                    )
+                        .index(idx -> idx
+                                .index(indexName)
+                                .id(id)
+                                .document(item)
+                        )
                 );
             }
 
