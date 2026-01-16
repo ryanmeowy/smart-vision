@@ -22,7 +22,7 @@ public class LocalEmbeddingImpl implements MultiModalEmbeddingService {
      * Get multimodal vector (image)
      *
      * @param imageUrl Image URL (optional)
-     * @return 1024-dimensional (or 768-dimensional) vector
+     * @return 1024-dimensional vector
      */
     @Override
     public List<Float> embedImage(String imageUrl) {
@@ -40,7 +40,7 @@ public class LocalEmbeddingImpl implements MultiModalEmbeddingService {
      * Get multimodal vector (text)
      *
      * @param text Text (optional)
-     * @return 1024-dimensional (or 768-dimensional) vector
+     * @return 1024-dimensional vector
      */
     @Override
     public List<Float> embedText(String text) {
