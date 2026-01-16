@@ -12,8 +12,6 @@ import java.util.List;
  */
 public class CommonConstant {
 
-    public static final String SMART_GALLERY_V2 = "smart_gallery_v2";
-
     public static final Float MINIMUM_SIMILARITY = 0.2f;
 
     public static final Float SIMILAR_QUERIES_SIMILARITY = 0.6f;
@@ -30,7 +28,7 @@ public class CommonConstant {
 
     public static final String TOKEN_KEY = "sys:config:upload-token";
 
-    public static final String EMBEDDING_MODEL_NAME = "multimodal-embedding-v1";
+    public static final String EMBEDDING_MODEL_NAME = "tongyi-embedding-vision-flash";
     // Check for extremely similar images (used for deduplication)
     public static final Double DUPLICATE_THRESHOLD = 0.98;
 

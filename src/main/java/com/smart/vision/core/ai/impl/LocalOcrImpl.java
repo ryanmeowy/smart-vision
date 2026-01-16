@@ -7,13 +7,12 @@ import com.smart.vision.core.grpc.VisionServiceGrpc;
 import com.smart.vision.core.model.enums.PromptEnum;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.client.inject.GrpcClient;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
-@ConditionalOnProperty(name = "app.ai.provider", havingValue = "local")
-public class LocalOcrImpl implements ImageOcrService {
+@Profile("local")public class LocalOcrImpl implements ImageOcrService {
 
     @GrpcClient("vision-python-service")
     private VisionServiceGrpc.VisionServiceBlockingStub visionStub;

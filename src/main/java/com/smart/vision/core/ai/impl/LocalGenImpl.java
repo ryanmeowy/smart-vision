@@ -8,7 +8,7 @@ import com.smart.vision.core.model.enums.PromptEnum;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.client.inject.GrpcClient;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -20,8 +20,7 @@ import static com.smart.vision.core.constant.CommonConstant.SSE_TIMEOUT;
 
 @Slf4j
 @Service
-@ConditionalOnProperty(name = "app.ai.provider", havingValue = "local")
-@RequiredArgsConstructor
+@Profile("local")@RequiredArgsConstructor
 public class LocalGenImpl implements ContentGenerationService {
 
     @GrpcClient("vision-python-service")

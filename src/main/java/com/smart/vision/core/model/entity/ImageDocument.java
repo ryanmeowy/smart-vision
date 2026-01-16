@@ -8,8 +8,6 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.List;
 
-import static com.smart.vision.core.constant.CommonConstant.SMART_GALLERY_V2;
-
 /**
  * image doc model for elasticsearch
  *
@@ -17,7 +15,7 @@ import static com.smart.vision.core.constant.CommonConstant.SMART_GALLERY_V2;
  * @since 2025/12/15
  */
 @Data
-@Document(indexName = SMART_GALLERY_V2, createIndex = false)
+@Document(indexName = "#{@vectorConfig.getIndexName()}", createIndex = false)
 public class ImageDocument {
     /**
      * Image ID (ES Doc ID)

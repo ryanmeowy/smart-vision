@@ -1,4 +1,6 @@
 spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE}
   application:
     name: smart-vision
   data:
@@ -31,20 +33,8 @@ app:
     admin-secret: ${APP_ADMIN_SECRET}
     encrypt-key: ${APP_ENCRYPT_KEY}
     encrypt-iv: ${APP_ENCRYPT_IV}
-  ai:
-    provider: local
-#    provider: cloud
 
 logging:
   level:
     co.elastic.clients: TRACE
     org.springframework.boot.autoconfigure.elasticsearch: DEBUG
-
-grpc:
-  client:
-    # Custom service name, used in the code with @GrpcClient.
-    vision-python-service:
-      # Local Python Port
-      address: static://127.0.0.1:50051
-      # Local debugging does not use TLS and must be set to plaintext.
-      negotiation-type: plaintext

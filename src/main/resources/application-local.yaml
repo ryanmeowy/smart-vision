@@ -1,0 +1,14 @@
+app:
+  vector:
+    index-name: smart_gallery_local_v1
+    dimension: 768
+    model-type: LOCAL
+
+grpc:
+  client:
+    # Custom service name, used in the code with @GrpcClient.
+    vision-python-service:
+      # Local Python Port
+      address: static://127.0.0.1:50051
+      # Local debugging does not use TLS and must be set to plaintext.
+      negotiation-type: plaintext

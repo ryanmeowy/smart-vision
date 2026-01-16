@@ -5,14 +5,14 @@ import com.smart.vision.core.grpc.VisionProto;
 import com.smart.vision.core.grpc.VisionServiceGrpc;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.client.inject.GrpcClient;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 @Slf4j
 @Service
-@ConditionalOnProperty(name = "app.ai.provider", havingValue = "local")
+@Profile("local")
 public class LocalEmbeddingImpl implements MultiModalEmbeddingService {
 
     @GrpcClient("vision-python-service")

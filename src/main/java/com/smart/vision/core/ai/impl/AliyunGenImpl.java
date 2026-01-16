@@ -4,15 +4,14 @@ import com.smart.vision.core.ai.ContentGenerationService;
 import com.smart.vision.core.manager.AliyunGenManager;
 import com.smart.vision.core.manager.AliyunTaggingManager;
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 
 @Service
-@ConditionalOnProperty(name = "app.ai.provider", havingValue = "cloud", matchIfMissing = true)
-@RequiredArgsConstructor
+@Profile("cloud")@RequiredArgsConstructor
 public class AliyunGenImpl implements ContentGenerationService {
 
     private final AliyunGenManager genManager;
