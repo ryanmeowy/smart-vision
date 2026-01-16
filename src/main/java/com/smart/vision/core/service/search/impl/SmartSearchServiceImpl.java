@@ -25,6 +25,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -151,8 +152,8 @@ public class SmartSearchServiceImpl implements SmartSearchService {
     private List<ImageSearchResultDTO> manualRerank(List<ImageSearchResultDTO> list, String keyword) {
         return list.stream()
                 .sorted((o1, o2) -> {
-                    boolean o1Hit = o1.getDocument().getOcrContent().contains(keyword);
-                    boolean o2Hit = o2.getDocument().getOcrContent().contains(keyword);
+                    boolean o1Hit = null != o1.getDocument().getOcrContent() && o1.getDocument().getOcrContent().contains(keyword);
+                    boolean o2Hit = null != o2.getDocument().getOcrContent() && o2.getDocument().getOcrContent().contains(keyword);
                     if (o1Hit && !o2Hit) return -1;
                     if (!o1Hit && o2Hit) return 1;
                     return Double.compare(o2.getScore(), o1.getScore());
