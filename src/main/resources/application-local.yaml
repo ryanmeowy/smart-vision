@@ -1,7 +1,7 @@
 app:
   vector:
     index-name: smart_gallery_local_v1
-    dimension: 768
+    dimension: 512
     model-type: LOCAL
 
 grpc:

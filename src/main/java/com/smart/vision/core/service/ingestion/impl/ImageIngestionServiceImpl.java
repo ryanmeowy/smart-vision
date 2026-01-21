@@ -109,11 +109,10 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
      * @param successDocs synchronized list to collect successfully processed documents
      */
     private void processSingleItem(BatchProcessDTO item, List<ImageDocument> successDocs) {
-        String tempUrl2Embed = ossManager.getAiPresignedUrl(item.getKey(), SHORT_TERM_VALIDITY.getValidity(), X_OSS_PROCESS_EMBEDDING);
-        List<Float> vector = embeddingService.embedImage(tempUrl2Embed);
-        String tempUrl2OCR = ossManager.getAiPresignedUrl(item.getKey(), SHORT_TERM_VALIDITY.getValidity(), X_OSS_PROCESS_OCR);
-        String ocrText = imageOcrService.extractText(tempUrl2OCR);
-        List<String> tags = contentGenerationService.generateTags(tempUrl2OCR);
+        String tempUrl = ossManager.getAiPresignedUrl(item.getKey(), SHORT_TERM_VALIDITY.getValidity(), X_OSS_PROCESS_EMBEDDING);
+        List<Float> vector = embeddingService.embedImage(tempUrl);
+        String ocrText = imageOcrService.extractText(tempUrl);
+        List<String> tags = contentGenerationService.generateTags(tempUrl);
 
         if (redisTemplate.hasKey(HASH_INDEX_PREFIX + item.getFileHash())) {
             log.info("Duplicate image hash [{}] [{}]", item.getFileHash(), item.getFileName());
@@ -125,7 +124,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         doc.setId(IdUtil.getSnowflakeNextId());
         doc.setImagePath(item.getKey());
         doc.setRawFilename(item.getFileName());
-        doc.setFileName(genFileName(tempUrl2OCR));
+        doc.setFileName(genFileName(tempUrl));
         doc.setImageEmbedding(vector);
         doc.setOcrContent(ocrText);
         doc.setCreateTime(System.currentTimeMillis());
