@@ -25,14 +25,10 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static com.smart.vision.core.constant.CommonConstant.IMAGE_MD5_CACHE_PREFIX;
-import static com.smart.vision.core.constant.CommonConstant.SIMILARITY_TOP_K;
-import static com.smart.vision.core.constant.CommonConstant.VECTOR_CACHE_PREFIX;
-import static com.smart.vision.core.constant.CommonConstant.X_OSS_PROCESS_EMBEDDING;
+import static com.smart.vision.core.constant.CommonConstant.*;
 import static com.smart.vision.core.model.enums.PresignedValidityEnum.SHORT_TERM_VALIDITY;
 
 /**
@@ -121,14 +117,14 @@ public class SmartSearchServiceImpl implements SmartSearchService {
     }
 
     private String buildVectorCacheKey(String text) {
-        return VECTOR_CACHE_PREFIX + DigestUtils.md5DigestAsHex(text.trim().toLowerCase().getBytes());
+        return VECTOR_CACHE_PREFIX + System.getenv("SPRING_PROFILES_ACTIVE") + DigestUtils.md5DigestAsHex(text.trim().toLowerCase().getBytes());
     }
 
     @Override
     public List<SearchResultDTO> searchByImage(MultipartFile file, int limit) {
         try {
             String md5 = DigestUtils.md5DigestAsHex(file.getInputStream());
-            String cacheKey = IMAGE_MD5_CACHE_PREFIX + md5;
+            String cacheKey = IMAGE_MD5_CACHE_PREFIX + System.getenv("SPRING_PROFILES_ACTIVE") + md5;
             List<Float> vector = redisTemplate.opsForValue().get(cacheKey);
             if (vector != null) {
                 log.info("Cache hit, MD5: {}", md5);

@@ -114,11 +114,11 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         String ocrText = imageOcrService.extractText(tempUrl);
         List<String> tags = contentGenerationService.generateTags(tempUrl);
 
-        if (redisTemplate.hasKey(HASH_INDEX_PREFIX + item.getFileHash())) {
+        if (redisTemplate.hasKey(HASH_INDEX_PREFIX + System.getenv("SPRING_PROFILES_ACTIVE") + item.getFileHash())) {
             log.info("Duplicate image hash [{}] [{}]", item.getFileHash(), item.getFileName());
             throw new RuntimeException("Duplicate image, skipped.");
         }
-        redisTemplate.opsForValue().set(HASH_INDEX_PREFIX + item.getFileHash(), "1");
+        redisTemplate.opsForValue().set(HASH_INDEX_PREFIX + System.getenv("SPRING_PROFILES_ACTIVE") + item.getFileHash(), "1");
 
         ImageDocument doc = new ImageDocument();
         doc.setId(IdUtil.getSnowflakeNextId());

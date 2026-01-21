@@ -28,9 +28,7 @@ public class CommonConstant {
 
     public static final String TOKEN_KEY = "sys:config:upload-token";
 
-    public static final String EMBEDDING_MODEL_NAME = "tongyi-embedding-vision-flash";
-    // Check for extremely similar images (used for deduplication)
-    public static final Double DUPLICATE_THRESHOLD = 0.98;
+    public static final String EMBEDDING_MODEL_NAME = "multimodal-embedding-v1";
 
     public static final String VISION_MODEL_NAME = "qwen-vl-plus";
 
