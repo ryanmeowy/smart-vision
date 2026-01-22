@@ -24,6 +24,9 @@ service VisionService {
   // 6. 流式生成
   rpc GenerateCaption (GenRequest) returns (stream StringResponse);
 
+  // 7. 提取图中的三元组信息
+  rpc ExtractGraphTriples (GenRequest) returns (GraphTriplesResponse);
+
 }
 
 message TextRequest {
@@ -59,4 +62,14 @@ message GenRequest {
 
 message StringResponse {
   string content = 1;
+}
+
+message GraphTriplesResponse {
+  repeated GraphTriple triple = 1;
+}
+
+message GraphTriple {
+  string s = 1;
+  string p = 2;
+  string o = 3;
 }

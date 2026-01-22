@@ -10,7 +10,7 @@ import com.smart.vision.core.model.dto.SearchResultDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
 import com.smart.vision.core.model.enums.StrategyTypeEnum;
 import com.smart.vision.core.repository.ImageRepository;
-import com.smart.vision.core.service.convert.ImageDocConvertor;
+import com.smart.vision.core.convertor.ImageDocConvertor;
 import com.smart.vision.core.service.search.SmartSearchService;
 import com.smart.vision.core.strategy.RetrievalStrategy;
 import com.smart.vision.core.strategy.StrategyFactory;

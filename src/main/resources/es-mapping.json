@@ -39,6 +39,15 @@
     },
     "fileHash": {
       "type": "keyword"
+    },
+    "relations": {
+      "type": "nested",
+      "properties": {
+        "s": { "type": "keyword" },
+        "p": { "type": "keyword" },
+        "o": { "type": "keyword" }
+      }
     }
+
   }
 }

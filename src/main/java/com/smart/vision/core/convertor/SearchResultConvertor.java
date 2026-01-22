@@ -1,4 +1,4 @@
-package com.smart.vision.core.builder;
+package com.smart.vision.core.convertor;
 
 import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 import static com.smart.vision.core.util.ScoreUtil.mapScoreToPercentage;
 
 @Component
-public class SearchResultBuilder {
+public class SearchResultConvertor {
     public List<ImageSearchResultDTO> convert2Doc(SearchResponse<ImageDocument> response) {
         List<Hit<ImageDocument>> hits = Optional.ofNullable(response)
                 .map(SearchResponse::hits)

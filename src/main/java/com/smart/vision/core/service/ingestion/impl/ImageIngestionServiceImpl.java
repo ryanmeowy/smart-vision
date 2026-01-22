@@ -1,5 +1,6 @@
 package com.smart.vision.core.service.ingestion.impl;
 
+import cn.hutool.core.lang.Snowflake;
 import cn.hutool.core.util.IdUtil;
 import com.smart.vision.core.ai.ContentGenerationService;
 import com.smart.vision.core.ai.ImageOcrService;
@@ -29,7 +30,6 @@ import java.util.concurrent.TimeUnit;
 
 import static com.smart.vision.core.constant.CommonConstant.HASH_INDEX_PREFIX;
 import static com.smart.vision.core.constant.CommonConstant.X_OSS_PROCESS_EMBEDDING;
-import static com.smart.vision.core.constant.CommonConstant.X_OSS_PROCESS_OCR;
 import static com.smart.vision.core.model.enums.PresignedValidityEnum.SHORT_TERM_VALIDITY;
 
 /**
@@ -143,6 +143,13 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
             return Strings.EMPTY;
         }
         return String.format("%s-%s", name, System.currentTimeMillis());
+    }
+
+
+    public static void main(String[] args) {
+        System.out.println(IdUtil.getSnowflakeNextId());
+        System.err.println(IdUtil.nanoId());
+        System.err.println(IdUtil.nanoId(8));
     }
 
 }

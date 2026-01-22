@@ -3,7 +3,6 @@ package com.smart.vision.core.ai.impl;
 import com.smart.vision.core.ai.MultiModalEmbeddingService;
 import com.smart.vision.core.manager.BailianEmbeddingManager;
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 

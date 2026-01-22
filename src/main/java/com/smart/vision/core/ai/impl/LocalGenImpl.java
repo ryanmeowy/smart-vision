@@ -60,7 +60,6 @@ public class LocalGenImpl implements ContentGenerationService {
         try {
             VisionProto.GenRequest request = VisionProto.GenRequest.newBuilder()
                     .setImageUrl(imageUrl)
-                    .setPrompt(PromptEnum.NAME_GEN.getPrompt())
                     .build();
             VisionProto.GenFileNameResponse response = visionStub.generateFileName(request);
             return response.getName();
@@ -76,12 +75,31 @@ public class LocalGenImpl implements ContentGenerationService {
         try {
             VisionProto.GenRequest request = VisionProto.GenRequest.newBuilder()
                     .setImageUrl(imageUrl)
-                    .setPrompt(PromptEnum.TAG_GEN.getPrompt())
                     .build();
             VisionProto.GenTagsResponse response = visionStub.generateTags(request);
             return response.getTagList();
         } catch (Exception e) {
             log.error("gRPC gen tags call failed: {}", e.getMessage());
+            throw new RuntimeException("Local model service is unavailable.");
+        }
+    }
+
+    /**
+     * Generate graph for the image
+     *
+     * @param imageUrl Image URL
+     * @return List of graph triples
+     */
+    @Override
+    public List<VisionProto.GraphTriple> generateGraph(String imageUrl) {
+        try {
+            VisionProto.GenRequest request = VisionProto.GenRequest.newBuilder()
+                    .setImageUrl(imageUrl)
+                    .build();
+            VisionProto.GraphTriplesResponse response = visionStub.extractGraphTriples(request);
+            return response.getTripleList();
+        } catch (Exception e) {
+            log.error("gRPC gen graph call failed: {}", e.getMessage());
             throw new RuntimeException("Local model service is unavailable.");
         }
     }

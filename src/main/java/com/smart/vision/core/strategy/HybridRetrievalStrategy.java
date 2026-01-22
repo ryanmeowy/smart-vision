@@ -2,6 +2,7 @@
 package com.smart.vision.core.strategy;
 
 import com.smart.vision.core.config.SimilarityConfig;
+import com.smart.vision.core.model.dto.HybridSearchParamDTO;
 import com.smart.vision.core.model.dto.ImageSearchResultDTO;
 import com.smart.vision.core.model.dto.SearchQueryDTO;
 import com.smart.vision.core.model.enums.StrategyTypeEnum;
@@ -41,7 +42,14 @@ public class HybridRetrievalStrategy implements RetrievalStrategy {
     @Override
     public List<ImageSearchResultDTO> search(SearchQueryDTO query, List<Float> queryVector) {
         preProcessQuery(query);
-        return imageRepository.hybridSearch(query, queryVector);
+        HybridSearchParamDTO paramDTO = HybridSearchParamDTO.builder()
+                .queryVector(queryVector)
+                .topK(null == query.getTopK() ? DEFAULT_TOP_K : query.getTopK())
+                .similarity(null == query.getSimilarity() ? similarityConfig.forHybridSearch() : query.getSimilarity())
+                .limit(null == query.getLimit() ? DEFAULT_RESULT_LIMIT : query.getLimit())
+                .keyword(query.getKeyword())
+                .build();
+        return imageRepository.hybridSearch(paramDTO);
     }
 
     private void preProcessQuery(SearchQueryDTO query) {

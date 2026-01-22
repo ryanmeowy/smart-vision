@@ -1,5 +1,6 @@
 package com.smart.vision.core.model.entity;
 
+import com.smart.vision.core.model.dto.GraphTripleDTO;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
@@ -71,4 +72,10 @@ public class ImageDocument {
      */
     @Field(type = FieldType.Keyword)
     private String fileHash;
+
+    /**
+     * Graph triples (subject, predicate, object)
+     */
+    @Field(type = FieldType.Nested)
+    private List<GraphTripleDTO> relations;
 }
