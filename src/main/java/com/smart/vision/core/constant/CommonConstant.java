@@ -12,9 +12,13 @@ import java.util.List;
  */
 public class CommonConstant {
 
-    public static final Float MINIMUM_SIMILARITY = 0.2f;
+    public static final Float CLOUD_HYBRID_SIMILARITY = 0.2f;
 
-    public static final Float SIMILAR_QUERIES_SIMILARITY = 0.6f;
+    public static final Float LOCAL_HYBRID_SIMILARITY = 0.4f;
+
+    public static final Float CLOUD_SIMILAR_SIMILARITY = 0.6f;
+
+    public static final Float LOCAL_SIMILAR_SIMILARITY = 0.8f;
     // Candidate set size, must be greater than topK. The larger the candidate set, the higher the recall accuracy, but the slower the recall speed.
     public static final Integer DEFAULT_NUM_CANDIDATES = 100;
 

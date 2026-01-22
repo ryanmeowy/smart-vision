@@ -117,14 +117,14 @@ public class SmartSearchServiceImpl implements SmartSearchService {
     }
 
     private String buildVectorCacheKey(String text) {
-        return VECTOR_CACHE_PREFIX + System.getenv("SPRING_PROFILES_ACTIVE") + DigestUtils.md5DigestAsHex(text.trim().toLowerCase().getBytes());
+        return String.format("%s%s:%s", VECTOR_CACHE_PREFIX, System.getenv("SPRING_PROFILES_ACTIVE"), DigestUtils.md5DigestAsHex(text.trim().toLowerCase().getBytes()));
     }
 
     @Override
     public List<SearchResultDTO> searchByImage(MultipartFile file, int limit) {
         try {
             String md5 = DigestUtils.md5DigestAsHex(file.getInputStream());
-            String cacheKey = IMAGE_MD5_CACHE_PREFIX + System.getenv("SPRING_PROFILES_ACTIVE") + md5;
+            String cacheKey = String.format("%s%s:%s", IMAGE_MD5_CACHE_PREFIX, System.getenv("SPRING_PROFILES_ACTIVE"), md5);
             List<Float> vector = redisTemplate.opsForValue().get(cacheKey);
             if (vector != null) {
                 log.info("Cache hit, MD5: {}", md5);

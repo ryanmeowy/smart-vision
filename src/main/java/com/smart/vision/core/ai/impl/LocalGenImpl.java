@@ -20,7 +20,8 @@ import static com.smart.vision.core.constant.CommonConstant.SSE_TIMEOUT;
 
 @Slf4j
 @Service
-@Profile("local")@RequiredArgsConstructor
+@Profile("local")
+@RequiredArgsConstructor
 public class LocalGenImpl implements ContentGenerationService {
 
     @GrpcClient("vision-python-service")

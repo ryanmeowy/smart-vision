@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 
 import static com.smart.vision.core.constant.CommonConstant.HASH_INDEX_PREFIX;
 import static com.smart.vision.core.constant.CommonConstant.X_OSS_PROCESS_EMBEDDING;
@@ -113,12 +114,12 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         List<Float> vector = embeddingService.embedImage(tempUrl);
         String ocrText = imageOcrService.extractText(tempUrl);
         List<String> tags = contentGenerationService.generateTags(tempUrl);
-
-        if (redisTemplate.hasKey(HASH_INDEX_PREFIX + System.getenv("SPRING_PROFILES_ACTIVE") + item.getFileHash())) {
+        String cacheKey = String.format("%s%s:%s", HASH_INDEX_PREFIX, System.getenv("SPRING_PROFILES_ACTIVE"), item.getFileHash());
+        if (redisTemplate.hasKey(cacheKey)) {
             log.info("Duplicate image hash [{}] [{}]", item.getFileHash(), item.getFileName());
             throw new RuntimeException("Duplicate image, skipped.");
         }
-        redisTemplate.opsForValue().set(HASH_INDEX_PREFIX + System.getenv("SPRING_PROFILES_ACTIVE") + item.getFileHash(), "1");
+        redisTemplate.opsForValue().set(cacheKey, "1", 30, TimeUnit.DAYS);
 
         ImageDocument doc = new ImageDocument();
         doc.setId(IdUtil.getSnowflakeNextId());

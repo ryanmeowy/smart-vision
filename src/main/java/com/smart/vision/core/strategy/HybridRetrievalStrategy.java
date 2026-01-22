@@ -1,6 +1,7 @@
 
 package com.smart.vision.core.strategy;
 
+import com.smart.vision.core.config.SimilarityConfig;
 import com.smart.vision.core.model.dto.ImageSearchResultDTO;
 import com.smart.vision.core.model.dto.SearchQueryDTO;
 import com.smart.vision.core.model.enums.StrategyTypeEnum;
@@ -12,7 +13,6 @@ import java.util.List;
 
 import static com.smart.vision.core.constant.CommonConstant.DEFAULT_RESULT_LIMIT;
 import static com.smart.vision.core.constant.CommonConstant.DEFAULT_TOP_K;
-import static com.smart.vision.core.constant.CommonConstant.MINIMUM_SIMILARITY;
 
 /**
  * Hybrid retrieval strategy implementation that combines multiple search approaches
@@ -27,6 +27,7 @@ import static com.smart.vision.core.constant.CommonConstant.MINIMUM_SIMILARITY;
 public class HybridRetrievalStrategy implements RetrievalStrategy {
 
     private final ImageRepository imageRepository;
+    private final SimilarityConfig similarityConfig;
 
     /**
      * Execute hybrid search by combining vector embedding search with text-based search
@@ -45,7 +46,7 @@ public class HybridRetrievalStrategy implements RetrievalStrategy {
 
     private void preProcessQuery(SearchQueryDTO query) {
         query.setTopK(null == query.getTopK() ? DEFAULT_TOP_K : query.getTopK());
-        query.setSimilarity(null == query.getSimilarity() ? MINIMUM_SIMILARITY : query.getSimilarity());
+        query.setSimilarity(null == query.getSimilarity() ? similarityConfig.forHybridSearch() : query.getSimilarity());
         query.setLimit(null == query.getLimit() ? DEFAULT_RESULT_LIMIT : query.getLimit());
     }
 

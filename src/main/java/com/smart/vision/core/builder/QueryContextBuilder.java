@@ -3,6 +3,7 @@ package com.smart.vision.core.builder;
 import co.elastic.clients.elasticsearch._types.SortOptions;
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import com.google.common.collect.Lists;
+import com.smart.vision.core.config.SimilarityConfig;
 import com.smart.vision.core.config.VectorConfig;
 import com.smart.vision.core.model.context.QueryContext;
 import com.smart.vision.core.model.context.SortContext;
@@ -21,7 +22,6 @@ import java.util.Objects;
 import static com.smart.vision.core.constant.CommonConstant.DEFAULT_EMBEDDING_BOOST;
 import static com.smart.vision.core.constant.CommonConstant.DEFAULT_NUM_CANDIDATES;
 import static com.smart.vision.core.constant.CommonConstant.NUM_CANDIDATES_FACTOR;
-import static com.smart.vision.core.constant.CommonConstant.SIMILAR_QUERIES_SIMILARITY;
 
 @Component
 @RequiredArgsConstructor
@@ -30,6 +30,7 @@ public class QueryContextBuilder {
     private final HybridSearchKeywordMatcher hybridSearchKeywordMatcher;
     private final SimilarSearchIdMatcher similarSearchIdMatcher;
     private final VectorConfig vectorConfig;
+    private final SimilarityConfig similarityConfig;
 
     public QueryContext context4HybridSearch(SearchQueryDTO query, List<Float> queryVector, List<SortContext> sortContextList) {
         return QueryContext.builder()
@@ -96,7 +97,7 @@ public class QueryContextBuilder {
                 .filter(Lists.newArrayList(similarSearchIdMatcher::match))
                 .topK(topK)
                 .numCandidates(Math.max(NUM_CANDIDATES_FACTOR * topK, DEFAULT_NUM_CANDIDATES))
-                .similarity(SIMILAR_QUERIES_SIMILARITY)
+                .similarity(similarityConfig.forSimilarSearch())
                 .build();
     }
 
