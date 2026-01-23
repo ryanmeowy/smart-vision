@@ -145,11 +145,4 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         return String.format("%s-%s", name, System.currentTimeMillis());
     }
 
-
-    public static void main(String[] args) {
-        System.out.println(IdUtil.getSnowflakeNextId());
-        System.err.println(IdUtil.nanoId());
-        System.err.println(IdUtil.nanoId(8));
-    }
-
 }
