@@ -13,7 +13,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 
 @Slf4j
@@ -34,9 +36,30 @@ public class TestController {
 
     @GetMapping("/test1")
     public Result<List<Long>> test1() {
-        List<Long> ids = new ArrayList<>();
-        for (int i = 0; i < 10; i++) {
-            ids.add(idGen.nextId());
+
+        List<Long> ids = Collections.synchronizedList(new ArrayList<>());
+
+        Thread t1 = new Thread(() -> {
+            for (int i = 0; i < 10; i++) {
+                ids.add(idGen.nextId());
+            }
+        });
+
+        t1.start();
+
+        Thread t2 = new Thread(() -> {
+            for (int i = 0; i < 10; i++) {
+                ids.add(idGen.nextId());
+            }
+        });
+
+        t2.start();
+
+        try {
+            t1.join();
+            t2.join();
+        } catch (InterruptedException e) {
+            log.error("Thread join error", e);
         }
         return Result.success(ids);
     }
