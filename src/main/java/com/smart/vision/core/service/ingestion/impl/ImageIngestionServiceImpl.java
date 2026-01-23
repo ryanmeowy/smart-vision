@@ -1,11 +1,10 @@
 package com.smart.vision.core.service.ingestion.impl;
 
-import cn.hutool.core.lang.Snowflake;
-import cn.hutool.core.util.IdUtil;
 import com.smart.vision.core.ai.ContentGenerationService;
 import com.smart.vision.core.ai.ImageOcrService;
 import com.smart.vision.core.ai.MultiModalEmbeddingService;
 import com.smart.vision.core.component.EsBatchTemplate;
+import com.smart.vision.core.component.IdGen;
 import com.smart.vision.core.manager.OssManager;
 import com.smart.vision.core.model.dto.BatchProcessDTO;
 import com.smart.vision.core.model.dto.BatchUploadResultDTO;
@@ -50,6 +49,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
     private final Executor embedTaskExecutor;
     private final ContentGenerationService contentGenerationService;
     private final StringRedisTemplate redisTemplate;
+    private final IdGen idGen;
     
 
     public BatchUploadResultDTO processBatchItems(List<BatchProcessDTO> items) {
@@ -122,7 +122,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         redisTemplate.opsForValue().set(cacheKey, "1", 30, TimeUnit.DAYS);
 
         ImageDocument doc = new ImageDocument();
-        doc.setId(IdUtil.getSnowflakeNextId());
+        doc.setId(idGen.nextId());
         doc.setImagePath(item.getKey());
         doc.setRawFilename(item.getFileName());
         doc.setFileName(genFileName(tempUrl));

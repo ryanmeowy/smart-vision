@@ -95,5 +95,17 @@ public class CommonConstant {
     public static final Integer IMAGE_MAX_SIZE = 10 * 1024 * 1024;
 
     public static final Integer IMAGE_TO_IMAGE_TOP_K = 20;
+
+    public static final long ID_GEN_MIN_ID = 1_000_000_000L;
+
+    public static final long ID_GEN_MAX_ID = 9_999_999_999L;
+
+    public static final int ID_GEN_MAX_STEP = 100;
+
+    public static final int ID_GEN_MIN_STEP = 1;
+
+    public static final int ID_GEN_SEGMENT_SIZE = 1000;
+
+    public static final String ID_GEN_KEY = "id:gen";
 }
 
