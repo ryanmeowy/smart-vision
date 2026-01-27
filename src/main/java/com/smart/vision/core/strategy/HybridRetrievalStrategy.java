@@ -1,7 +1,9 @@
 
 package com.smart.vision.core.strategy;
 
+import com.google.common.collect.Lists;
 import com.smart.vision.core.config.SimilarityConfig;
+import com.smart.vision.core.model.dto.GraphTripleDTO;
 import com.smart.vision.core.model.dto.HybridSearchParamDTO;
 import com.smart.vision.core.model.dto.ImageSearchResultDTO;
 import com.smart.vision.core.model.dto.SearchQueryDTO;
@@ -41,21 +43,19 @@ public class HybridRetrievalStrategy implements RetrievalStrategy {
      */
     @Override
     public List<ImageSearchResultDTO> search(SearchQueryDTO query, List<Float> queryVector) {
-        preProcessQuery(query);
         HybridSearchParamDTO paramDTO = HybridSearchParamDTO.builder()
                 .queryVector(queryVector)
                 .topK(null == query.getTopK() ? DEFAULT_TOP_K : query.getTopK())
                 .similarity(null == query.getSimilarity() ? similarityConfig.forHybridSearch() : query.getSimilarity())
                 .limit(null == query.getLimit() ? DEFAULT_RESULT_LIMIT : query.getLimit())
                 .keyword(query.getKeyword())
+                .graphTriples(praseTriplesFromKeyword(query.getKeyword()))
                 .build();
         return imageRepository.hybridSearch(paramDTO);
     }
 
-    private void preProcessQuery(SearchQueryDTO query) {
-        query.setTopK(null == query.getTopK() ? DEFAULT_TOP_K : query.getTopK());
-        query.setSimilarity(null == query.getSimilarity() ? similarityConfig.forHybridSearch() : query.getSimilarity());
-        query.setLimit(null == query.getLimit() ? DEFAULT_RESULT_LIMIT : query.getLimit());
+    private List<GraphTripleDTO> praseTriplesFromKeyword(String keyword) {
+        return Lists.newArrayList();
     }
 
     /**
