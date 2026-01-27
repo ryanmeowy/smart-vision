@@ -1,6 +1,6 @@
 package com.smart.vision.core.ai;
 
-import com.smart.vision.core.grpc.VisionProto;
+import com.smart.vision.core.model.dto.GraphTripleDTO;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
@@ -37,5 +37,5 @@ public interface ContentGenerationService {
      * @param imageUrl Image URL
      * @return List of graph triples
      */
-    List<VisionProto.GraphTriple> generateGraph(String imageUrl);
+    List<GraphTripleDTO> generateGraph(String imageUrl);
 }

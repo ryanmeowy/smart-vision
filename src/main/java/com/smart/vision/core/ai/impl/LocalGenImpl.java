@@ -1,9 +1,11 @@
 
 package com.smart.vision.core.ai.impl;
 
+import com.google.common.collect.Lists;
 import com.smart.vision.core.ai.ContentGenerationService;
 import com.smart.vision.core.grpc.VisionProto;
 import com.smart.vision.core.grpc.VisionServiceGrpc;
+import com.smart.vision.core.model.dto.GraphTripleDTO;
 import com.smart.vision.core.model.enums.PromptEnum;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +16,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 
 import static com.smart.vision.core.constant.CommonConstant.SSE_TIMEOUT;
@@ -91,13 +94,14 @@ public class LocalGenImpl implements ContentGenerationService {
      * @return List of graph triples
      */
     @Override
-    public List<VisionProto.GraphTriple> generateGraph(String imageUrl) {
+    public List<GraphTripleDTO> generateGraph(String imageUrl) {
         try {
             VisionProto.GenRequest request = VisionProto.GenRequest.newBuilder()
                     .setImageUrl(imageUrl)
                     .build();
             VisionProto.GraphTriplesResponse response = visionStub.extractGraphTriples(request);
-            return response.getTripleList();
+            List<VisionProto.GraphTriple> graphTriples = Optional.ofNullable(response).map(VisionProto.GraphTriplesResponse::getTripleList).orElseGet(Lists::newArrayList);
+            return graphTriples.stream().map(x -> new GraphTripleDTO(x.getS(), x.getP(), x.getO())).toList();
         } catch (Exception e) {
             log.error("gRPC gen graph call failed: {}", e.getMessage());
             throw new RuntimeException("Local model service is unavailable.");

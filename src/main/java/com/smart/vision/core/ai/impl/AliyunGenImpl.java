@@ -1,8 +1,8 @@
 package com.smart.vision.core.ai.impl;
 
 import com.smart.vision.core.ai.ContentGenerationService;
-import com.smart.vision.core.grpc.VisionProto;
 import com.smart.vision.core.manager.AliyunGenManager;
+import com.smart.vision.core.model.dto.GraphTripleDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
@@ -39,7 +39,7 @@ public class AliyunGenImpl implements ContentGenerationService {
      * @return List of graph triples
      */
     @Override
-    public List<VisionProto.GraphTriple> generateGraph(String imageUrl) {
-        return List.of();
+    public List<GraphTripleDTO> generateGraph(String imageUrl) {
+        return genManager.generateGraph(imageUrl);
     }
 }

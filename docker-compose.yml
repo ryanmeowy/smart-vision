@@ -40,8 +40,9 @@ services:
     container_name: redis
     ports:
       - "6379:6379" # 默认端口
-    environment:
-      - REDIS_PASSWORD=${REDIS_PASSWORD} # 使用 .env 文件中的密码
+    command: redis-server --requirepass "${REDIS_PASSWORD}"
+#    environment:
+#      - REDIS_PASSWORD=${REDIS_PASSWORD} # 使用 .env 文件中的密码
     volumes:
       - redis_data:/data # 持久化
     networks:

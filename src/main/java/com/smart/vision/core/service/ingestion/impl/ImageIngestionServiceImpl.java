@@ -8,6 +8,7 @@ import com.smart.vision.core.component.IdGen;
 import com.smart.vision.core.manager.OssManager;
 import com.smart.vision.core.model.dto.BatchProcessDTO;
 import com.smart.vision.core.model.dto.BatchUploadResultDTO;
+import com.smart.vision.core.model.dto.GraphTripleDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
 import com.smart.vision.core.service.ingestion.ImageIngestionService;
 import lombok.RequiredArgsConstructor;
@@ -114,6 +115,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         List<Float> vector = embeddingService.embedImage(tempUrl);
         String ocrText = imageOcrService.extractText(tempUrl);
         List<String> tags = contentGenerationService.generateTags(tempUrl);
+        List<GraphTripleDTO> graphTriples = contentGenerationService.generateGraph(tempUrl);
         String cacheKey = String.format("%s%s:%s", HASH_INDEX_PREFIX, System.getenv("SPRING_PROFILES_ACTIVE"), item.getFileHash());
         if (redisTemplate.hasKey(cacheKey)) {
             log.info("Duplicate image hash [{}] [{}]", item.getFileHash(), item.getFileName());
@@ -131,6 +133,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         doc.setCreateTime(System.currentTimeMillis());
         doc.setTags(tags);
         doc.setFileHash(item.getFileHash());
+        doc.setRelations(graphTriples);
         successDocs.add(doc);
     }
 

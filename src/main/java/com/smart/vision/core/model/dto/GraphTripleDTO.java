@@ -1,5 +1,6 @@
 package com.smart.vision.core.model.dto;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 
 /**
@@ -10,6 +11,7 @@ import lombok.Data;
  */
 
 @Data
+@AllArgsConstructor
 public class GraphTripleDTO {
     // Subject
     private String s;
