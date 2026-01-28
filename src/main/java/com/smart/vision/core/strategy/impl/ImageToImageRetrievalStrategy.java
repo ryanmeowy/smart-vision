@@ -1,14 +1,14 @@
-package com.smart.vision.core.strategy;
+package com.smart.vision.core.strategy.impl;
 
 import com.smart.vision.core.model.dto.ImageSearchResultDTO;
 import com.smart.vision.core.model.dto.SearchQueryDTO;
 import com.smart.vision.core.model.enums.StrategyTypeEnum;
 import com.smart.vision.core.repository.ImageRepository;
+import com.smart.vision.core.strategy.RetrievalStrategy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.smart.vision.core.constant.CommonConstant.IMAGE_TO_IMAGE_TOP_K;
 

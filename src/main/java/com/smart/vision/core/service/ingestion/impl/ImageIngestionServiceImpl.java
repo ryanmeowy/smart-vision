@@ -28,8 +28,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
-import static com.smart.vision.core.constant.CommonConstant.HASH_INDEX_PREFIX;
-import static com.smart.vision.core.constant.CommonConstant.X_OSS_PROCESS_EMBEDDING;
+import static com.smart.vision.core.constant.CommonConstant.*;
 import static com.smart.vision.core.model.enums.PresignedValidityEnum.SHORT_TERM_VALIDITY;
 
 /**
@@ -137,13 +136,11 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
     }
 
     protected String genFileName(String imageUrl) {
+        String name = Strings.EMPTY;
         if (!StringUtils.hasText(imageUrl)) {
-            return Strings.EMPTY;
+            name = DEFAULT_IMAGE_NAME;
         }
-        String name = contentGenerationService.generateFileName(imageUrl);
-        if (!StringUtils.hasText(name)) {
-            return Strings.EMPTY;
-        }
+        name = contentGenerationService.generateFileName(imageUrl);
         return String.format("%s-%s", name, System.currentTimeMillis());
     }
 }

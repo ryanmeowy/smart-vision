@@ -15,6 +15,7 @@ import java.util.List;
 @Profile("local")
 public class LocalEmbeddingImpl implements MultiModalEmbeddingService {
 
+    @SuppressWarnings("unused")
     @GrpcClient("vision-python-service")
     private VisionServiceGrpc.VisionServiceBlockingStub visionStub;
 

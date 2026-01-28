@@ -38,4 +38,11 @@ public interface ContentGenerationService {
      * @return List of graph triples
      */
     List<GraphTripleDTO> generateGraph(String imageUrl);
+
+    /**
+     * Parse graph triples from keyword
+     * @param keyword Keyword
+     * @return List of graph triples
+     */
+    List<GraphTripleDTO> praseTriplesFromKeyword(String keyword);
 }

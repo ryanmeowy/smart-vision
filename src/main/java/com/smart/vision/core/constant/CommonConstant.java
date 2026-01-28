@@ -48,8 +48,6 @@ public class CommonConstant {
 
     public static final String X_OSS_PROCESS_EMBEDDING = "image/resize,l_2048,m_lfit/format,jpg/quality,q_75";
 
-    public static final String X_OSS_PROCESS_OCR = "image/resize,l_4096,m_lfit/format,jpg";
-
     public static final float DEFAULT_EMBEDDING_BOOST = 0.9f;
 
     public static final float DEFAULT_OCR_BOOST = 0.4f;
@@ -107,5 +105,7 @@ public class CommonConstant {
     public static final int ID_GEN_SEGMENT_SIZE = 1000;
 
     public static final String ID_GEN_KEY = "id:gen";
+
+    public static final String DEFAULT_IMAGE_NAME = "未命名图片";
 }
 

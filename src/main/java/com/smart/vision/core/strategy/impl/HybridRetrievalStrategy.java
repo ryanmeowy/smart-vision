@@ -1,7 +1,8 @@
 
-package com.smart.vision.core.strategy;
+package com.smart.vision.core.strategy.impl;
 
 import com.google.common.collect.Lists;
+import com.smart.vision.core.ai.ContentGenerationService;
 import com.smart.vision.core.config.SimilarityConfig;
 import com.smart.vision.core.model.dto.GraphTripleDTO;
 import com.smart.vision.core.model.dto.HybridSearchParamDTO;
@@ -9,8 +10,10 @@ import com.smart.vision.core.model.dto.ImageSearchResultDTO;
 import com.smart.vision.core.model.dto.SearchQueryDTO;
 import com.smart.vision.core.model.enums.StrategyTypeEnum;
 import com.smart.vision.core.repository.ImageRepository;
+import com.smart.vision.core.strategy.RetrievalStrategy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 
@@ -31,13 +34,14 @@ public class HybridRetrievalStrategy implements RetrievalStrategy {
 
     private final ImageRepository imageRepository;
     private final SimilarityConfig similarityConfig;
+    private final ContentGenerationService generationService;
 
     /**
      * Execute hybrid search by combining vector embedding search with text-based search
      * This method leverages both semantic similarity from vector embeddings and
      * exact/text matching from OCR content and filenames
      *
-     * @param query the search query parameters containing keyword, limits, and scoring thresholds
+     * @param query       the search query parameters containing keyword, limits, and scoring thresholds
      * @param queryVector the vector representation of the search keyword for semantic similarity
      * @return list of image documents ranked by combined relevance scores
      */
@@ -49,13 +53,9 @@ public class HybridRetrievalStrategy implements RetrievalStrategy {
                 .similarity(null == query.getSimilarity() ? similarityConfig.forHybridSearch() : query.getSimilarity())
                 .limit(null == query.getLimit() ? DEFAULT_RESULT_LIMIT : query.getLimit())
                 .keyword(query.getKeyword())
-                .graphTriples(praseTriplesFromKeyword(query.getKeyword()))
+                .graphTriples(generationService.praseTriplesFromKeyword(query.getKeyword()))
                 .build();
         return imageRepository.hybridSearch(paramDTO);
-    }
-
-    private List<GraphTripleDTO> praseTriplesFromKeyword(String keyword) {
-        return Lists.newArrayList();
     }
 
     /**

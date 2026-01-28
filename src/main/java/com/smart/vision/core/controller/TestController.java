@@ -28,8 +28,7 @@ public class TestController {
 
     @PostMapping("/test")
     public Result<List<GraphTripleDTO>> test(@RequestParam String url) {
-        List<GraphTripleDTO> graphTriples = aliyunGenManager.generateGraph(url);
-        List<String> strings = aliyunGenManager.generateTags(url);
+        List<GraphTripleDTO> graphTriples = aliyunGenManager.praseTriplesFromKeyword(url);
         return Result.success(graphTriples);
     }
 

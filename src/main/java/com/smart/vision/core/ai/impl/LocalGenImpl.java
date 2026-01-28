@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.Iterator;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 
+import static com.smart.vision.core.constant.CommonConstant.DEFAULT_IMAGE_NAME;
 import static com.smart.vision.core.constant.CommonConstant.SSE_TIMEOUT;
 
 @Slf4j
@@ -27,6 +29,7 @@ import static com.smart.vision.core.constant.CommonConstant.SSE_TIMEOUT;
 @RequiredArgsConstructor
 public class LocalGenImpl implements ContentGenerationService {
 
+    @SuppressWarnings("unused")
     @GrpcClient("vision-python-service")
     private VisionServiceGrpc.VisionServiceBlockingStub visionStub;
     private final Executor imageGenTaskExecutor;
@@ -60,6 +63,7 @@ public class LocalGenImpl implements ContentGenerationService {
 
     @Override
     public String generateFileName(String imageUrl) {
+        if (!StringUtils.hasText(imageUrl)) return DEFAULT_IMAGE_NAME;
         try {
             VisionProto.GenRequest request = VisionProto.GenRequest.newBuilder()
                     .setImageUrl(imageUrl)
@@ -75,6 +79,7 @@ public class LocalGenImpl implements ContentGenerationService {
 
     @Override
     public List<String> generateTags(String imageUrl) {
+        if (!StringUtils.hasText(imageUrl)) return Lists.newArrayList();
         try {
             VisionProto.GenRequest request = VisionProto.GenRequest.newBuilder()
                     .setImageUrl(imageUrl)
@@ -95,6 +100,7 @@ public class LocalGenImpl implements ContentGenerationService {
      */
     @Override
     public List<GraphTripleDTO> generateGraph(String imageUrl) {
+        if (!StringUtils.hasText(imageUrl)) return Lists.newArrayList();
         try {
             VisionProto.GenRequest request = VisionProto.GenRequest.newBuilder()
                     .setImageUrl(imageUrl)
@@ -104,6 +110,20 @@ public class LocalGenImpl implements ContentGenerationService {
             return graphTriples.stream().map(x -> new GraphTripleDTO(x.getS(), x.getP(), x.getO())).toList();
         } catch (Exception e) {
             log.error("gRPC gen graph call failed: {}", e.getMessage());
+            throw new RuntimeException("Local model service is unavailable.");
+        }
+    }
+
+    @Override
+    public List<GraphTripleDTO> praseTriplesFromKeyword(String keyword) {
+        if (!StringUtils.hasText(keyword)) return Lists.newArrayList();
+        try {
+            VisionProto.TextRequest request = VisionProto.TextRequest.newBuilder().setText(keyword).build();
+            VisionProto.GraphTriplesResponse response = visionStub.parseQueryToGraph(request);
+            List<VisionProto.GraphTriple> tripleList = response.getTripleList();
+            return tripleList.stream().map(x -> new GraphTripleDTO(x.getS(), x.getP(), x.getO())).toList();
+        } catch (Exception e) {
+            log.error("gRPC prase triples from keyword call failed: {}", e.getMessage());
             throw new RuntimeException("Local model service is unavailable.");
         }
     }

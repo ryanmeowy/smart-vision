@@ -27,6 +27,9 @@ service VisionService {
   // 7. 提取图中的三元组信息
   rpc ExtractGraphTriples (GenRequest) returns (GraphTriplesResponse);
 
+  // 8. 解析查询意图
+  rpc ParseQueryToGraph (TextRequest) returns (GraphTriplesResponse);
+
 }
 
 message TextRequest {

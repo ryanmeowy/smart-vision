@@ -10,7 +10,6 @@ import com.alibaba.dashscope.exception.UploadFileException;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.smart.vision.core.model.dto.GraphTripleDTO;
-import com.smart.vision.core.model.entity.ImageDocument;
 import com.smart.vision.core.model.enums.PromptEnum;
 import io.reactivex.Flowable;
 import lombok.RequiredArgsConstructor;
@@ -31,14 +30,8 @@ import java.util.concurrent.Executor;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.smart.vision.core.constant.CommonConstant.AI_RESPONSE_REGEX;
-import static com.smart.vision.core.constant.CommonConstant.IMAGE_GEN_MODEL_NAME;
-import static com.smart.vision.core.constant.CommonConstant.MD_JSON_REGEX;
-import static com.smart.vision.core.constant.CommonConstant.SSE_TIMEOUT;
-import static com.smart.vision.core.constant.CommonConstant.VISION_MODEL_NAME;
-import static com.smart.vision.core.model.enums.PromptEnum.GRAPH;
-import static com.smart.vision.core.model.enums.PromptEnum.TAG_GEN;
-import static com.smart.vision.core.model.enums.PromptEnum.getPromptByType;
+import static com.smart.vision.core.constant.CommonConstant.*;
+import static com.smart.vision.core.model.enums.PromptEnum.*;
 
 /**
  * AliyunGenManager is a management class for handling operations related to Aliyun generation.
@@ -170,7 +163,7 @@ public class AliyunGenManager {
         try {
             MultiModalMessage userMessage = MultiModalMessage.builder()
                     .role("user")
-                    .content(Arrays.asList(Map.of("image", imageUrl), Map.of("text", GRAPH.getPrompt())))
+                    .content(Arrays.asList(Map.of("image", imageUrl), Map.of("text", GRAPH_IMAGE.getPrompt())))
                     .build();
             MultiModalConversationParam param = MultiModalConversationParam.builder()
                     .model(VISION_MODEL_NAME)
@@ -200,6 +193,27 @@ public class AliyunGenManager {
         } catch (Exception e) {
             log.warn("md json parsing failed, original content: {}", content);
             return null;
+        }
+    }
+
+    public List<GraphTripleDTO> praseTriplesFromKeyword(String keyword) {
+        try {
+            MultiModalMessage userMessage = MultiModalMessage.builder()
+                    .role("user")
+                    .content(Arrays.asList(Map.of("text", keyword), Map.of("text", GRAPH_TEXT.getPrompt())))
+                    .build();
+            MultiModalConversationParam param = MultiModalConversationParam.builder()
+                    .model(VISION_MODEL_NAME)
+                    .message(userMessage)
+                    .apiKey(apiKey)
+                    .build();
+            MultiModalConversation conv = new MultiModalConversation();
+            MultiModalConversationResult result = conv.call(param);
+            String content = result.getOutput().getChoices().getFirst().getMessage().getContent().toString();
+            return parseMdJson(content, GraphTripleDTO.class);
+        }catch (Exception e) {
+            log.error("gen graph failed: {}", e.getMessage());
+            return Collections.emptyList();
         }
     }
 }

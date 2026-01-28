@@ -42,4 +42,9 @@ public class AliyunGenImpl implements ContentGenerationService {
     public List<GraphTripleDTO> generateGraph(String imageUrl) {
         return genManager.generateGraph(imageUrl);
     }
+
+    @Override
+    public List<GraphTripleDTO> praseTriplesFromKeyword(String keyword) {
+        return genManager.praseTriplesFromKeyword(keyword);
+    }
 }

@@ -64,7 +64,7 @@ public class HotSearchManager {
      */
     public List<String> getTopHotWords() {
         String cacheKey = String.format("%s:%s", HOT_SEARCH_KEY, System.getenv("SPRING_PROFILES_ACTIVE"));
-        // ZREVRANGE: Retrieve 0 to 9 in descending order by score
+        // ZREV RANGE: Retrieve 0 to 9 in descending order by score
         Set<String> words = stringRedisTemplate.opsForZSet()
                 .reverseRange(cacheKey, 0, MAX_HOT_WORDS - 1);
 
