@@ -1,13 +1,20 @@
 package com.smart.vision.core.ai.impl;
 
+import com.alibaba.dashscope.exception.ApiException;
+import com.alibaba.dashscope.exception.NoApiKeyException;
+import com.alibaba.dashscope.exception.UploadFileException;
 import com.smart.vision.core.ai.MultiModalEmbeddingService;
 import com.smart.vision.core.manager.BailianEmbeddingManager;
+import com.smart.vision.core.model.enums.AliyunErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.List;
 
+@Slf4j
 @Service
 @Profile("cloud")
 @RequiredArgsConstructor
@@ -23,7 +30,16 @@ public class AliyunEmbeddingImpl implements MultiModalEmbeddingService {
      */
     @Override
     public List<Float> embedImage(String imageUrl) {
-        return bailianManager.embedImage(imageUrl);
+        try {
+            return bailianManager.embedImage(imageUrl);
+        } catch (NoApiKeyException e) {
+            log.error(AliyunErrorCode.API_KEY_MISSING.getMessage(), e);
+        } catch (ApiException e) {
+            log.error(AliyunErrorCode.CALL_FAILED.getMessage(), e);
+        } catch (Exception e) {
+            log.error(AliyunErrorCode.UNKNOWN.getMessage(), e);
+        }
+        return Collections.emptyList();
     }
 
     /**
@@ -34,6 +50,15 @@ public class AliyunEmbeddingImpl implements MultiModalEmbeddingService {
      */
     @Override
     public List<Float> embedText(String text) {
-        return bailianManager.embedText(text);
+        try {
+            return bailianManager.embedText(text);
+        } catch (NoApiKeyException e) {
+            log.error(AliyunErrorCode.API_KEY_MISSING.getMessage(), e);
+        } catch (ApiException e) {
+            log.error(AliyunErrorCode.CALL_FAILED.getMessage(), e);
+        } catch (Exception e) {
+            log.error(AliyunErrorCode.UNKNOWN.getMessage(), e);
+        }
+        return Collections.emptyList();
     }
 }

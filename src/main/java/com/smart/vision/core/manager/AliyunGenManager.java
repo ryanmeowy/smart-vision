@@ -12,6 +12,7 @@ import com.alibaba.dashscope.aigc.multimodalconversation.MultiModalConversationR
 import com.alibaba.dashscope.common.Message;
 import com.alibaba.dashscope.common.MultiModalMessage;
 import com.alibaba.dashscope.common.Role;
+import com.alibaba.dashscope.exception.InputRequiredException;
 import com.alibaba.dashscope.exception.NoApiKeyException;
 import com.alibaba.dashscope.exception.UploadFileException;
 import com.aliyun.core.utils.StringUtils;
@@ -112,7 +113,7 @@ public class AliyunGenManager {
     }
 
     @Retryable(retryFor = Exception.class, backoff = @Backoff(delay = 1000, multiplier = 2))
-    public String genFileName(String imageUrl) {
+    public String genFileName(String imageUrl) throws NoApiKeyException, UploadFileException {
         MultiModalMessage userMessage = MultiModalMessage.builder()
                 .role(Role.USER.getValue())
                 .content(Arrays.asList(Map.of("image", imageUrl), Map.of("text", PromptEnum.NAME_GEN.getPrompt())))
@@ -123,34 +124,25 @@ public class AliyunGenManager {
                 .apiKey(apiKey)
                 .build();
         MultiModalConversation conv = new MultiModalConversation();
-        try {
-            MultiModalConversationResult callResult = conv.call(param);
-            String rawName = Optional.ofNullable(callResult)
-                    .map(MultiModalConversationResult::getOutput)
-                    .map(MultiModalConversationOutput::getChoices)
-                    .filter(CollectionUtil::isNotEmpty)
-                    .map(List::getFirst)
-                    .map(MultiModalConversationOutput.Choice::getMessage)
-                    .map(MultiModalMessage::getContent)
-                    .map(Object::toString)
-                    .orElse(Strings.EMPTY);
-            Matcher matcher = TEXT_PATTERN.matcher(rawName);
-            return matcher.find() ? matcher.group(1) : DEFAULT_IMAGE_NAME;
-        } catch (NoApiKeyException e) {
-            log.error("API Key is not configured: {}", e.getMessage());
-        } catch (UploadFileException e) {
-            log.error("File upload failed: {}", e.getMessage());
-        } catch (Exception e) {
-            log.error("Generation failed: {}", e.getMessage());
-        }
-        return DEFAULT_IMAGE_NAME;
+        MultiModalConversationResult callResult = conv.call(param);
+        String rawName = Optional.ofNullable(callResult)
+                .map(MultiModalConversationResult::getOutput)
+                .map(MultiModalConversationOutput::getChoices)
+                .filter(CollectionUtil::isNotEmpty)
+                .map(List::getFirst)
+                .map(MultiModalConversationOutput.Choice::getMessage)
+                .map(MultiModalMessage::getContent)
+                .map(Object::toString)
+                .orElse(Strings.EMPTY);
+        Matcher matcher = TEXT_PATTERN.matcher(rawName);
+        return matcher.find() ? matcher.group(1) : DEFAULT_IMAGE_NAME;
     }
 
     /**
      * Call VL model to generate tags
      */
     @Retryable(retryFor = Exception.class, backoff = @Backoff(delay = 1000, multiplier = 2))
-    public List<String> generateTags(String imageUrl) {
+    public List<String> generateTags(String imageUrl) throws NoApiKeyException, UploadFileException {
         MultiModalMessage userMessage = MultiModalMessage.builder()
                 .role("user")
                 .content(Arrays.asList(
@@ -166,29 +158,21 @@ public class AliyunGenManager {
                 .build();
 
         MultiModalConversation conv = new MultiModalConversation();
-        try {
-            MultiModalConversationResult result = conv.call(param);
-            String content = Optional.ofNullable(result)
-                    .map(MultiModalConversationResult::getOutput)
-                    .map(MultiModalConversationOutput::getChoices)
-                    .filter(CollectionUtil::isNotEmpty)
-                    .map(List::getFirst)
-                    .map(MultiModalConversationOutput.Choice::getMessage)
-                    .map(MultiModalMessage::getContent)
-                    .map(Object::toString)
-                    .orElse(Strings.EMPTY);
-            return parseMdJson(content, String.class);
-        } catch (NoApiKeyException e) {
-            log.error("API Key is not configured");
-            return Collections.emptyList();
-        } catch (Exception e) {
-            log.warn("AI tagging failed: {}", e.getMessage());
-            return Collections.emptyList();
-        }
+        MultiModalConversationResult result = conv.call(param);
+        String content = Optional.ofNullable(result)
+                .map(MultiModalConversationResult::getOutput)
+                .map(MultiModalConversationOutput::getChoices)
+                .filter(CollectionUtil::isNotEmpty)
+                .map(List::getFirst)
+                .map(MultiModalConversationOutput.Choice::getMessage)
+                .map(MultiModalMessage::getContent)
+                .map(Object::toString)
+                .orElse(Strings.EMPTY);
+        return parseMdJson(content, String.class);
     }
 
     @Retryable(retryFor = Exception.class, backoff = @Backoff(delay = 1000, multiplier = 2))
-    public List<GraphTripleDTO> generateGraph(String imageUrl) {
+    public List<GraphTripleDTO> generateGraph(String imageUrl) throws NoApiKeyException, UploadFileException {
         MultiModalMessage userMessage = MultiModalMessage.builder()
                 .role("user")
                 .content(Arrays.asList(Map.of("image", imageUrl), Map.of("text", GRAPH_IMAGE.getPrompt())))
@@ -199,25 +183,20 @@ public class AliyunGenManager {
                 .apiKey(apiKey)
                 .build();
         MultiModalConversation conv = new MultiModalConversation();
-        try {
-            MultiModalConversationResult result = conv.call(param);
-            String content = Optional.ofNullable(result)
-                    .map(MultiModalConversationResult::getOutput)
-                    .map(MultiModalConversationOutput::getChoices)
-                    .filter(CollectionUtil::isNotEmpty)
-                    .map(List::getFirst)
-                    .map(MultiModalConversationOutput.Choice::getMessage)
-                    .map(MultiModalMessage::getContent)
-                    .map(Object::toString)
-                    .orElse(Strings.EMPTY);
-            return parseMdJson(content, GraphTripleDTO.class);
-        } catch (Exception e) {
-            log.error("gen graph failed: {}", e.getMessage());
-            return Collections.emptyList();
-        }
+        MultiModalConversationResult result = conv.call(param);
+        String content = Optional.ofNullable(result)
+                .map(MultiModalConversationResult::getOutput)
+                .map(MultiModalConversationOutput::getChoices)
+                .filter(CollectionUtil::isNotEmpty)
+                .map(List::getFirst)
+                .map(MultiModalConversationOutput.Choice::getMessage)
+                .map(MultiModalMessage::getContent)
+                .map(Object::toString)
+                .orElse(Strings.EMPTY);
+        return parseMdJson(content, GraphTripleDTO.class);
     }
 
-    public List<GraphTripleDTO> praseTriplesFromKeyword(String keyword) {
+    public List<GraphTripleDTO> praseTriplesFromKeyword(String keyword) throws NoApiKeyException, InputRequiredException {
         Generation gen = new Generation();
         Message systemMsg = Message.builder()
                 .role(Role.SYSTEM.getValue())
@@ -233,21 +212,16 @@ public class AliyunGenManager {
                 .messages(Arrays.asList(systemMsg, userMsg))
                 .resultFormat(GenerationParam.ResultFormat.MESSAGE)
                 .build();
-        try {
-            GenerationResult result = gen.call(param);
-            String content = Optional.of(result)
-                    .map(GenerationResult::getOutput)
-                    .map(GenerationOutput::getChoices)
-                    .filter(CollectionUtil::isNotEmpty)
-                    .map(List::getLast)
-                    .map(GenerationOutput.Choice::getMessage)
-                    .map(Message::getContent)
-                    .orElse(Strings.EMPTY);
-            return parseMdJson(content, GraphTripleDTO.class);
-        } catch (Exception e) {
-            log.error("prase triples from keyword failed: {}", e.getMessage());
-            return Collections.emptyList();
-        }
+        GenerationResult result = gen.call(param);
+        String content = Optional.of(result)
+                .map(GenerationResult::getOutput)
+                .map(GenerationOutput::getChoices)
+                .filter(CollectionUtil::isNotEmpty)
+                .map(List::getLast)
+                .map(GenerationOutput.Choice::getMessage)
+                .map(Message::getContent)
+                .orElse(Strings.EMPTY);
+        return parseMdJson(content, GraphTripleDTO.class);
     }
 
     private <T> List<T> parseMdJson(String content, Class<T> clazz) {

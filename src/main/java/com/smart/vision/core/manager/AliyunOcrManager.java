@@ -1,10 +1,13 @@
 package com.smart.vision.core.manager;
 
+import cn.hutool.core.collection.CollectionUtil;
 import com.alibaba.dashscope.aigc.multimodalconversation.MultiModalConversation;
+import com.alibaba.dashscope.aigc.multimodalconversation.MultiModalConversationOutput;
 import com.alibaba.dashscope.aigc.multimodalconversation.MultiModalConversationParam;
 import com.alibaba.dashscope.aigc.multimodalconversation.MultiModalConversationResult;
 import com.alibaba.dashscope.common.MultiModalMessage;
 import com.alibaba.dashscope.exception.NoApiKeyException;
+import com.alibaba.dashscope.exception.UploadFileException;
 import com.aliyun.ocr_api20210707.Client;
 import com.aliyun.ocr_api20210707.models.RecognizeGeneralRequest;
 import com.aliyun.ocr_api20210707.models.RecognizeGeneralResponse;
@@ -109,7 +112,7 @@ public class AliyunOcrManager {
     }
 
     @Retryable(retryFor = {RuntimeException.class}, backoff = @Backoff(delay = 1000, multiplier = 2))
-    public String llmOcrContent(String imageUrl) {
+    public String llmOcrContent(String imageUrl) throws NoApiKeyException, UploadFileException {
         MultiModalMessage userMessage = MultiModalMessage.builder()
                 .role("user")
                 .content(Arrays.asList(
@@ -124,19 +127,19 @@ public class AliyunOcrManager {
                 .apiKey(apiKey)
                 .build();
         MultiModalConversationResult result;
-        try {
-            MultiModalConversation conv = new MultiModalConversation();
-            result = conv.call(param);
-        } catch (NoApiKeyException e) {
-            log.error("API Key is not configured");
-            return null;
-        } catch (Exception e) {
-            log.warn("Fetch ocr content failed: {}", e.getMessage());
-            return null;
-        }
+        MultiModalConversation conv = new MultiModalConversation();
+        result = conv.call(param);
+
         String content = Optional.ofNullable(result)
-                .map(x -> x.getOutput().getChoices().getFirst().getMessage().getContent().toString())
+                .map(MultiModalConversationResult::getOutput)
+                .map(MultiModalConversationOutput::getChoices)
+                .filter(CollectionUtil::isNotEmpty)
+                .map(List::getFirst)
+                .map(MultiModalConversationOutput.Choice::getMessage)
+                .map(MultiModalMessage::getContent)
+                .map(Object::toString)
                 .orElse(Strings.EMPTY);
+
         Matcher matcher = TEXT_PATTERN.matcher(content);
         return matcher.find()
                 ? StringUtils.hasText(matcher.group(1)) && !matcher.group(1).equals("-1") ? matcher.group(1) : Strings.EMPTY
