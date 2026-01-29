@@ -2,6 +2,7 @@ package com.smart.vision.core.model.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * GraphTripleDTO class: represents a triple in a graph.
@@ -11,6 +12,7 @@ import lombok.Data;
  */
 
 @Data
+@NoArgsConstructor
 @AllArgsConstructor
 public class GraphTripleDTO {
     // Subject

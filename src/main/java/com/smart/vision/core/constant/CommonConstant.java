@@ -1,9 +1,5 @@
 package com.smart.vision.core.constant;
 
-import com.google.common.collect.Lists;
-
-import java.util.List;
-
 /**
  * general constant clazz;
  *
