@@ -1,5 +1,7 @@
 package com.smart.vision.core.controller;
 
+import cn.hutool.core.lang.Pair;
+import com.smart.vision.core.ai.ContentGenerationService;
 import com.smart.vision.core.component.IdGen;
 import com.smart.vision.core.manager.AliyunGenManager;
 import com.smart.vision.core.model.Result;
@@ -25,11 +27,15 @@ public class TestController {
 
     private final AliyunGenManager aliyunGenManager;
     private final IdGen idGen;
+    private final ContentGenerationService contentGenerationService;
 
     @PostMapping("/test")
-    public Result<List<GraphTripleDTO>> test(@RequestParam String url) {
-        List<GraphTripleDTO> graphTriples = aliyunGenManager.praseTriplesFromKeyword(url);
-        return Result.success(graphTriples);
+    public Result<Pair<List<GraphTripleDTO>, List<GraphTripleDTO>>> test(@RequestParam String url, @RequestParam String keyword) {
+//        List<GraphTripleDTO> graphTripleDTOS1 = aliyunGenManager.praseTriplesFromKeyword(keyword);
+//        List<GraphTripleDTO> graphTripleDTOS2 = aliyunGenManager.generateGraph(url);
+        List<GraphTripleDTO> graphTripleDTOS1 = contentGenerationService.praseTriplesFromKeyword(keyword);
+        List<GraphTripleDTO> graphTripleDTOS2 = contentGenerationService.generateGraph(url);
+        return Result.success(Pair.of(graphTripleDTOS1, graphTripleDTOS2));
     }
 
     @GetMapping("/test1")

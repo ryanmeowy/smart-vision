@@ -1,5 +1,8 @@
 package com.smart.vision.core.model.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 /**
@@ -18,16 +21,20 @@ public class BatchProcessDTO {
      * OSS Object Key
      * example: images/2024/abc.jpg
      */
+    @NotBlank(message = "OSS key cannot be empty")
     private String key;
 
     /**
      * original file name
      */
+    @NotBlank(message = "fileName cannot be empty")
+    @Size(max = 255, message = "The file name length cannot exceed 255")
     private String fileName;
 
     /**
      * File fingerprint (MD5)
      */
+    @NotBlank(message = "fileHash cannot be empty")
+    @Pattern(regexp = "^[a-f0-9]{32}$", message = "Invalid MD5 hash value")
     private String fileHash;
-
 }

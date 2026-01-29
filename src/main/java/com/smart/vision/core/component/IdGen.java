@@ -10,12 +10,13 @@ import java.security.SecureRandom;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import static com.smart.vision.core.constant.CommonConstant.ID_GEN_KEY;
+import static com.smart.vision.core.constant.CacheConstant.ID_GEN_KEY;
 import static com.smart.vision.core.constant.CommonConstant.ID_GEN_MAX_ID;
 import static com.smart.vision.core.constant.CommonConstant.ID_GEN_MAX_STEP;
 import static com.smart.vision.core.constant.CommonConstant.ID_GEN_MIN_ID;
 import static com.smart.vision.core.constant.CommonConstant.ID_GEN_MIN_STEP;
 import static com.smart.vision.core.constant.CommonConstant.ID_GEN_SEGMENT_SIZE;
+import static com.smart.vision.core.constant.CommonConstant.PROFILE_KEY_NAME;
 
 @Slf4j
 @Component
@@ -36,7 +37,7 @@ public class IdGen {
 
     @PostConstruct
     public void init() {
-        this.cacheKey = String.format("%s:%s", ID_GEN_KEY, System.getenv("SPRING_PROFILES_ACTIVE"));
+        this.cacheKey = String.format("%s:%s", ID_GEN_KEY, System.getenv(PROFILE_KEY_NAME));
         stringRedisTemplate.opsForValue().setIfAbsent(cacheKey, String.valueOf(ID_GEN_MIN_ID));
     }
 

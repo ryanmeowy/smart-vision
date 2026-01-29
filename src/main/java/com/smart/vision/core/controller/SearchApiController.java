@@ -19,8 +19,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.Collections;
 import java.util.List;
 
-import static com.smart.vision.core.constant.CommonConstant.IMAGE_MAX_SIZE;
-import static com.smart.vision.core.constant.CommonConstant.MAX_INPUT_LENGTH;
+import static com.smart.vision.core.constant.SearchConstant.IMAGE_MAX_SIZE;
+import static com.smart.vision.core.constant.SearchConstant.MAX_INPUT_LENGTH;
 
 /**
  * rest api controller for vision search functionality;

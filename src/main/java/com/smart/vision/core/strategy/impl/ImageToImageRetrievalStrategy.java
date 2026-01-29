@@ -10,7 +10,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
-import static com.smart.vision.core.constant.CommonConstant.IMAGE_TO_IMAGE_TOP_K;
+import static com.smart.vision.core.constant.SearchConstant.IMAGE_TO_IMAGE_TOP_K;
+
 
 @Component
 @RequiredArgsConstructor

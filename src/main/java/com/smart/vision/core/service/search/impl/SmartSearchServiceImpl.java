@@ -2,6 +2,7 @@ package com.smart.vision.core.service.search.impl;
 
 import com.google.common.collect.Lists;
 import com.smart.vision.core.ai.MultiModalEmbeddingService;
+import com.smart.vision.core.convertor.ImageDocConvertor;
 import com.smart.vision.core.manager.HotSearchManager;
 import com.smart.vision.core.manager.OssManager;
 import com.smart.vision.core.model.dto.ImageSearchResultDTO;
@@ -10,7 +11,6 @@ import com.smart.vision.core.model.dto.SearchResultDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
 import com.smart.vision.core.model.enums.StrategyTypeEnum;
 import com.smart.vision.core.repository.ImageRepository;
-import com.smart.vision.core.convertor.ImageDocConvertor;
 import com.smart.vision.core.service.search.SmartSearchService;
 import com.smart.vision.core.strategy.RetrievalStrategy;
 import com.smart.vision.core.strategy.StrategyFactory;
@@ -23,12 +23,17 @@ import org.springframework.util.DigestUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static com.smart.vision.core.constant.CommonConstant.*;
+import static com.smart.vision.core.constant.AliyunConstant.X_OSS_PROCESS_EMBEDDING;
+import static com.smart.vision.core.constant.CacheConstant.IMAGE_MD5_CACHE_PREFIX;
+import static com.smart.vision.core.constant.CacheConstant.VECTOR_CACHE_PREFIX;
+import static com.smart.vision.core.constant.CommonConstant.PROFILE_KEY_NAME;
+import static com.smart.vision.core.constant.EmbeddingConstant.SIMILARITY_TOP_K;
 import static com.smart.vision.core.model.enums.PresignedValidityEnum.SHORT_TERM_VALIDITY;
 
 /**
@@ -55,11 +60,14 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         }
         List<Float> queryVector = getVectorFromCache(query.getKeyword());
         if (CollectionUtils.isEmpty(queryVector)) {
+            log.info("vector cache missed, processing new text, keyword: {}", query.getKeyword());
             queryVector = embeddingService.embedText(query.getKeyword());
             cacheVector(query.getKeyword(), queryVector);
         }
+        log.info("vector cache hit, processing new text, keyword: {}", query.getKeyword());
         RetrievalStrategy strategy = strategyFactory.getStrategy(query.getSearchType());
         List<ImageSearchResultDTO> docs = strategy.search(query, queryVector);
+        log.info("Search completed, number of results: {}", docs.size());
         return imageDocConvertor.convert2SearchResultDTO(manualRerank(docs, query.getKeyword()));
     }
 
@@ -102,12 +110,7 @@ public class SmartSearchServiceImpl implements SmartSearchService {
     private List<Float> getVectorFromCache(String text) {
         if (!StringUtils.hasText(text)) return null;
         String key = buildVectorCacheKey(text);
-        List<Float> cachedValue = redisTemplate.opsForValue().get(key);
-        if (cachedValue != null) {
-            log.info("hit vector cache: {}", text);
-            return cachedValue;
-        }
-        return null;
+        return redisTemplate.opsForValue().get(key);
     }
 
     private void cacheVector(String text, List<Float> vector) {
@@ -117,14 +120,14 @@ public class SmartSearchServiceImpl implements SmartSearchService {
     }
 
     private String buildVectorCacheKey(String text) {
-        return String.format("%s%s:%s", VECTOR_CACHE_PREFIX, System.getenv("SPRING_PROFILES_ACTIVE"), DigestUtils.md5DigestAsHex(text.trim().toLowerCase().getBytes()));
+        return String.format("%s%s:%s", VECTOR_CACHE_PREFIX, System.getenv(PROFILE_KEY_NAME), DigestUtils.md5DigestAsHex(text.trim().toLowerCase().getBytes()));
     }
 
     @Override
     public List<SearchResultDTO> searchByImage(MultipartFile file, int limit) {
-        try {
-            String md5 = DigestUtils.md5DigestAsHex(file.getInputStream());
-            String cacheKey = String.format("%s%s:%s", IMAGE_MD5_CACHE_PREFIX, System.getenv("SPRING_PROFILES_ACTIVE"), md5);
+        try (InputStream is = file.getInputStream()) {
+            String md5 = DigestUtils.md5DigestAsHex(is);
+            String cacheKey = String.format("%s%s:%s", IMAGE_MD5_CACHE_PREFIX, System.getenv(PROFILE_KEY_NAME), md5);
             List<Float> vector = redisTemplate.opsForValue().get(cacheKey);
             if (vector != null) {
                 log.info("Cache hit, MD5: {}", md5);

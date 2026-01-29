@@ -1,6 +1,7 @@
 package com.smart.vision.core.strategy;
 
 import com.smart.vision.core.model.enums.StrategyTypeEnum;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.EnumMap;
@@ -16,6 +17,7 @@ import java.util.Optional;
  * @author Ryan
  * @since 2025/12/15
  */
+@Slf4j
 @Component
 public class StrategyFactory {
 
@@ -25,6 +27,16 @@ public class StrategyFactory {
         this.strategies = new EnumMap<>(StrategyTypeEnum.class);
         for (RetrievalStrategy strategy : strategyList) {
             this.strategies.put(strategy.getType(), strategy);
+            log.info("Search strategy registered: {}", strategy.getType().getDesc());
+        }
+        validateRequiredStrategies();
+    }
+
+    private void validateRequiredStrategies() {
+        for (StrategyTypeEnum type : StrategyTypeEnum.values()) {
+            if (!strategies.containsKey(type)) {
+                log.warn("Missing required search strategy: {}", type.getDesc());
+            }
         }
     }
 
@@ -36,8 +48,17 @@ public class StrategyFactory {
      * @throws IllegalArgumentException if no strategy found for given type
      */
     public RetrievalStrategy getStrategy(String searchType) {
-        StrategyTypeEnum strategyType = StrategyTypeEnum.getByCode(searchType);
-        return Optional.ofNullable(strategies.get(strategyType))
-                .orElseGet(() -> strategies.get(StrategyTypeEnum.HYBRID));
+        try {
+            StrategyTypeEnum strategyType = StrategyTypeEnum.getByCode(searchType);
+            RetrievalStrategy retrievalStrategy = strategies.get(strategyType);
+            if (retrievalStrategy == null) {
+                log.warn("No effective search strategy was hit. {}", searchType);
+                return strategies.get(StrategyTypeEnum.HYBRID);
+            }
+            return retrievalStrategy;
+        }catch (Exception e) {
+            log.error("Failed to get search strategy", e);
+            return strategies.get(StrategyTypeEnum.HYBRID);
+        }
     }
 }

@@ -18,7 +18,6 @@ import com.smart.vision.core.model.enums.PromptEnum;
 import io.reactivex.Flowable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.logging.log4j.util.Strings;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
@@ -34,11 +33,12 @@ import java.util.concurrent.Executor;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.smart.vision.core.constant.CommonConstant.AI_RESPONSE_REGEX;
-import static com.smart.vision.core.constant.CommonConstant.IMAGE_GEN_MODEL_NAME;
-import static com.smart.vision.core.constant.CommonConstant.MD_JSON_REGEX;
+import static com.smart.vision.core.constant.AliyunConstant.IMAGE_GEN_MODEL_NAME;
+import static com.smart.vision.core.constant.AliyunConstant.VISION_MODEL_NAME;
+import static com.smart.vision.core.constant.CommonConstant.DEFAULT_IMAGE_NAME;
 import static com.smart.vision.core.constant.CommonConstant.SSE_TIMEOUT;
-import static com.smart.vision.core.constant.CommonConstant.VISION_MODEL_NAME;
+import static com.smart.vision.core.constant.ValidationConstant.AI_RESPONSE_REGEX;
+import static com.smart.vision.core.constant.ValidationConstant.MD_JSON_REGEX;
 import static com.smart.vision.core.model.enums.PromptEnum.GRAPH_IMAGE;
 import static com.smart.vision.core.model.enums.PromptEnum.GRAPH_TEXT;
 import static com.smart.vision.core.model.enums.PromptEnum.TAG_GEN;
@@ -121,17 +121,15 @@ public class AliyunGenManager {
             MultiModalConversationResult callResult = conv.call(param);
             String rawName = callResult.getOutput().getChoices().getFirst().getMessage().getContent().toString();
             Matcher matcher = TEXT_PATTERN.matcher(rawName);
-            return matcher.find() ? matcher.group(1) : Strings.EMPTY;
+            return matcher.find() ? matcher.group(1) : DEFAULT_IMAGE_NAME;
         } catch (NoApiKeyException e) {
             log.error("API Key is not configured: {}", e.getMessage());
-            return Strings.EMPTY;
         } catch (UploadFileException e) {
             log.error("File upload failed: {}", e.getMessage());
-            return Strings.EMPTY;
         } catch (Exception e) {
             log.error("Generation failed: {}", e.getMessage());
-            return Strings.EMPTY;
         }
+        return DEFAULT_IMAGE_NAME;
     }
 
     /**

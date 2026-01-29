@@ -3,8 +3,8 @@ package com.smart.vision.core.config;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
-import static com.smart.vision.core.constant.CommonConstant.LOCAL_HYBRID_SIMILARITY;
-import static com.smart.vision.core.constant.CommonConstant.LOCAL_SIMILAR_SIMILARITY;
+import static com.smart.vision.core.constant.EmbeddingConstant.LOCAL_HYBRID_SIMILARITY;
+import static com.smart.vision.core.constant.EmbeddingConstant.LOCAL_SIMILAR_SIMILARITY;
 
 @Component
 @Profile("local")

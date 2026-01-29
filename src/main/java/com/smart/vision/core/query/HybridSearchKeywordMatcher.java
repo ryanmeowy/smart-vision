@@ -3,9 +3,9 @@ package com.smart.vision.core.query;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import org.springframework.stereotype.Component;
 
-import static com.smart.vision.core.constant.CommonConstant.DEFAULT_FIELD_NAME_BOOST;
-import static com.smart.vision.core.constant.CommonConstant.DEFAULT_OCR_BOOST;
-import static com.smart.vision.core.constant.CommonConstant.DEFAULT_TAG_BOOST;
+import static com.smart.vision.core.constant.EmbeddingConstant.DEFAULT_FIELD_NAME_BOOST;
+import static com.smart.vision.core.constant.EmbeddingConstant.DEFAULT_OCR_BOOST;
+import static com.smart.vision.core.constant.EmbeddingConstant.DEFAULT_TAG_BOOST;
 
 @Component
 public class HybridSearchKeywordMatcher implements FieldMatcher {

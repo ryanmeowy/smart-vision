@@ -19,9 +19,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
-import static com.smart.vision.core.constant.CommonConstant.DEFAULT_EMBEDDING_BOOST;
-import static com.smart.vision.core.constant.CommonConstant.DEFAULT_NUM_CANDIDATES;
-import static com.smart.vision.core.constant.CommonConstant.NUM_CANDIDATES_FACTOR;
+import static com.smart.vision.core.constant.EmbeddingConstant.DEFAULT_EMBEDDING_BOOST;
+import static com.smart.vision.core.constant.EmbeddingConstant.DEFAULT_NUM_CANDIDATES;
+import static com.smart.vision.core.constant.EmbeddingConstant.NUM_CANDIDATES_FACTOR;
 
 @Component
 @RequiredArgsConstructor

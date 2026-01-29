@@ -20,7 +20,7 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.concurrent.TimeUnit;
 
-import static com.smart.vision.core.constant.CommonConstant.TOKEN_KEY;
+import static com.smart.vision.core.constant.CacheConstant.TOKEN_CACHE_PREFIX;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -65,7 +65,7 @@ public class AuthApiController {
             newToken = String.valueOf(tokenInt);
         }
         try {
-            redisTemplate.opsForValue().set(TOKEN_KEY, newToken, 12, TimeUnit.HOURS);
+            redisTemplate.opsForValue().set(TOKEN_CACHE_PREFIX, newToken, 12, TimeUnit.HOURS);
         } catch (Exception e) {
             log.error("Failed to store token in redis", e);
             return Result.error(500, "Internal error");
@@ -79,7 +79,7 @@ public class AuthApiController {
             return Result.error(403, "Unauthorized access");
         }
         try {
-            redisTemplate.delete(TOKEN_KEY);
+            redisTemplate.delete(TOKEN_CACHE_PREFIX);
         } catch (Exception e) {
             log.warn("Failed to delete token in redis", e);
             return Result.error(500, "Internal error");

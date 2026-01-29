@@ -17,9 +17,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
-import static com.smart.vision.core.constant.CommonConstant.DEFAULT_REGION;
-import static com.smart.vision.core.constant.CommonConstant.DEFAULT_ROLE_SESSION_NAME;
-import static com.smart.vision.core.constant.CommonConstant.DEFAULT_STS_DURATION_SECONDS;
+import static com.smart.vision.core.constant.AliyunConstant.DEFAULT_REGION;
+import static com.smart.vision.core.constant.AliyunConstant.DEFAULT_ROLE_SESSION_NAME;
+import static com.smart.vision.core.constant.AliyunConstant.DEFAULT_STS_DURATION_SECONDS;
 
 /**
  * OSS Service Implementation of OssService interface that handles Alibaba Cloud OSS operations
