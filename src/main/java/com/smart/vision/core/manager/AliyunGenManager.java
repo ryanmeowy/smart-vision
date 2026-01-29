@@ -34,6 +34,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.smart.vision.core.constant.AliyunConstant.IMAGE_GEN_MODEL_NAME;
+import static com.smart.vision.core.constant.AliyunConstant.TEXT_MODEL_NAME;
 import static com.smart.vision.core.constant.AliyunConstant.VISION_MODEL_NAME;
 import static com.smart.vision.core.constant.CommonConstant.DEFAULT_IMAGE_NAME;
 import static com.smart.vision.core.constant.CommonConstant.SSE_TIMEOUT;
@@ -215,7 +216,7 @@ public class AliyunGenManager {
                 .build();
         GenerationParam param = GenerationParam.builder()
                 .apiKey(apiKey)
-                .model("qwen-plus")
+                .model(TEXT_MODEL_NAME)
                 .messages(Arrays.asList(systemMsg, userMsg))
                 .resultFormat(GenerationParam.ResultFormat.MESSAGE)
                 .build();

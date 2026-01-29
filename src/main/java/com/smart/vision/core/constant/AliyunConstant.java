@@ -15,4 +15,6 @@ public class AliyunConstant {
     public static final String X_OSS_PROCESS_EMBEDDING = "image/resize,l_2048,m_lfit/format,jpg/quality,q_75";
 
     public static final Long DEFAULT_STS_DURATION_SECONDS = 15 * 60L;
+
+    public static final String TEXT_MODEL_NAME = "qwen-plus";
 }
