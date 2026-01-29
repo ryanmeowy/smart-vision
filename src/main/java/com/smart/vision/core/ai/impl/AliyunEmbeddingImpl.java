@@ -25,7 +25,7 @@ public class AliyunEmbeddingImpl implements MultiModalEmbeddingService {
     /**
      * Get multimodal vector (image)
      *
-     * @param imageUrl Image URL (optional)
+     * @param imageUrl Image URL
      * @return 1024-dimensional vector
      */
     @Override
@@ -45,7 +45,7 @@ public class AliyunEmbeddingImpl implements MultiModalEmbeddingService {
     /**
      * Get multimodal vector (text)
      *
-     * @param text Text (optional)
+     * @param text Text
      * @return 1024-dimensional vector
      */
     @Override
