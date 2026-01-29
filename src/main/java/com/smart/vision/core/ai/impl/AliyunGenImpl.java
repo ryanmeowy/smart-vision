@@ -1,22 +1,22 @@
 package com.smart.vision.core.ai.impl;
 
+import com.google.common.collect.Lists;
 import com.smart.vision.core.ai.ContentGenerationService;
 import com.smart.vision.core.manager.AliyunGenManager;
-import com.smart.vision.core.manager.AliyunTaggingManager;
+import com.smart.vision.core.model.dto.GraphTripleDTO;
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 
 @Service
-@ConditionalOnProperty(name = "app.ai.provider", havingValue = "cloud", matchIfMissing = true)
+@Profile("cloud")
 @RequiredArgsConstructor
 public class AliyunGenImpl implements ContentGenerationService {
 
     private final AliyunGenManager genManager;
-    private final AliyunTaggingManager taggingManager;
 
     @Override
     public SseEmitter streamGenerateCopy(String imageUrl, String promptType) {
@@ -30,6 +30,22 @@ public class AliyunGenImpl implements ContentGenerationService {
 
     @Override
     public List<String> generateTags(String imageUrl) {
-        return taggingManager.generateTags(imageUrl);
+        return genManager.generateTags(imageUrl);
+    }
+
+    /**
+     * Generate graph for the image
+     *
+     * @param imageUrl Image URL
+     * @return List of graph triples
+     */
+    @Override
+    public List<GraphTripleDTO> generateGraph(String imageUrl) {
+        return genManager.generateGraph(imageUrl);
+    }
+
+    @Override
+    public List<GraphTripleDTO> praseTriplesFromKeyword(String keyword) {
+        return genManager.praseTriplesFromKeyword(keyword);
     }
 }

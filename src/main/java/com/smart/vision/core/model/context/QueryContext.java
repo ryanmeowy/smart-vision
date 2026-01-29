@@ -2,6 +2,7 @@ package com.smart.vision.core.model.context;
 
 import co.elastic.clients.elasticsearch._types.SortOptions;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import com.smart.vision.core.model.dto.GraphTripleDTO;
 import lombok.Builder;
 import lombok.Data;
 
@@ -20,6 +21,7 @@ public class QueryContext {
     private KnnQuery knnQuery;
     private List<Function<String, Query>> keywordFunc;
     private List<Function<String, Query>> filter;
+    private List<GraphTripleDTO> graphTriples;
 
     @Data
     @Builder

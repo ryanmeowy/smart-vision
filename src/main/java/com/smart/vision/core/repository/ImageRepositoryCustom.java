@@ -1,8 +1,8 @@
 
 package com.smart.vision.core.repository;
 
+import com.smart.vision.core.model.dto.HybridSearchParamDTO;
 import com.smart.vision.core.model.dto.ImageSearchResultDTO;
-import com.smart.vision.core.model.dto.SearchQueryDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
 
 import java.util.List;
@@ -17,11 +17,9 @@ public interface ImageRepositoryCustom {
     /**
      * Hybrid search: vector + OCR text
      *
-     * @param query       user request
-     * @param queryVector text converted to vector
      * @return list of matching documents
      */
-    List<ImageSearchResultDTO> hybridSearch(SearchQueryDTO query, List<Float> queryVector);
+    List<ImageSearchResultDTO> hybridSearch(HybridSearchParamDTO paramDTO);
 
     /**
      * Search for similar documents based on vector (supports excluding specific ID)

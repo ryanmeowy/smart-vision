@@ -1,19 +1,19 @@
 #version: '3.8'
 
 services:
-# ES
+  # ES
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.18.8
     container_name: elasticsearch
     environment:
-      - discovery.type=single-node # 单节点模式
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m" # 分配内存，根据机器资源调整
+      - discovery.type=single-node # 单节点
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m" # Java 堆内存设置，根据需要调整
       - xpack.security.enabled=false # 测试环境禁用安全验证, 生产环境建议开启并配置。
       - ELASTIC_PASSWORD=${ES_PASSWORD}    # 使用 .env 文件中的密码
-#      - xpack.security.http.ssl.enabled=true # 启用 HTTP SSL (可选，但推荐)
-#      - xpack.security.http.ssl.keystore.path=cert/http_ca.p12
-#      - xpack.security.http.ssl.truststore.path=cert/http_ca.p12
-#      - xpack.security.http.ssl.verification_mode=none # 简化配置，生产环境需正确配置证书
+    #      - xpack.security.http.ssl.enabled=true # 启用 HTTP SSL (可选，但推荐)
+    #      - xpack.security.http.ssl.keystore.path=cert/http_ca.p12
+    #      - xpack.security.http.ssl.truststore.path=cert/http_ca.p12
+    #      - xpack.security.http.ssl.verification_mode=none # 简化配置，生产环境需正确配置证书
     ports:
       - "9200:9200" # HTTP 端口
       - "9300:9300" # 传输端口（用于节点间通信，单节点模式非必需但保留）
@@ -22,26 +22,25 @@ services:
     networks:
       - es_network
 
-# Kibana
-  kibana:
-   image: docker.elastic.co/kibana/kibana:8.11.3
-   container_name: kibana
-   ports:
-     - "5601:5601"
-   environment:
-     - ELASTICSEARCH_HOSTS=["http://elasticsearch:9200"] # 指向 Elasticsearch
-   depends_on:
-     - elasticsearch # 确保 Elasticsearch 先启动
-   networks:
-     - es_network
+  # Kibana
+  # kibana:
+  #  image: docker.elastic.co/kibana/kibana:8.11.3
+  #  container_name: kibana
+  #  ports:
+  #    - "5601:5601"
+  #  environment:
+  #    - ELASTICSEARCH_HOSTS=["http://elasticsearch:9200"] # 指向 Elasticsearch
+  #  depends_on:
+  #    - elasticsearch # 确保 Elasticsearch 先启动
+  #  networks:
+  #    - es_network
 
   redis:
     image: redis:latest
     container_name: redis
     ports:
       - "6379:6379" # 默认端口
-    environment:
-      - REDIS_PASSWORD=${REDIS_PASSWORD} # 使用 .env 文件中的密码
+    command: redis-server --requirepass "${REDIS_PASSWORD}" # 使用 .env 文件中的密码
     volumes:
       - redis_data:/data # 持久化
     networks:

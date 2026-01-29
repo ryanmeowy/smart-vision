@@ -1,5 +1,6 @@
 package com.smart.vision.core.model.entity;
 
+import com.smart.vision.core.model.dto.GraphTripleDTO;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
@@ -8,8 +9,6 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.List;
 
-import static com.smart.vision.core.constant.CommonConstant.SMART_GALLERY_V2;
-
 /**
  * image doc model for elasticsearch
  *
@@ -17,7 +16,7 @@ import static com.smart.vision.core.constant.CommonConstant.SMART_GALLERY_V2;
  * @since 2025/12/15
  */
 @Data
-@Document(indexName = SMART_GALLERY_V2, createIndex = false)
+@Document(indexName = "#{@vectorConfig.getIndexName()}", createIndex = false)
 public class ImageDocument {
     /**
      * Image ID (ES Doc ID)
@@ -73,4 +72,10 @@ public class ImageDocument {
      */
     @Field(type = FieldType.Keyword)
     private String fileHash;
+
+    /**
+     * Graph triples (subject, predicate, object)
+     */
+    @Field(type = FieldType.Nested)
+    private List<GraphTripleDTO> relations;
 }

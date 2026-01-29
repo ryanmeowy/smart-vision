@@ -3,13 +3,13 @@ package com.smart.vision.core.ai.impl;
 import com.smart.vision.core.ai.MultiModalEmbeddingService;
 import com.smart.vision.core.manager.BailianEmbeddingManager;
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 @Service
-@ConditionalOnProperty(name = "app.ai.provider", havingValue = "cloud", matchIfMissing = true)
+@Profile("cloud")
 @RequiredArgsConstructor
 public class AliyunEmbeddingImpl implements MultiModalEmbeddingService {
 

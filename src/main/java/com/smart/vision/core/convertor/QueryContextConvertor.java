@@ -1,11 +1,13 @@
-package com.smart.vision.core.builder;
+package com.smart.vision.core.convertor;
 
 import co.elastic.clients.elasticsearch._types.SortOptions;
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import com.google.common.collect.Lists;
+import com.smart.vision.core.config.SimilarityConfig;
+import com.smart.vision.core.config.VectorConfig;
 import com.smart.vision.core.model.context.QueryContext;
 import com.smart.vision.core.model.context.SortContext;
-import com.smart.vision.core.model.dto.SearchQueryDTO;
+import com.smart.vision.core.model.dto.HybridSearchParamDTO;
 import com.smart.vision.core.query.HybridSearchKeywordMatcher;
 import com.smart.vision.core.query.SimilarSearchIdMatcher;
 import lombok.RequiredArgsConstructor;
@@ -20,25 +22,26 @@ import java.util.Objects;
 import static com.smart.vision.core.constant.CommonConstant.DEFAULT_EMBEDDING_BOOST;
 import static com.smart.vision.core.constant.CommonConstant.DEFAULT_NUM_CANDIDATES;
 import static com.smart.vision.core.constant.CommonConstant.NUM_CANDIDATES_FACTOR;
-import static com.smart.vision.core.constant.CommonConstant.SIMILAR_QUERIES_SIMILARITY;
-import static com.smart.vision.core.constant.CommonConstant.SMART_GALLERY_V2;
 
 @Component
 @RequiredArgsConstructor
-public class QueryContextBuilder {
+public class QueryContextConvertor {
 
     private final HybridSearchKeywordMatcher hybridSearchKeywordMatcher;
     private final SimilarSearchIdMatcher similarSearchIdMatcher;
+    private final VectorConfig vectorConfig;
+    private final SimilarityConfig similarityConfig;
 
-    public QueryContext context4HybridSearch(SearchQueryDTO query, List<Float> queryVector, List<SortContext> sortContextList) {
+    public QueryContext context4HybridSearch(HybridSearchParamDTO paramDTO, List<SortContext> sortContextList) {
         return QueryContext.builder()
-                .indexName(SMART_GALLERY_V2)
-                .keyword(query.getKeyword())
-                .limit(query.getLimit())
-                .searchAfter(query.getSearchAfter())
+                .indexName(vectorConfig.getIndexName())
+                .keyword(paramDTO.getKeyword())
+                .limit(paramDTO.getLimit())
+                .searchAfter(paramDTO.getSearchAfter())
                 .sortOptions(convert2SortOptions(null == sortContextList ? defaultSort() : sortContextList))
-                .knnQuery(knnQuery4HybridSearch(query, queryVector))
+                .knnQuery(knnQuery4HybridSearch(paramDTO))
                 .keywordFunc(Lists.newArrayList(hybridSearchKeywordMatcher::match))
+                .graphTriples(paramDTO.getGraphTriples())
                 .build();
     }
 
@@ -65,20 +68,20 @@ public class QueryContextBuilder {
         return sortOptionsList;
     }
 
-    private QueryContext.KnnQuery knnQuery4HybridSearch(SearchQueryDTO query, List<Float> queryVector) {
+    private QueryContext.KnnQuery knnQuery4HybridSearch(HybridSearchParamDTO paramDTO) {
         return QueryContext.KnnQuery.builder()
                 .fieldName("imageEmbedding")
-                .queryVector(queryVector)
-                .topK(query.getTopK())
-                .similarity(query.getSimilarity())
+                .queryVector(paramDTO.getQueryVector())
+                .topK(paramDTO.getTopK())
+                .similarity(paramDTO.getSimilarity())
                 .boost(DEFAULT_EMBEDDING_BOOST)
-                .numCandidates(Math.max(DEFAULT_NUM_CANDIDATES, query.getTopK() * NUM_CANDIDATES_FACTOR))
+                .numCandidates(Math.max(DEFAULT_NUM_CANDIDATES, paramDTO.getTopK() * NUM_CANDIDATES_FACTOR))
                 .build();
     }
 
     public QueryContext context4SimilarSearch(List<Float> queryVector, Integer topK, String excludeDocId, List<SortContext> sortContextList) {
         return QueryContext.builder()
-                .indexName(SMART_GALLERY_V2)
+                .indexName(vectorConfig.getIndexName())
                 .id(excludeDocId)
                 .limit(topK)
                 .sortOptions(convert2SortOptions(null == sortContextList ? defaultSort() : sortContextList))
@@ -95,13 +98,13 @@ public class QueryContextBuilder {
                 .filter(Lists.newArrayList(similarSearchIdMatcher::match))
                 .topK(topK)
                 .numCandidates(Math.max(NUM_CANDIDATES_FACTOR * topK, DEFAULT_NUM_CANDIDATES))
-                .similarity(SIMILAR_QUERIES_SIMILARITY)
+                .similarity(similarityConfig.forSimilarSearch())
                 .build();
     }
 
     public QueryContext context4DuplicateSearch(List<Float> vector, double threshold) {
         return QueryContext.builder()
-                .indexName(SMART_GALLERY_V2)
+                .indexName(vectorConfig.getIndexName())
                 .limit(1)
                 .knnQuery(knnQuery4DuplicateSearch(vector, threshold))
                 .build();
@@ -117,7 +120,7 @@ public class QueryContextBuilder {
                 .build();
     }
 
-    private List<SortContext> defaultSort() {
+    public List<SortContext> defaultSort() {
         SortContext scoreSort = SortContext.builder().kind(SortOptions.Kind.Score).order(SortOrder.Desc).build();
         SortContext idSort = SortContext.builder().kind(SortOptions.Kind.Field).field("id").order(SortOrder.Asc).build();
         return Lists.newArrayList(scoreSort, idSort);

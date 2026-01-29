@@ -3,11 +3,11 @@ package com.smart.vision.core.repository.impl;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
-import com.smart.vision.core.builder.QueryContextBuilder;
-import com.smart.vision.core.builder.SearchResultBuilder;
+import com.smart.vision.core.convertor.QueryContextConvertor;
+import com.smart.vision.core.convertor.SearchResultConvertor;
 import com.smart.vision.core.model.context.QueryContext;
+import com.smart.vision.core.model.dto.HybridSearchParamDTO;
 import com.smart.vision.core.model.dto.ImageSearchResultDTO;
-import com.smart.vision.core.model.dto.SearchQueryDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
 import com.smart.vision.core.processor.QueryProcessor;
 import com.smart.vision.core.repository.ImageRepositoryCustom;
@@ -15,7 +15,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
 
-import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 
@@ -32,13 +31,13 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
 
     private final ElasticsearchClient esClient;
     private final List<QueryProcessor> queryProcessorList;
-    private final SearchResultBuilder converter;
-    private final QueryContextBuilder contextConverter;
+    private final SearchResultConvertor converter;
+    private final QueryContextConvertor contextConverter;
 
     @Override
-    public List<ImageSearchResultDTO> hybridSearch(SearchQueryDTO query, List<Float> queryVector) {
+    public List<ImageSearchResultDTO> hybridSearch(HybridSearchParamDTO paramDTO) {
         SearchRequest.Builder requestBuilder = new SearchRequest.Builder();
-        QueryContext context = contextConverter.context4HybridSearch(query, queryVector, null);
+        QueryContext context = contextConverter.context4HybridSearch(paramDTO, contextConverter.defaultSort());
         queryProcessorList.forEach(x -> x.process(context, requestBuilder));
         try {
             SearchResponse<ImageDocument> response = esClient.search(requestBuilder.build(), ImageDocument.class);
@@ -52,7 +51,7 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
     @Override
     public List<ImageSearchResultDTO> searchSimilar(List<Float> vector, Integer topK, String excludeDocId) {
         SearchRequest.Builder requestBuilder = new SearchRequest.Builder();
-        QueryContext context = contextConverter.context4SimilarSearch(vector, topK, excludeDocId, null);
+        QueryContext context = contextConverter.context4SimilarSearch(vector, topK, excludeDocId, contextConverter.defaultSort());
         queryProcessorList.forEach(x -> x.process(context, requestBuilder));
         try {
             SearchResponse<ImageDocument> response = esClient.search(requestBuilder.build(), ImageDocument.class);

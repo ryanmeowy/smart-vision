@@ -51,8 +51,9 @@ public class HotSearchManager {
         }
 
         try {
+            String cacheKey = String.format("%s:%s", HOT_SEARCH_KEY, System.getenv("SPRING_PROFILES_ACTIVE"));
             // score +1
-            stringRedisTemplate.opsForZSet().incrementScore(HOT_SEARCH_KEY, normalizedWord, 1.0);
+            stringRedisTemplate.opsForZSet().incrementScore(cacheKey, normalizedWord, 1.0);
         } catch (Exception e) {
             log.warn("Failed to count hot words: {}", e.getMessage());
         }
@@ -62,9 +63,10 @@ public class HotSearchManager {
      * Get Top N hot words
      */
     public List<String> getTopHotWords() {
-        // ZREVRANGE: Retrieve 0 to 9 in descending order by score
+        String cacheKey = String.format("%s:%s", HOT_SEARCH_KEY, System.getenv("SPRING_PROFILES_ACTIVE"));
+        // ZREV RANGE: Retrieve 0 to 9 in descending order by score
         Set<String> words = stringRedisTemplate.opsForZSet()
-                .reverseRange(HOT_SEARCH_KEY, 0, MAX_HOT_WORDS - 1);
+                .reverseRange(cacheKey, 0, MAX_HOT_WORDS - 1);
 
         if (words == null || words.isEmpty()) {
             // Fallback data (used during cold start)

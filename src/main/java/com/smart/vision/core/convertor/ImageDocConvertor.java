@@ -1,4 +1,4 @@
-package com.smart.vision.core.service.convert;
+package com.smart.vision.core.convertor;
 
 import com.google.common.collect.Lists;
 import com.smart.vision.core.manager.OssManager;

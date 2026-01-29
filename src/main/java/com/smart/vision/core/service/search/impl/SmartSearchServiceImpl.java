@@ -10,7 +10,7 @@ import com.smart.vision.core.model.dto.SearchResultDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
 import com.smart.vision.core.model.enums.StrategyTypeEnum;
 import com.smart.vision.core.repository.ImageRepository;
-import com.smart.vision.core.service.convert.ImageDocConvertor;
+import com.smart.vision.core.convertor.ImageDocConvertor;
 import com.smart.vision.core.service.search.SmartSearchService;
 import com.smart.vision.core.strategy.RetrievalStrategy;
 import com.smart.vision.core.strategy.StrategyFactory;
@@ -28,10 +28,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static com.smart.vision.core.constant.CommonConstant.IMAGE_MD5_CACHE_PREFIX;
-import static com.smart.vision.core.constant.CommonConstant.SIMILARITY_TOP_K;
-import static com.smart.vision.core.constant.CommonConstant.VECTOR_CACHE_PREFIX;
-import static com.smart.vision.core.constant.CommonConstant.X_OSS_PROCESS_EMBEDDING;
+import static com.smart.vision.core.constant.CommonConstant.*;
 import static com.smart.vision.core.model.enums.PresignedValidityEnum.SHORT_TERM_VALIDITY;
 
 /**
@@ -120,14 +117,14 @@ public class SmartSearchServiceImpl implements SmartSearchService {
     }
 
     private String buildVectorCacheKey(String text) {
-        return VECTOR_CACHE_PREFIX + DigestUtils.md5DigestAsHex(text.trim().toLowerCase().getBytes());
+        return String.format("%s%s:%s", VECTOR_CACHE_PREFIX, System.getenv("SPRING_PROFILES_ACTIVE"), DigestUtils.md5DigestAsHex(text.trim().toLowerCase().getBytes()));
     }
 
     @Override
     public List<SearchResultDTO> searchByImage(MultipartFile file, int limit) {
         try {
             String md5 = DigestUtils.md5DigestAsHex(file.getInputStream());
-            String cacheKey = IMAGE_MD5_CACHE_PREFIX + md5;
+            String cacheKey = String.format("%s%s:%s", IMAGE_MD5_CACHE_PREFIX, System.getenv("SPRING_PROFILES_ACTIVE"), md5);
             List<Float> vector = redisTemplate.opsForValue().get(cacheKey);
             if (vector != null) {
                 log.info("Cache hit, MD5: {}", md5);
@@ -151,8 +148,8 @@ public class SmartSearchServiceImpl implements SmartSearchService {
     private List<ImageSearchResultDTO> manualRerank(List<ImageSearchResultDTO> list, String keyword) {
         return list.stream()
                 .sorted((o1, o2) -> {
-                    boolean o1Hit = o1.getDocument().getOcrContent().contains(keyword);
-                    boolean o2Hit = o2.getDocument().getOcrContent().contains(keyword);
+                    boolean o1Hit = null != o1.getDocument().getOcrContent() && o1.getDocument().getOcrContent().contains(keyword);
+                    boolean o2Hit = null != o2.getDocument().getOcrContent() && o2.getDocument().getOcrContent().contains(keyword);
                     if (o1Hit && !o2Hit) return -1;
                     if (!o1Hit && o2Hit) return 1;
                     return Double.compare(o2.getScore(), o1.getScore());

@@ -12,11 +12,13 @@ import java.util.List;
  */
 public class CommonConstant {
 
-    public static final String SMART_GALLERY_V2 = "smart_gallery_v2";
+    public static final Float CLOUD_HYBRID_SIMILARITY = 0.2f;
 
-    public static final Float MINIMUM_SIMILARITY = 0.2f;
+    public static final Float LOCAL_HYBRID_SIMILARITY = 0.4f;
 
-    public static final Float SIMILAR_QUERIES_SIMILARITY = 0.6f;
+    public static final Float CLOUD_SIMILAR_SIMILARITY = 0.6f;
+
+    public static final Float LOCAL_SIMILAR_SIMILARITY = 0.8f;
     // Candidate set size, must be greater than topK. The larger the candidate set, the higher the recall accuracy, but the slower the recall speed.
     public static final Integer DEFAULT_NUM_CANDIDATES = 100;
 
@@ -31,8 +33,6 @@ public class CommonConstant {
     public static final String TOKEN_KEY = "sys:config:upload-token";
 
     public static final String EMBEDDING_MODEL_NAME = "multimodal-embedding-v1";
-    // Check for extremely similar images (used for deduplication)
-    public static final Double DUPLICATE_THRESHOLD = 0.98;
 
     public static final String VISION_MODEL_NAME = "qwen-vl-plus";
 
@@ -47,8 +47,6 @@ public class CommonConstant {
     public static final List<String> MOCK_BLOCKED_WORDS = Lists.newArrayList("色情", "暴力", "血腥");
 
     public static final String X_OSS_PROCESS_EMBEDDING = "image/resize,l_2048,m_lfit/format,jpg/quality,q_75";
-
-    public static final String X_OSS_PROCESS_OCR = "image/resize,l_4096,m_lfit/format,jpg";
 
     public static final float DEFAULT_EMBEDDING_BOOST = 0.9f;
 
@@ -86,7 +84,7 @@ public class CommonConstant {
 
     public static final String DIGIT_REGEX = "^[0-9]+$";
 
-    public static final String TAG_REGEX = "```json\\s*(\\[.*?])\\s*```";
+    public static final String MD_JSON_REGEX = "```json\\s*(\\[.*?])\\s*```";
 
     public static final Integer MAX_INPUT_LENGTH = 50;
 
@@ -95,5 +93,19 @@ public class CommonConstant {
     public static final Integer IMAGE_MAX_SIZE = 10 * 1024 * 1024;
 
     public static final Integer IMAGE_TO_IMAGE_TOP_K = 20;
+
+    public static final long ID_GEN_MIN_ID = 1_000_000_000L;
+
+    public static final long ID_GEN_MAX_ID = 9_999_999_999L;
+
+    public static final int ID_GEN_MAX_STEP = 100;
+
+    public static final int ID_GEN_MIN_STEP = 1;
+
+    public static final int ID_GEN_SEGMENT_SIZE = 1000;
+
+    public static final String ID_GEN_KEY = "id:gen";
+
+    public static final String DEFAULT_IMAGE_NAME = "未命名图片";
 }
 

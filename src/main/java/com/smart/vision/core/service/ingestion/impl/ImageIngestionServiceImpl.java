@@ -1,13 +1,14 @@
 package com.smart.vision.core.service.ingestion.impl;
 
-import cn.hutool.core.util.IdUtil;
 import com.smart.vision.core.ai.ContentGenerationService;
 import com.smart.vision.core.ai.ImageOcrService;
 import com.smart.vision.core.ai.MultiModalEmbeddingService;
 import com.smart.vision.core.component.EsBatchTemplate;
+import com.smart.vision.core.component.IdGen;
 import com.smart.vision.core.manager.OssManager;
 import com.smart.vision.core.model.dto.BatchProcessDTO;
 import com.smart.vision.core.model.dto.BatchUploadResultDTO;
+import com.smart.vision.core.model.dto.GraphTripleDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
 import com.smart.vision.core.service.ingestion.ImageIngestionService;
 import lombok.RequiredArgsConstructor;
@@ -25,15 +26,13 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 
-import static com.smart.vision.core.constant.CommonConstant.HASH_INDEX_PREFIX;
-import static com.smart.vision.core.constant.CommonConstant.X_OSS_PROCESS_EMBEDDING;
-import static com.smart.vision.core.constant.CommonConstant.X_OSS_PROCESS_OCR;
+import static com.smart.vision.core.constant.CommonConstant.*;
 import static com.smart.vision.core.model.enums.PresignedValidityEnum.SHORT_TERM_VALIDITY;
 
 /**
- * Image data processing service implementation of ImageIngestionService that handles batch processing of images
- * for vector embedding generation, OCR text extraction, and Elasticsearch indexing
+ * image ingestion service cloud implementation
  *
  * @author Ryan
  * @since 2025/12/15
@@ -42,14 +41,15 @@ import static com.smart.vision.core.model.enums.PresignedValidityEnum.SHORT_TERM
 @Service
 @RequiredArgsConstructor
 public class ImageIngestionServiceImpl implements ImageIngestionService {
+
+    private final EsBatchTemplate esBatchTemplate;
+    private final Executor embedTaskExecutor;
     private final OssManager ossManager;
     private final MultiModalEmbeddingService embeddingService;
     private final ImageOcrService imageOcrService;
-    private final EsBatchTemplate esBatchTemplate;
-    private final Executor embedTaskExecutor;
     private final ContentGenerationService contentGenerationService;
     private final StringRedisTemplate redisTemplate;
-    
+    private final IdGen idGen;
 
     public BatchUploadResultDTO processBatchItems(List<BatchProcessDTO> items) {
         Set<String> seenHashes = new HashSet<>();
@@ -108,41 +108,39 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
      * @param item        the batch process request containing OSS key and file metadata
      * @param successDocs synchronized list to collect successfully processed documents
      */
-    private void processSingleItem(BatchProcessDTO item, List<ImageDocument> successDocs) {
-        String tempUrl2Embed = ossManager.getAiPresignedUrl(item.getKey(), SHORT_TERM_VALIDITY.getValidity(), X_OSS_PROCESS_EMBEDDING);
-        List<Float> vector = embeddingService.embedImage(tempUrl2Embed);
-        String tempUrl2OCR = ossManager.getAiPresignedUrl(item.getKey(), SHORT_TERM_VALIDITY.getValidity(), X_OSS_PROCESS_OCR);
-        String ocrText = imageOcrService.extractText(tempUrl2OCR);
-        List<String> tags = contentGenerationService.generateTags(tempUrl2OCR);
-
-        if (redisTemplate.hasKey(HASH_INDEX_PREFIX + item.getFileHash())) {
+    protected void processSingleItem(BatchProcessDTO item, List<ImageDocument> successDocs) {
+        String tempUrl = ossManager.getAiPresignedUrl(item.getKey(), SHORT_TERM_VALIDITY.getValidity(), X_OSS_PROCESS_EMBEDDING);
+        List<Float> vector = embeddingService.embedImage(tempUrl);
+        String ocrText = imageOcrService.extractText(tempUrl);
+        List<String> tags = contentGenerationService.generateTags(tempUrl);
+        List<GraphTripleDTO> graphTriples = contentGenerationService.generateGraph(tempUrl);
+        String cacheKey = String.format("%s%s:%s", HASH_INDEX_PREFIX, System.getenv("SPRING_PROFILES_ACTIVE"), item.getFileHash());
+        if (redisTemplate.hasKey(cacheKey)) {
             log.info("Duplicate image hash [{}] [{}]", item.getFileHash(), item.getFileName());
             throw new RuntimeException("Duplicate image, skipped.");
         }
-        redisTemplate.opsForValue().set(HASH_INDEX_PREFIX + item.getFileHash(), "1");
+        redisTemplate.opsForValue().set(cacheKey, "1", 30, TimeUnit.DAYS);
 
         ImageDocument doc = new ImageDocument();
-        doc.setId(IdUtil.getSnowflakeNextId());
+        doc.setId(idGen.nextId());
         doc.setImagePath(item.getKey());
         doc.setRawFilename(item.getFileName());
-        doc.setFileName(genFileName(tempUrl2OCR));
+        doc.setFileName(genFileName(tempUrl));
         doc.setImageEmbedding(vector);
         doc.setOcrContent(ocrText);
         doc.setCreateTime(System.currentTimeMillis());
         doc.setTags(tags);
         doc.setFileHash(item.getFileHash());
+        doc.setRelations(graphTriples);
         successDocs.add(doc);
     }
 
-    private String genFileName(String imageUrl) {
+    protected String genFileName(String imageUrl) {
+        String name = Strings.EMPTY;
         if (!StringUtils.hasText(imageUrl)) {
-            return Strings.EMPTY;
+            name = DEFAULT_IMAGE_NAME;
         }
-        String name = contentGenerationService.generateFileName(imageUrl);
-        if (!StringUtils.hasText(name)) {
-            return Strings.EMPTY;
-        }
+        name = contentGenerationService.generateFileName(imageUrl);
         return String.format("%s-%s", name, System.currentTimeMillis());
     }
-
 }
