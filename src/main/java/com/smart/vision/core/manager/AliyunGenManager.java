@@ -1,9 +1,12 @@
 package com.smart.vision.core.manager;
 
+import cn.hutool.core.collection.CollectionUtil;
 import com.alibaba.dashscope.aigc.generation.Generation;
+import com.alibaba.dashscope.aigc.generation.GenerationOutput;
 import com.alibaba.dashscope.aigc.generation.GenerationParam;
 import com.alibaba.dashscope.aigc.generation.GenerationResult;
 import com.alibaba.dashscope.aigc.multimodalconversation.MultiModalConversation;
+import com.alibaba.dashscope.aigc.multimodalconversation.MultiModalConversationOutput;
 import com.alibaba.dashscope.aigc.multimodalconversation.MultiModalConversationParam;
 import com.alibaba.dashscope.aigc.multimodalconversation.MultiModalConversationResult;
 import com.alibaba.dashscope.common.Message;
@@ -11,6 +14,7 @@ import com.alibaba.dashscope.common.MultiModalMessage;
 import com.alibaba.dashscope.common.Role;
 import com.alibaba.dashscope.exception.NoApiKeyException;
 import com.alibaba.dashscope.exception.UploadFileException;
+import com.aliyun.core.utils.StringUtils;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.smart.vision.core.model.dto.GraphTripleDTO;
@@ -18,6 +22,7 @@ import com.smart.vision.core.model.enums.PromptEnum;
 import io.reactivex.Flowable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.logging.log4j.util.Strings;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
@@ -29,6 +34,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -116,11 +122,18 @@ public class AliyunGenManager {
                 .message(userMessage)
                 .apiKey(apiKey)
                 .build();
-
         MultiModalConversation conv = new MultiModalConversation();
         try {
             MultiModalConversationResult callResult = conv.call(param);
-            String rawName = callResult.getOutput().getChoices().getFirst().getMessage().getContent().toString();
+            String rawName = Optional.ofNullable(callResult)
+                    .map(MultiModalConversationResult::getOutput)
+                    .map(MultiModalConversationOutput::getChoices)
+                    .filter(CollectionUtil::isNotEmpty)
+                    .map(List::getFirst)
+                    .map(MultiModalConversationOutput.Choice::getMessage)
+                    .map(MultiModalMessage::getContent)
+                    .map(Object::toString)
+                    .orElse(Strings.EMPTY);
             Matcher matcher = TEXT_PATTERN.matcher(rawName);
             return matcher.find() ? matcher.group(1) : DEFAULT_IMAGE_NAME;
         } catch (NoApiKeyException e) {
@@ -138,25 +151,32 @@ public class AliyunGenManager {
      */
     @Retryable(retryFor = Exception.class, backoff = @Backoff(delay = 1000, multiplier = 2))
     public List<String> generateTags(String imageUrl) {
+        MultiModalMessage userMessage = MultiModalMessage.builder()
+                .role("user")
+                .content(Arrays.asList(
+                        Map.of("image", imageUrl),
+                        Map.of("text", TAG_GEN.getPrompt())
+                ))
+                .build();
+
+        MultiModalConversationParam param = MultiModalConversationParam.builder()
+                .model(VISION_MODEL_NAME)
+                .message(userMessage)
+                .apiKey(apiKey)
+                .build();
+
+        MultiModalConversation conv = new MultiModalConversation();
         try {
-            MultiModalMessage userMessage = MultiModalMessage.builder()
-                    .role("user")
-                    .content(Arrays.asList(
-                            Map.of("image", imageUrl),
-                            Map.of("text", TAG_GEN.getPrompt())
-                    ))
-                    .build();
-
-            MultiModalConversationParam param = MultiModalConversationParam.builder()
-                    .model(VISION_MODEL_NAME)
-                    .message(userMessage)
-                    .apiKey(apiKey)
-                    .build();
-
-            MultiModalConversation conv = new MultiModalConversation();
             MultiModalConversationResult result = conv.call(param);
-
-            String content = result.getOutput().getChoices().getFirst().getMessage().getContent().toString();
+            String content = Optional.ofNullable(result)
+                    .map(MultiModalConversationResult::getOutput)
+                    .map(MultiModalConversationOutput::getChoices)
+                    .filter(CollectionUtil::isNotEmpty)
+                    .map(List::getFirst)
+                    .map(MultiModalConversationOutput.Choice::getMessage)
+                    .map(MultiModalMessage::getContent)
+                    .map(Object::toString)
+                    .orElse(Strings.EMPTY);
             return parseMdJson(content, String.class);
         } catch (NoApiKeyException e) {
             log.error("API Key is not configured");
@@ -169,38 +189,31 @@ public class AliyunGenManager {
 
     @Retryable(retryFor = Exception.class, backoff = @Backoff(delay = 1000, multiplier = 2))
     public List<GraphTripleDTO> generateGraph(String imageUrl) {
+        MultiModalMessage userMessage = MultiModalMessage.builder()
+                .role("user")
+                .content(Arrays.asList(Map.of("image", imageUrl), Map.of("text", GRAPH_IMAGE.getPrompt())))
+                .build();
+        MultiModalConversationParam param = MultiModalConversationParam.builder()
+                .model(VISION_MODEL_NAME)
+                .message(userMessage)
+                .apiKey(apiKey)
+                .build();
+        MultiModalConversation conv = new MultiModalConversation();
         try {
-            MultiModalMessage userMessage = MultiModalMessage.builder()
-                    .role("user")
-                    .content(Arrays.asList(Map.of("image", imageUrl), Map.of("text", GRAPH_IMAGE.getPrompt())))
-                    .build();
-            MultiModalConversationParam param = MultiModalConversationParam.builder()
-                    .model(VISION_MODEL_NAME)
-                    .message(userMessage)
-                    .apiKey(apiKey)
-                    .build();
-            MultiModalConversation conv = new MultiModalConversation();
             MultiModalConversationResult result = conv.call(param);
-            String content = result.getOutput().getChoices().getFirst().getMessage().getContent().toString();
+            String content = Optional.ofNullable(result)
+                    .map(MultiModalConversationResult::getOutput)
+                    .map(MultiModalConversationOutput::getChoices)
+                    .filter(CollectionUtil::isNotEmpty)
+                    .map(List::getFirst)
+                    .map(MultiModalConversationOutput.Choice::getMessage)
+                    .map(MultiModalMessage::getContent)
+                    .map(Object::toString)
+                    .orElse(Strings.EMPTY);
             return parseMdJson(content, GraphTripleDTO.class);
-        }catch (Exception e) {
+        } catch (Exception e) {
             log.error("gen graph failed: {}", e.getMessage());
             return Collections.emptyList();
-        }
-    }
-
-    private <T> List<T> parseMdJson(String content, Class<T> clazz) {
-        try {
-            Matcher matcher = MD_JSON_PATTERN.matcher(content);
-            if (matcher.find()) {
-                String jsonArray = matcher.group(1);
-                Type type = TypeToken.getParameterized(List.class, clazz).getType();
-                return gson.fromJson(jsonArray, type);
-            }
-            return gson.fromJson(content, TypeToken.getParameterized(List.class, clazz).getType());
-        } catch (Exception e) {
-            log.warn("md json parsing failed, original content: {}", content);
-            return null;
         }
     }
 
@@ -221,11 +234,34 @@ public class AliyunGenManager {
                 .resultFormat(GenerationParam.ResultFormat.MESSAGE)
                 .build();
         try {
-            GenerationResult call = gen.call(param);
-            String content = call.getOutput().getChoices().getLast().getMessage().getContent();
-            return gson.fromJson(content, new TypeToken<List<GraphTripleDTO>>(){}.getType());
+            GenerationResult result = gen.call(param);
+            String content = Optional.of(result)
+                    .map(GenerationResult::getOutput)
+                    .map(GenerationOutput::getChoices)
+                    .filter(CollectionUtil::isNotEmpty)
+                    .map(List::getLast)
+                    .map(GenerationOutput.Choice::getMessage)
+                    .map(Message::getContent)
+                    .orElse(Strings.EMPTY);
+            return parseMdJson(content, GraphTripleDTO.class);
         } catch (Exception e) {
             log.error("prase triples from keyword failed: {}", e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    private <T> List<T> parseMdJson(String content, Class<T> clazz) {
+        if (StringUtils.isBlank(content)) return Collections.emptyList();
+        try {
+            Matcher matcher = MD_JSON_PATTERN.matcher(content);
+            if (matcher.find()) {
+                String jsonArray = matcher.group(1);
+                Type type = TypeToken.getParameterized(List.class, clazz).getType();
+                return gson.fromJson(jsonArray, type);
+            }
+            return gson.fromJson(content, TypeToken.getParameterized(List.class, clazz).getType());
+        } catch (Exception e) {
+            log.warn("md json parsing failed, original content: {}", content);
             return Collections.emptyList();
         }
     }
