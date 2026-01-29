@@ -5,6 +5,7 @@ import com.smart.vision.core.model.Result;
 import com.smart.vision.core.model.dto.BatchProcessDTO;
 import com.smart.vision.core.model.dto.BatchUploadResultDTO;
 import com.smart.vision.core.service.ingestion.ImageIngestionService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -14,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-import static com.smart.vision.core.constant.CommonConstant.DEFAULT_NUM_BATCH_ITEMS;
+import static com.smart.vision.core.constant.SearchConstant.DEFAULT_NUM_BATCH_ITEMS;
 
 /**
  * REST API controller for image upload functionality
@@ -39,7 +40,7 @@ public class ImageApiController {
      */
     @RequireAuth
     @PostMapping("/batch-process")
-    public Result<BatchUploadResultDTO> batchProcess(@RequestBody List<BatchProcessDTO> items) {
+    public Result<BatchUploadResultDTO> batchProcess(@RequestBody @Valid List<@Valid BatchProcessDTO> items) {
         if (items.size() > DEFAULT_NUM_BATCH_ITEMS) {
             return Result.error("The number of items processed per request cannot exceed 20");
         }

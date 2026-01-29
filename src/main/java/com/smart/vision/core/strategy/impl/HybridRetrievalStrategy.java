@@ -1,10 +1,8 @@
 
 package com.smart.vision.core.strategy.impl;
 
-import com.google.common.collect.Lists;
 import com.smart.vision.core.ai.ContentGenerationService;
 import com.smart.vision.core.config.SimilarityConfig;
-import com.smart.vision.core.model.dto.GraphTripleDTO;
 import com.smart.vision.core.model.dto.HybridSearchParamDTO;
 import com.smart.vision.core.model.dto.ImageSearchResultDTO;
 import com.smart.vision.core.model.dto.SearchQueryDTO;
@@ -13,12 +11,11 @@ import com.smart.vision.core.repository.ImageRepository;
 import com.smart.vision.core.strategy.RetrievalStrategy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 
 import java.util.List;
 
-import static com.smart.vision.core.constant.CommonConstant.DEFAULT_RESULT_LIMIT;
-import static com.smart.vision.core.constant.CommonConstant.DEFAULT_TOP_K;
+import static com.smart.vision.core.constant.EmbeddingConstant.DEFAULT_TOP_K;
+import static com.smart.vision.core.constant.SearchConstant.DEFAULT_RESULT_LIMIT;
 
 /**
  * Hybrid retrieval strategy implementation that combines multiple search approaches

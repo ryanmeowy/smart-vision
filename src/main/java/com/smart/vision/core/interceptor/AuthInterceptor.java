@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 
-import static com.smart.vision.core.constant.CommonConstant.TOKEN_KEY;
+import static com.smart.vision.core.constant.CacheConstant.TOKEN_CACHE_PREFIX;
 
 /**
  * Authentication Interceptor, used to verify whether a request has upload permissions.
@@ -32,7 +32,7 @@ public class AuthInterceptor implements HandlerInterceptor {
 
         if (hm.getMethodAnnotation(RequireAuth.class) != null) {
             String clientToken = request.getHeader("X-Access-Token");
-            String serverToken = redisTemplate.opsForValue().get(TOKEN_KEY);
+            String serverToken = redisTemplate.opsForValue().get(TOKEN_CACHE_PREFIX);
             if (serverToken == null || !serverToken.equals(clientToken)) {
                 response.setStatus(401);
                 response.setContentType("application/json;charset=UTF-8");

@@ -11,10 +11,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-import static com.smart.vision.core.constant.CommonConstant.FALLBACK_WORDS;
-import static com.smart.vision.core.constant.CommonConstant.HOT_SEARCH_KEY;
-import static com.smart.vision.core.constant.CommonConstant.MAX_HOT_WORDS;
-import static com.smart.vision.core.constant.CommonConstant.MOCK_BLOCKED_WORDS;
+import static com.smart.vision.core.constant.CacheConstant.HOT_WORDS_CACHE_PREFIX;
+import static com.smart.vision.core.constant.CommonConstant.PROFILE_KEY_NAME;
+import static com.smart.vision.core.constant.SearchConstant.FALLBACK_WORDS;
+import static com.smart.vision.core.constant.SearchConstant.MAX_HOT_WORDS;
+import static com.smart.vision.core.constant.SearchConstant.MOCK_BLOCKED_WORDS;
 
 
 /**
@@ -51,7 +52,7 @@ public class HotSearchManager {
         }
 
         try {
-            String cacheKey = String.format("%s:%s", HOT_SEARCH_KEY, System.getenv("SPRING_PROFILES_ACTIVE"));
+            String cacheKey = String.format("%s:%s", HOT_WORDS_CACHE_PREFIX, System.getenv(PROFILE_KEY_NAME));
             // score +1
             stringRedisTemplate.opsForZSet().incrementScore(cacheKey, normalizedWord, 1.0);
         } catch (Exception e) {
@@ -63,7 +64,7 @@ public class HotSearchManager {
      * Get Top N hot words
      */
     public List<String> getTopHotWords() {
-        String cacheKey = String.format("%s:%s", HOT_SEARCH_KEY, System.getenv("SPRING_PROFILES_ACTIVE"));
+        String cacheKey = String.format("%s:%s", HOT_WORDS_CACHE_PREFIX, System.getenv(PROFILE_KEY_NAME));
         // ZREV RANGE: Retrieve 0 to 9 in descending order by score
         Set<String> words = stringRedisTemplate.opsForZSet()
                 .reverseRange(cacheKey, 0, MAX_HOT_WORDS - 1);

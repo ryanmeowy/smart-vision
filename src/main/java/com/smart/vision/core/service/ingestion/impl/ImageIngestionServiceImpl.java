@@ -13,7 +13,6 @@ import com.smart.vision.core.model.entity.ImageDocument;
 import com.smart.vision.core.service.ingestion.ImageIngestionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.logging.log4j.util.Strings;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -28,7 +27,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
-import static com.smart.vision.core.constant.CommonConstant.*;
+import static com.smart.vision.core.constant.AliyunConstant.X_OSS_PROCESS_EMBEDDING;
+import static com.smart.vision.core.constant.CacheConstant.HASH_INDEX_CACHE_PREFIX;
+import static com.smart.vision.core.constant.CommonConstant.DEFAULT_IMAGE_NAME;
+import static com.smart.vision.core.constant.CommonConstant.PROFILE_KEY_NAME;
 import static com.smart.vision.core.model.enums.PresignedValidityEnum.SHORT_TERM_VALIDITY;
 
 /**
@@ -64,7 +66,8 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         List<CompletableFuture<Void>> futures = uniqueItems.stream()
                 .map(item -> CompletableFuture.runAsync(() -> {
                     try {
-                        processSingleItem(item, successDocs);
+                        ImageDocument doc = processSingleItem(item);
+                        successDocs.add(doc);
                     } catch (Exception e) {
                         log.warn("image processing failed [{}]: {}", item.getFileName(), e.getMessage());
                         failures.add(BatchUploadResultDTO.BatchFailureItem.builder()
@@ -106,20 +109,19 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
      * Processes a single image item through the complete pipeline
      *
      * @param item        the batch process request containing OSS key and file metadata
-     * @param successDocs synchronized list to collect successfully processed documents
      */
-    protected void processSingleItem(BatchProcessDTO item, List<ImageDocument> successDocs) {
+    protected ImageDocument processSingleItem(BatchProcessDTO item) {
         String tempUrl = ossManager.getAiPresignedUrl(item.getKey(), SHORT_TERM_VALIDITY.getValidity(), X_OSS_PROCESS_EMBEDDING);
         List<Float> vector = embeddingService.embedImage(tempUrl);
         String ocrText = imageOcrService.extractText(tempUrl);
         List<String> tags = contentGenerationService.generateTags(tempUrl);
         List<GraphTripleDTO> graphTriples = contentGenerationService.generateGraph(tempUrl);
-        String cacheKey = String.format("%s%s:%s", HASH_INDEX_PREFIX, System.getenv("SPRING_PROFILES_ACTIVE"), item.getFileHash());
-        if (redisTemplate.hasKey(cacheKey)) {
+        String cacheKey = String.format("%s%s:%s", HASH_INDEX_CACHE_PREFIX, System.getenv(PROFILE_KEY_NAME), item.getFileHash());
+        Boolean setIfAbsent = redisTemplate.opsForValue().setIfAbsent(cacheKey, "1", 30, TimeUnit.DAYS);
+        if (Boolean.FALSE.equals(setIfAbsent)) {
             log.info("Duplicate image hash [{}] [{}]", item.getFileHash(), item.getFileName());
             throw new RuntimeException("Duplicate image, skipped.");
         }
-        redisTemplate.opsForValue().set(cacheKey, "1", 30, TimeUnit.DAYS);
 
         ImageDocument doc = new ImageDocument();
         doc.setId(idGen.nextId());
@@ -132,15 +134,11 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         doc.setTags(tags);
         doc.setFileHash(item.getFileHash());
         doc.setRelations(graphTriples);
-        successDocs.add(doc);
+        return doc;
     }
 
     protected String genFileName(String imageUrl) {
-        String name = Strings.EMPTY;
-        if (!StringUtils.hasText(imageUrl)) {
-            name = DEFAULT_IMAGE_NAME;
-        }
-        name = contentGenerationService.generateFileName(imageUrl);
+        String name = StringUtils.hasText(imageUrl) ? contentGenerationService.generateFileName(imageUrl) : DEFAULT_IMAGE_NAME;
         return String.format("%s-%s", name, System.currentTimeMillis());
     }
 }
