@@ -72,7 +72,7 @@ public class LocalGenImpl implements ContentGenerationService {
             return response.getName();
         } catch (Exception e) {
             log.error("gRPC gen name call failed: {}", e.getMessage());
-            throw new RuntimeException("Local model service is unavailable.");
+            throw new RuntimeException("generate file name failed, try again later.");
         }
     }
 
@@ -88,7 +88,7 @@ public class LocalGenImpl implements ContentGenerationService {
             return response.getTagList();
         } catch (Exception e) {
             log.error("gRPC gen tags call failed: {}", e.getMessage());
-            throw new RuntimeException("Local model service is unavailable.");
+            throw new RuntimeException("generate tags failed, try again later.");
         }
     }
 
@@ -110,7 +110,7 @@ public class LocalGenImpl implements ContentGenerationService {
             return graphTriples.stream().map(x -> new GraphTripleDTO(x.getS(), x.getP(), x.getO())).toList();
         } catch (Exception e) {
             log.error("gRPC gen graph call failed: {}", e.getMessage());
-            throw new RuntimeException("Local model service is unavailable.");
+            throw new RuntimeException("generate graph failed, try again later.");
         }
     }
 
@@ -124,7 +124,7 @@ public class LocalGenImpl implements ContentGenerationService {
             return tripleList.stream().map(x -> new GraphTripleDTO(x.getS(), x.getP(), x.getO())).toList();
         } catch (Exception e) {
             log.error("gRPC prase triples from keyword call failed: {}", e.getMessage());
-            throw new RuntimeException("Local model service is unavailable.");
+            throw new RuntimeException("parse triples from keyword failed, try again later.");
         }
     }
 }

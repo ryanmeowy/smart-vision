@@ -46,10 +46,10 @@ public class BailianEmbeddingManager {
      * it automatically retries up to 3 times, with intervals of 1 second, 2 seconds, and 4 seconds (multiplier=2) between attempts.
      */
     @Retryable(
-            retryFor = {RuntimeException.class},
+            retryFor = {Exception.class},
             backoff = @Backoff(delay = 1000, multiplier = 2)
     )
-    public List<Float> embedImage(String imageUrl) throws NoApiKeyException, UploadFileException {
+    public List<Float> embedImage(String imageUrl) throws NoApiKeyException, UploadFileException, ApiException {
         if (imageUrl == null || imageUrl.trim().isEmpty()) {
             return Collections.emptyList();
         }
@@ -58,7 +58,7 @@ public class BailianEmbeddingManager {
     }
 
     @Retryable(
-            retryFor = {RuntimeException.class},
+            retryFor = {Exception.class},
             backoff = @Backoff(delay = 1000, multiplier = 2)
     )
     public List<Float> embedText(String text) throws NoApiKeyException, UploadFileException {
@@ -67,13 +67,6 @@ public class BailianEmbeddingManager {
         }
         MultiModalEmbeddingItemBase item = new MultiModalEmbeddingItemText(text);
         return VectorUtil.l2Normalize(callSdk(Lists.newArrayList(item)));
-    }
-
-
-    @Recover
-    public List<Float> recover(Exception e, String imageUrl) throws Exception {
-        log.error("After retrying 3 times, the AI service still failed.: {}", imageUrl);
-        throw e;
     }
 
     private List<Float> callSdk(List<MultiModalEmbeddingItemBase> inputItem) throws NoApiKeyException, UploadFileException {

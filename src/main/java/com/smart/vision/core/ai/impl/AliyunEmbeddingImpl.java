@@ -39,7 +39,7 @@ public class AliyunEmbeddingImpl implements MultiModalEmbeddingService {
         } catch (Exception e) {
             log.error(AliyunErrorCode.UNKNOWN.getMessage(), e);
         }
-        return Collections.emptyList();
+        throw new RuntimeException("embed image failed, try again later.");
     }
 
     /**
@@ -59,6 +59,6 @@ public class AliyunEmbeddingImpl implements MultiModalEmbeddingService {
         } catch (Exception e) {
             log.error(AliyunErrorCode.UNKNOWN.getMessage(), e);
         }
-        return Collections.emptyList();
+        throw new RuntimeException("embed text failed, try again later.");
     }
 }

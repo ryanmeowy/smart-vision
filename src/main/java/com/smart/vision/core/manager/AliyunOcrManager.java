@@ -64,7 +64,6 @@ public class AliyunOcrManager {
     private static final Pattern DIGIT_PATTERN = Pattern.compile(DIGIT_REGEX);
     private static final Pattern TEXT_PATTERN = Pattern.compile(AI_RESPONSE_REGEX);
 
-
     /**
      * Extract text from image
      *
@@ -105,13 +104,7 @@ public class AliyunOcrManager {
                 .collect(Collectors.joining());
     }
 
-    @Recover
-    public String recover(Exception e, String imageUrl) throws Exception {
-        log.error("After retrying 3 times, the OCR service still failed.: {}", imageUrl);
-        throw e;
-    }
-
-    @Retryable(retryFor = {RuntimeException.class}, backoff = @Backoff(delay = 1000, multiplier = 2))
+    @Retryable(retryFor = {Exception.class}, backoff = @Backoff(delay = 1000, multiplier = 2))
     public String llmOcrContent(String imageUrl) throws NoApiKeyException, UploadFileException {
         MultiModalMessage userMessage = MultiModalMessage.builder()
                 .role("user")

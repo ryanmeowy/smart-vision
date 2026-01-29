@@ -26,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.logging.log4j.util.Strings;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -196,6 +197,7 @@ public class AliyunGenManager {
         return parseMdJson(content, GraphTripleDTO.class);
     }
 
+    @Retryable(retryFor = Exception.class, backoff = @Backoff(delay = 1000, multiplier = 2))
     public List<GraphTripleDTO> praseTriplesFromKeyword(String keyword) throws NoApiKeyException, InputRequiredException {
         Generation gen = new Generation();
         Message systemMsg = Message.builder()
@@ -217,7 +219,7 @@ public class AliyunGenManager {
                 .map(GenerationResult::getOutput)
                 .map(GenerationOutput::getChoices)
                 .filter(CollectionUtil::isNotEmpty)
-                .map(List::getLast)
+                .map(List::getFirst)
                 .map(GenerationOutput.Choice::getMessage)
                 .map(Message::getContent)
                 .orElse(Strings.EMPTY);

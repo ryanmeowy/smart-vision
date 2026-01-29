@@ -42,7 +42,7 @@ public class AliyunGenImpl implements ContentGenerationService {
         } catch (Exception e) {
             log.error(AliyunErrorCode.UNKNOWN.getMessage(), e);
         }
-        return DEFAULT_IMAGE_NAME;
+        throw new RuntimeException("generate file name failed, try again later.");
     }
 
     @Override
@@ -56,7 +56,7 @@ public class AliyunGenImpl implements ContentGenerationService {
         } catch (Exception e) {
             log.error(AliyunErrorCode.UNKNOWN.getMessage(), e);
         }
-        return Collections.emptyList();
+        throw new RuntimeException("generate tags failed, try again later.");
     }
 
     /**
@@ -76,7 +76,7 @@ public class AliyunGenImpl implements ContentGenerationService {
         } catch (Exception e) {
             log.error(AliyunErrorCode.UNKNOWN.getMessage(), e);
         }
-        return Collections.emptyList();
+        throw new RuntimeException("generate graph failed, try again later.");
     }
 
     @Override
@@ -90,6 +90,6 @@ public class AliyunGenImpl implements ContentGenerationService {
         } catch (Exception e) {
             log.error(AliyunErrorCode.UNKNOWN.getMessage(), e);
         }
-        return Collections.emptyList();
+        throw new RuntimeException("prase triples from keyword failed, try again later.");
     }
 }

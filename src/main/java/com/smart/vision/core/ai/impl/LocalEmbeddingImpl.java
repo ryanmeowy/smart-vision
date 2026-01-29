@@ -33,7 +33,7 @@ public class LocalEmbeddingImpl implements MultiModalEmbeddingService {
             return embeddingResponse.getVectorList();
         } catch (Exception e) {
             log.error("gRPC image embedding call failed", e);
-            throw new RuntimeException("Local model service is unavailable.");
+            throw new RuntimeException("embed image failed, try again later.");
         }
     }
 
@@ -51,7 +51,7 @@ public class LocalEmbeddingImpl implements MultiModalEmbeddingService {
             return embeddingResponse.getVectorList();
         } catch (Exception e) {
             log.error("gRPC text embedding call failed: {}", e.getMessage());
-            throw new RuntimeException("Local model service is unavailable.");
+            throw new RuntimeException("embed text failed, try again later.");
         }
     }
 }

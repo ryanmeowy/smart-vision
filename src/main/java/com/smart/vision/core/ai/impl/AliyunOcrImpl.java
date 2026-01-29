@@ -28,6 +28,6 @@ public class AliyunOcrImpl implements ImageOcrService {
         } catch (Exception e) {
             log.warn(AliyunErrorCode.UNKNOWN.getMessage(), e);
         }
-        return Strings.EMPTY;
+        throw new RuntimeException("OCR failed, try again later.");
     }
 }
