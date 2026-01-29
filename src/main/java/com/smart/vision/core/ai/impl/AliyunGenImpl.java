@@ -1,5 +1,6 @@
 package com.smart.vision.core.ai.impl;
 
+import com.google.common.collect.Lists;
 import com.smart.vision.core.ai.ContentGenerationService;
 import com.smart.vision.core.manager.AliyunGenManager;
 import com.smart.vision.core.model.dto.GraphTripleDTO;

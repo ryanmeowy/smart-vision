@@ -1,8 +1,12 @@
 package com.smart.vision.core.manager;
 
+import com.alibaba.dashscope.aigc.generation.Generation;
+import com.alibaba.dashscope.aigc.generation.GenerationParam;
+import com.alibaba.dashscope.aigc.generation.GenerationResult;
 import com.alibaba.dashscope.aigc.multimodalconversation.MultiModalConversation;
 import com.alibaba.dashscope.aigc.multimodalconversation.MultiModalConversationParam;
 import com.alibaba.dashscope.aigc.multimodalconversation.MultiModalConversationResult;
+import com.alibaba.dashscope.common.Message;
 import com.alibaba.dashscope.common.MultiModalMessage;
 import com.alibaba.dashscope.common.Role;
 import com.alibaba.dashscope.exception.NoApiKeyException;
@@ -30,8 +34,15 @@ import java.util.concurrent.Executor;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.smart.vision.core.constant.CommonConstant.*;
-import static com.smart.vision.core.model.enums.PromptEnum.*;
+import static com.smart.vision.core.constant.CommonConstant.AI_RESPONSE_REGEX;
+import static com.smart.vision.core.constant.CommonConstant.IMAGE_GEN_MODEL_NAME;
+import static com.smart.vision.core.constant.CommonConstant.MD_JSON_REGEX;
+import static com.smart.vision.core.constant.CommonConstant.SSE_TIMEOUT;
+import static com.smart.vision.core.constant.CommonConstant.VISION_MODEL_NAME;
+import static com.smart.vision.core.model.enums.PromptEnum.GRAPH_IMAGE;
+import static com.smart.vision.core.model.enums.PromptEnum.GRAPH_TEXT;
+import static com.smart.vision.core.model.enums.PromptEnum.TAG_GEN;
+import static com.smart.vision.core.model.enums.PromptEnum.getPromptByType;
 
 /**
  * AliyunGenManager is a management class for handling operations related to Aliyun generation.
@@ -48,6 +59,7 @@ public class AliyunGenManager {
     @Value("${DASHSCOPE_API_KEY}")
     private String apiKey;
     private final Executor imageGenTaskExecutor;
+    private final Gson gson;
 
     private static final Pattern TEXT_PATTERN = Pattern.compile(AI_RESPONSE_REGEX);
 
@@ -131,9 +143,7 @@ public class AliyunGenManager {
             MultiModalMessage userMessage = MultiModalMessage.builder()
                     .role("user")
                     .content(Arrays.asList(
-                            // Image part
                             Map.of("image", imageUrl),
-                            // Text Prompt (strict format)
                             Map.of("text", TAG_GEN.getPrompt())
                     ))
                     .build();
@@ -154,7 +164,7 @@ public class AliyunGenManager {
             return Collections.emptyList();
         } catch (Exception e) {
             log.warn("AI tagging failed: {}", e.getMessage());
-            return Collections.emptyList(); // Fallback on failure, return empty tags to avoid affecting the main process
+            return Collections.emptyList();
         }
     }
 
@@ -185,11 +195,10 @@ public class AliyunGenManager {
             Matcher matcher = MD_JSON_PATTERN.matcher(content);
             if (matcher.find()) {
                 String jsonArray = matcher.group(1);
-                Gson gson = new Gson();
                 Type type = TypeToken.getParameterized(List.class, clazz).getType();
                 return gson.fromJson(jsonArray, type);
             }
-            return null;
+            return gson.fromJson(content, TypeToken.getParameterized(List.class, clazz).getType());
         } catch (Exception e) {
             log.warn("md json parsing failed, original content: {}", content);
             return null;
@@ -197,22 +206,27 @@ public class AliyunGenManager {
     }
 
     public List<GraphTripleDTO> praseTriplesFromKeyword(String keyword) {
+        Generation gen = new Generation();
+        Message systemMsg = Message.builder()
+                .role(Role.SYSTEM.getValue())
+                .content(GRAPH_TEXT.getPrompt())
+                .build();
+        Message userMsg = Message.builder()
+                .role(Role.USER.getValue())
+                .content(keyword)
+                .build();
+        GenerationParam param = GenerationParam.builder()
+                .apiKey(apiKey)
+                .model("qwen-plus")
+                .messages(Arrays.asList(systemMsg, userMsg))
+                .resultFormat(GenerationParam.ResultFormat.MESSAGE)
+                .build();
         try {
-            MultiModalMessage userMessage = MultiModalMessage.builder()
-                    .role("user")
-                    .content(Arrays.asList(Map.of("text", keyword), Map.of("text", GRAPH_TEXT.getPrompt())))
-                    .build();
-            MultiModalConversationParam param = MultiModalConversationParam.builder()
-                    .model(VISION_MODEL_NAME)
-                    .message(userMessage)
-                    .apiKey(apiKey)
-                    .build();
-            MultiModalConversation conv = new MultiModalConversation();
-            MultiModalConversationResult result = conv.call(param);
-            String content = result.getOutput().getChoices().getFirst().getMessage().getContent().toString();
-            return parseMdJson(content, GraphTripleDTO.class);
-        }catch (Exception e) {
-            log.error("gen graph failed: {}", e.getMessage());
+            GenerationResult call = gen.call(param);
+            String content = call.getOutput().getChoices().getLast().getMessage().getContent();
+            return gson.fromJson(content, new TypeToken<List<GraphTripleDTO>>(){}.getType());
+        } catch (Exception e) {
+            log.error("prase triples from keyword failed: {}", e.getMessage());
             return Collections.emptyList();
         }
     }
