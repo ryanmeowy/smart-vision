@@ -7,7 +7,6 @@ import org.springframework.stereotype.Component;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 /**
  * Strategy factory for retrieving appropriate retrieval strategies by type

@@ -13,10 +13,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.util.Collections;
 import java.util.List;
-
-import static com.smart.vision.core.constant.CommonConstant.DEFAULT_IMAGE_NAME;
 
 @Slf4j
 @Service

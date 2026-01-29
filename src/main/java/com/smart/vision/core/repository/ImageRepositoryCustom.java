@@ -36,6 +36,7 @@ public interface ImageRepositoryCustom {
      * @param threshold Similarity threshold
      * @return Existing similar image document, or null if none exists
      */
+    @Deprecated
     ImageDocument findDuplicate(List<Float> vector, double threshold);
 
 
