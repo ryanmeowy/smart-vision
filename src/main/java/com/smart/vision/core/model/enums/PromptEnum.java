@@ -21,26 +21,18 @@ public enum PromptEnum {
             请分析图片，提取图中主要物体之间的 SPO 三元组。
             请以 JSON 数组格式返回，每个元素包含三个字段：
             - "s": Subject (主体，名词)
-            - "p": Predicate (关系，如：位于、拿着、穿着、包含)
+            - "p": Predicate (关系，如：位于、拿着、穿着、包含，动词/介词)
             - "o": Object (客体，名词)
-            
-            【示例】：
-            输入：一张男人站在山顶看日出的图。
-            输出：
-            [
-              {"s": "男子", "p": "站在", "o": "山顶"},
-              {"s": "男子", "p": "面向", "o": "太阳"},
-              {"s": "云海", "p": "环绕", "o": "山腰"}
-            ]
             
             请输出 JSON 数组， 不要Markdown代码块，必须是中文。"""),
     GRAPH_TEXT("graph_text", """
             提取输入文字中的【实体关系】，并标准输出为 JSON 三元组。
             规则：
-            1. {"s": "主体", "p": "关系", "o": "客体"}
-            2. 只输出 JSON 数组，不要 Markdown。
+            - "s": Subject (主体，名词)
+            - "p": Predicate (关系，如：位于、拿着、穿着、包含，动词/介词)
+            - "o": Object (客体，名词)
            
-            """);
+           请输出 JSON 数组， 不要Markdown代码块，必须是中文。""");
 
     private final String type;
     private final String prompt;
