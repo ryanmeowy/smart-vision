@@ -10,15 +10,17 @@ public interface MultiModalEmbeddingService {
 
     /**
      * Get multimodal vector (image)
-     * @param imageUrl Image URL (optional)
-     * @return 1024-dimensional vector
+     *
+     * @param imageUrl Image URL
+     * @return vector
      */
     List<Float> embedImage(String imageUrl);
 
     /**
      * Get multimodal vector (text)
-     * @param text Text (optional)
-     * @return 1024-dimensional vector
+     *
+     * @param text Text
+     * @return vector
      */
     List<Float> embedText(String text);
 }
