@@ -28,13 +28,13 @@ public class BatchProcessDTO {
      * original file name
      */
     @NotBlank(message = "fileName cannot be empty")
-    @Size(max = 255, message = "The file name length cannot exceed 255")
+//    @Size(max = 255, message = "The file name length cannot exceed 255")
     private String fileName;
 
     /**
      * File fingerprint (MD5)
      */
     @NotBlank(message = "fileHash cannot be empty")
-    @Pattern(regexp = "^[a-f0-9]{32}$", message = "Invalid MD5 hash value")
+//    @Pattern(regexp = "^[a-f0-9]{32}$", message = "Invalid MD5 hash value")
     private String fileHash;
 }

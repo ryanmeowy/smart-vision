@@ -6,6 +6,7 @@ import com.aliyun.oss.model.GeneratePresignedUrlRequest;
 import com.smart.vision.core.config.OSSConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.logging.log4j.util.Strings;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
@@ -68,7 +69,7 @@ public class OssManager {
             return fileName;
         } catch (Exception e) {
             log.error("Failed to upload file to OSS: {}", e.getMessage(), e);
-            return null;
+            return Strings.EMPTY;
         }
     }
 }

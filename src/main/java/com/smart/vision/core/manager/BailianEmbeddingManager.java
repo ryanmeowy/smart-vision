@@ -9,6 +9,7 @@ import com.alibaba.dashscope.embeddings.MultiModalEmbeddingResult;
 import com.alibaba.dashscope.embeddings.MultiModalEmbeddingResultItem;
 import com.alibaba.dashscope.exception.ApiException;
 import com.alibaba.dashscope.exception.NoApiKeyException;
+import com.alibaba.dashscope.exception.UploadFileException;
 import com.google.common.collect.Lists;
 import com.smart.vision.core.util.VectorUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -45,10 +46,10 @@ public class BailianEmbeddingManager {
      * it automatically retries up to 3 times, with intervals of 1 second, 2 seconds, and 4 seconds (multiplier=2) between attempts.
      */
     @Retryable(
-            retryFor = {RuntimeException.class},
+            retryFor = {Exception.class},
             backoff = @Backoff(delay = 1000, multiplier = 2)
     )
-    public List<Float> embedImage(String imageUrl) {
+    public List<Float> embedImage(String imageUrl) throws NoApiKeyException, UploadFileException, ApiException {
         if (imageUrl == null || imageUrl.trim().isEmpty()) {
             return Collections.emptyList();
         }
@@ -57,10 +58,10 @@ public class BailianEmbeddingManager {
     }
 
     @Retryable(
-            retryFor = {RuntimeException.class},
+            retryFor = {Exception.class},
             backoff = @Backoff(delay = 1000, multiplier = 2)
     )
-    public List<Float> embedText(String text) {
+    public List<Float> embedText(String text) throws NoApiKeyException, UploadFileException {
         if (text == null || text.trim().isEmpty()) {
             return Collections.emptyList();
         }
@@ -68,45 +69,27 @@ public class BailianEmbeddingManager {
         return VectorUtil.l2Normalize(callSdk(Lists.newArrayList(item)));
     }
 
+    private List<Float> callSdk(List<MultiModalEmbeddingItemBase> inputItem) throws NoApiKeyException, UploadFileException {
+        MultiModalEmbeddingParam param = MultiModalEmbeddingParam.builder()
+                .apiKey(apiKey)
+                .model(EMBEDDING_MODEL_NAME)
+                .contents(inputItem)
+                .build();
 
-    @Recover
-    public List<Float> recover(Exception e, String imageUrl) throws Exception {
-        log.error("After retrying 3 times, the AI service still failed.: {}", imageUrl);
-        throw e;
-    }
+        MultiModalEmbedding embedder = new MultiModalEmbedding();
+        MultiModalEmbeddingResult result = embedder.call(param);
 
-    private List<Float> callSdk(List<MultiModalEmbeddingItemBase> inputItem) {
-        try {
-            MultiModalEmbeddingParam param = MultiModalEmbeddingParam.builder()
-                    .apiKey(apiKey)
-                    .model(EMBEDDING_MODEL_NAME)
-                    .contents(inputItem)
-                    .build();
-
-            MultiModalEmbedding embedder = new MultiModalEmbedding();
-            MultiModalEmbeddingResult result = embedder.call(param);
-
-            if (result.getOutput() == null || CollectionUtils.isEmpty(result.getOutput().getEmbeddings())) {
-                throw new RuntimeException("Aliyun returned an empty result");
-            }
-
-            return result.getOutput().getEmbeddings().stream()
-                    .findFirst()
-                    .map(MultiModalEmbeddingResultItem::getEmbedding)
-                    .orElse(Collections.emptyList())
-                    .stream()
-                    .map(Double::floatValue)
-                    .collect(Collectors.toList());
-        } catch (NoApiKeyException e) {
-            log.error("API Key is not configured, please check the environment variables");
-            throw new RuntimeException("API Key configuration is missing", e);
-        } catch (ApiException e) {
-            log.error("Aliyun API call failed: Code={}, Msg={}", e.getStatus(), e.getMessage());
-            throw new RuntimeException("AI service exception: " + e.getMessage(), e);
-        } catch (Exception e) {
-            log.error("Unknown error occurred during vector generation", e);
-            throw new RuntimeException("Internal error in vectorization service", e);
+        if (result.getOutput() == null || CollectionUtils.isEmpty(result.getOutput().getEmbeddings())) {
+            throw new RuntimeException("Aliyun returned an empty result");
         }
+
+        return result.getOutput().getEmbeddings().stream()
+                .findFirst()
+                .map(MultiModalEmbeddingResultItem::getEmbedding)
+                .orElse(Collections.emptyList())
+                .stream()
+                .map(Double::floatValue)
+                .collect(Collectors.toList());
     }
 
 

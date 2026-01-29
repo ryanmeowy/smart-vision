@@ -34,7 +34,7 @@ public class LocalOcrImpl implements ImageOcrService {
             return ocrResponse.getFullText();
         } catch (Exception e) {
             log.error("gRPC ocr call failed: {}", e.getMessage());
-            throw new RuntimeException("Local model service is unavailable.");
+            throw new RuntimeException("extract text failed, try again later.");
         }
     }
 }
