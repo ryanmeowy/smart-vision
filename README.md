@@ -31,77 +31,78 @@
 
 ```mermaid
 graph TD
-    %% ================= 样式定义 =================
-    classDef user fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
-    classDef frontend fill:#b3e5fc,stroke:#0288d1,stroke-width:2px;
-    classDef backend fill:#fff9c4,stroke:#fbc02d,stroke-width:2px;
-    classDef local fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
-    classDef cloud fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,stroke-dasharray: 5 5;
-    
-    %% ================= 层级结构 =================
-    subgraph Layer_User [👤 用户接入层]
-        User((User)):::user
+    %% Styles
+    classDef front fill:#E1F5FE,stroke:#0277BD,stroke-width:2px;
+    classDef back fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px;
+    classDef ai fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px;
+    classDef infra fill:#fff,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5;
+    classDef db fill:#FFEBEE,stroke:#C62828,stroke-width:2px;
+    classDef redis fill:#E0F2F1,stroke:#00695C,stroke-width:2px;
+    classDef oss fill:#E3F2FD,stroke:#1565C0,stroke-width:2px;
+    classDef yellow fill:#FFF8E1,stroke:#F9A825,stroke-width:2px;
+
+    %% Layout
+    subgraph Frontend_Layer [Frontend Application]
+        direction LR
+        Waterfall[Gallery View]
+        Upload[Upload Widget]
     end
 
-    subgraph Layer_Frontend [💻 前端应用层]
-        Uploader[直传组件]:::frontend
-        SearchUI[瀑布流展示]:::frontend
-    end
-
-    subgraph Layer_Core ["⚙️ 核心服务层 (Spring Boot)"]
-        Gateway[Nginx / Gateway]:::backend
-        Controller[API Layer]:::backend
-        AsyncService[异步编排层]:::backend
+    subgraph Backend_Layer ["Backend (Spring Boot Core)"]
+        direction TB
+        Gateway[Nginx / API Gateway]
         
-        subgraph ACL [防腐层 / AI Adapter]
-            Interface[<<Interface>>\nAiInferenceService]:::backend
-            CloudImpl[CloudAdapter]:::backend
-            LocalImpl[LocalGrpcAdapter]:::backend
+        subgraph Logic [Core Services]
+            Orchestration[Async Orchestration]
+            SearchLogic[Search Logic]
+        end
+
+        Worker["Async Task Workers<br>(Submit Keys, Bulk Insert)"]
+        
+        subgraph Adapter [AI Adapter]
+            CloudAdapt[Cloud Adapter]
+            LocalAdapt[Local gRPC Adapter]
         end
     end
 
-    subgraph Layer_Infra [🏗️ 基础设施层]
-        Redis[(Redis)]:::local
-        ES[(Elasticsearch 8.x)]:::local
-        OSS[Aliyun OSS]:::cloud
-        
-        subgraph AI_Provider [AI 能力提供方]
-            SaaS_API[Aliyun DashScope]:::cloud
-            Local_Python["Python Service\n(ONNX/Paddle)"]:::local
-        end
+    subgraph AI_Layer [AI Services]
+        DashScope["Aliyun DashScope"]
+        PythonSvc["Python Service"]
     end
 
-    %% ================= 链路连接 =================
+    subgraph Infra_Layer [Infrastructure]
+        Redis[(Redis<br>Cache)]
+        ES[(Elasticsearch 8.x<br>Vector Search)]
+        OSS[(Aliyun OSS<br>Object Storage)]
+    end
 
-    %% 1. 接入
-    User --> Uploader
-    User --> SearchUI
-    Uploader & SearchUI --> Gateway
-    Gateway --> Controller
+    %% Connections
+    Waterfall --> Gateway
+    Upload --> Gateway
+    Upload -.->|STS Direct Upload| OSS
 
-    %% 2. 写入链路 (Write Path)
-    Uploader -- "1. STS 直传" --> OSS
-    Uploader -- "2. Submit Keys" --> Controller
-    Controller -- "3. Async Task" --> AsyncService
+    Gateway --> Orchestration
+    Gateway --> SearchLogic
     
-    %% 3. AI 推理路由 (核心亮点)
-    AsyncService --> Interface
-    Interface -.->|Profile: cloud| CloudImpl
-    Interface -.->|Profile: local| LocalImpl
-    
-    CloudImpl -- "HTTP" --> SaaS_API
-    LocalImpl -- "gRPC/Protobuf" --> Local_Python
-    
-    %% 4. 存储
-    AsyncService -- "4. Bulk Insert" --> ES
+    Orchestration --> Worker
+    Worker --> Adapter
+    SearchLogic --> Adapter
 
-    %% 5. 读取链路
-    Controller -- "Search" --> Interface
-    Interface -.->|Get Vector| SaaS_API & Local_Python
-    Controller -- "Hybrid Query" --> ES
+    CloudAdapt -->|HTTP| DashScope
+    LocalAdapt -->|gRPC| PythonSvc
 
-    %% ================= 样式微调 =================
-    linkStyle 7,8 stroke:#d84315,stroke-width:3px; 
+    Adapter --> Redis
+    Worker --> ES
+    Worker --> OSS
+
+    %% Apply Styles
+    class Frontend_Layer front
+    class Backend_Layer back
+    class AI_Layer ai
+    class Adapter yellow
+    class Redis redis
+    class ES db
+    class OSS oss
 ```
 
 ---
