@@ -57,7 +57,6 @@ public class IdGen {
             }
             currentId += step;
             if (currentId > ID_GEN_MAX_ID) {
-                exhausted = true;
                 throw new RuntimeException("ID Space Exhausted: Global limit reached.");
             }
             return currentId;
@@ -70,6 +69,7 @@ public class IdGen {
         try {
             Long newMaxId = stringRedisTemplate.opsForValue().increment(cacheKey, ID_GEN_SEGMENT_SIZE);
             if (newMaxId == null || newMaxId > ID_GEN_MAX_ID) {
+                exhausted = true;
                 throw new RuntimeException("ID Space Exhausted: Global limit reached.");
             }
             currentSegmentMaxId = newMaxId;
