@@ -197,6 +197,51 @@ com.smart.vision.core
 ## ⚙️ 部署图(Deployment Diagram)
 (GitHub dark主题下显示效果存在问题)
 ```mermaid
+graph TD
+    %% ================= 样式定义 =================
+    classDef user fill:#ffffff,stroke:#333,stroke-width:2px;
+    classDef cloud fill:#e3f2fd,stroke:#1565c0,stroke-width:2px;
+    classDef edge fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
+    classDef saas fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,stroke-dasharray: 5 5;
+    classDef db fill:#ffccbc,stroke:#d84315,stroke-width:2px;
+
+    %% ================= 云端节点 (流量入口 + 数据中心) =================
+    subgraph Cloud_Node ["☁️ 阿里云 ECS (网关 + 存储)"]
+        direction TB
+        Nginx["Nginx (80端口)"]:::cloud
+        FRPS["FRP Server (7000端口)"]:::cloud
+        StaticFiles["静态文件<br>(/usr/share/nginx/html)"]:::cloud
+        DB[("ES 8.x + Redis<br>(Docker)")]:::db
+    end
+
+    %% ================= 边缘节点 (算力核心) =================
+    subgraph Edge_Node ["🏠 本地 Mac (业务 + AI计算)"]
+        direction TB
+        FRPC[FRP Client]:::edge
+        
+        subgraph Local_Compute [本地进程]
+            Java["Spring Boot (8080)"]:::edge
+            Python["Python gRPC Service<br>(Qwen/CLIP)"]:::edge
+        end
+    end
+
+    %% ================= 外部 SaaS =================
+    subgraph External_SaaS [🌐 外部依赖]
+        OSS["Aliyun OSS"]:::saas
+    end
+
+    %% ================= 流量链路 =================
+
+    Nginx -- "Load Static Files" --> StaticFiles
+
+    Nginx -- "Proxy /api" --> FRPS
+    FRPS <== "TCP 隧道 (FRP Tunnel)" ==> FRPC
+    FRPC -- "Forward" --> Java
+
+    Java -- "gRPC (Local)" --> Python
+    Java -- "TCP (Remote Connect)" --> DB
+
+    Java -.->|"Sign URL"| OSS
 
 ```
 
