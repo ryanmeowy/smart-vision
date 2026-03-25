@@ -6,7 +6,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
-import java.security.SecureRandom;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -25,8 +25,6 @@ public class IdGen {
 
     private final StringRedisTemplate stringRedisTemplate;
 
-    private final SecureRandom random = new SecureRandom();
-
     private final Lock lock = new ReentrantLock();
 
     private String cacheKey;
@@ -35,14 +33,22 @@ public class IdGen {
 
     private long currentId = -1;
 
+    private volatile boolean exhausted = false;
+
     @PostConstruct
     public void init() {
+        if (ID_GEN_MAX_STEP > ID_GEN_SEGMENT_SIZE) {
+            throw new IllegalArgumentException("MAX_STEP MUST be <= SEGMENT_SIZE to prevent duplicate IDs");
+        }
         this.cacheKey = String.format("%s:%s", ID_GEN_KEY, System.getenv(PROFILE_KEY_NAME));
         stringRedisTemplate.opsForValue().setIfAbsent(cacheKey, String.valueOf(ID_GEN_MIN_ID));
     }
 
     public long nextId() {
-        int step = random.nextInt(ID_GEN_MAX_STEP - ID_GEN_MIN_STEP + 1) + ID_GEN_MIN_STEP;
+        if (exhausted) {
+            throw new RuntimeException("ID Space Exhausted: Global limit reached.");
+        }
+        int step = ThreadLocalRandom.current().nextInt(ID_GEN_MAX_STEP - ID_GEN_MIN_STEP + 1) + ID_GEN_MIN_STEP;
 
         lock.lock();
         try {
@@ -63,6 +69,7 @@ public class IdGen {
         try {
             Long newMaxId = stringRedisTemplate.opsForValue().increment(cacheKey, ID_GEN_SEGMENT_SIZE);
             if (newMaxId == null || newMaxId > ID_GEN_MAX_ID) {
+                exhausted = true;
                 throw new RuntimeException("ID Space Exhausted: Global limit reached.");
             }
             currentSegmentMaxId = newMaxId;

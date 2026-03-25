@@ -2,8 +2,10 @@ package com.smart.vision.core.query;
 
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 
-public interface FieldMatcher {
+import java.util.Optional;
 
-    Query match(String param);
+public interface FieldMatcher extends QueryFragmentMatcher<String> {
 
+    @Override
+    Optional<Query> match(String param);
 }

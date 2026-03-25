@@ -29,7 +29,7 @@
     "rawFilename": {
       "type": "keyword"
     },
-    "filename": {
+    "fileName": {
       "type": "text",
       "analyzer": "my_ik_analyzer",
       "search_analyzer": "my_ik_search_analyzer"
