@@ -10,4 +10,18 @@ import org.springframework.context.annotation.Configuration;
 public class VectorConfig {
     private String indexName;
     private Integer dimension;
+
+    /**
+     * Physical index version suffix (e.g. v1/v2).
+     * <p>
+     * Physical index name = indexName + "_" + indexVersion (when indexVersion is not blank).
+     */
+    private String indexVersion;
+
+    public String getPhysicalIndexName() {
+        if (indexVersion == null || indexVersion.isBlank()) {
+            return indexName;
+        }
+        return indexName + "_" + indexVersion;
+    }
 }
