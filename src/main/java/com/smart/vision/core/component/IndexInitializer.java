@@ -30,27 +30,27 @@ public class IndexInitializer {
 
     @PostConstruct
     public void init() {
-        String indexName = vectorConfig.getIndexName();
+        String physicalIndexName = vectorConfig.getPhysicalIndexName();
         try {
-            BooleanResponse exists = esClient.indices().exists(e -> e.index(indexName));
+            BooleanResponse exists = esClient.indices().exists(e -> e.index(physicalIndexName));
             if (exists.value()) {
-                log.info("Index [{}] already exists, skipping initialization", indexName);
+                log.info("Index [{}] already exists, skipping initialization", physicalIndexName);
                 return;
             }
 
-            log.info("Starting index initialization [{}], loading configuration file...", indexName);
+            log.info("Starting index initialization [{}], loading configuration file...", physicalIndexName);
 
             InputStream settingsStream = new ClassPathResource(SETTINGS_PATH).getInputStream();
 
             String mappingJson = loadAndProcessMapping(vectorConfig.getDimension());
             
             esClient.indices().create(c -> c
-                .index(indexName)
+                .index(physicalIndexName)
                 .settings(IndexSettings.of(s -> s.withJson(settingsStream)))
                 .mappings(TypeMapping.of(m -> m.withJson(new StringReader(mappingJson))))
             );
 
-            log.info("Index [{}] created successfully!", indexName);
+            log.info("Index [{}] created successfully!", physicalIndexName);
 
         } catch (Exception e) {
             log.error("Index initialization failed", e);

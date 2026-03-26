@@ -111,17 +111,17 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
      * @param item        the batch process request containing OSS key and file metadata
      */
     protected ImageDocument processSingleItem(BatchProcessDTO item) {
-        String tempUrl = ossManager.getAiPresignedUrl(item.getKey(), SHORT_TERM_VALIDITY.getValidity(), X_OSS_PROCESS_EMBEDDING);
-        List<Float> vector = embeddingService.embedImage(tempUrl);
-        String ocrText = imageOcrService.extractText(tempUrl);
-        List<String> tags = contentGenerationService.generateTags(tempUrl);
-        List<GraphTripleDTO> graphTriples = contentGenerationService.generateGraph(tempUrl);
         String cacheKey = String.format("%s%s:%s", HASH_INDEX_CACHE_PREFIX, System.getenv(PROFILE_KEY_NAME), item.getFileHash());
         Boolean setIfAbsent = redisTemplate.opsForValue().setIfAbsent(cacheKey, "1", 30, TimeUnit.DAYS);
         if (Boolean.FALSE.equals(setIfAbsent)) {
             log.info("Duplicate image hash [{}] [{}]", item.getFileHash(), item.getFileName());
             throw new RuntimeException("Duplicate image, skipped.");
         }
+        String tempUrl = ossManager.getAiPresignedUrl(item.getKey(), SHORT_TERM_VALIDITY.getValidity(), X_OSS_PROCESS_EMBEDDING);
+        List<Float> vector = embeddingService.embedImage(tempUrl);
+        String ocrText = imageOcrService.extractText(tempUrl);
+        List<String> tags = contentGenerationService.generateTags(tempUrl);
+        List<GraphTripleDTO> graphTriples = contentGenerationService.generateGraph(tempUrl);
 
         ImageDocument doc = new ImageDocument();
         doc.setId(idGen.nextId());

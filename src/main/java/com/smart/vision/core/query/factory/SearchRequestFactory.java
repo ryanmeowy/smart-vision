@@ -32,17 +32,17 @@ public class SearchRequestFactory {
     private final GraphTriplesMatcher graphTriplesMatcher;
 
     public SearchRequest buildHybrid(HybridSearchParamDTO paramDTO) {
-        QuerySpec spec = new HybridQuerySpec(vectorConfig.getIndexName(), paramDTO, hybridSearchKeywordMatcher, graphTriplesMatcher);
+        QuerySpec spec = new HybridQuerySpec(vectorConfig.getPhysicalIndexName(), paramDTO, hybridSearchKeywordMatcher, graphTriplesMatcher);
         return spec.toSearchRequest();
     }
 
     public SearchRequest buildSimilar(List<Float> vector, Integer topK, String excludeDocId) {
-        QuerySpec spec = new SimilarQuerySpec(vectorConfig.getIndexName(), vector, topK, excludeDocId, similarSearchIdMatcher, similarityConfig);
+        QuerySpec spec = new SimilarQuerySpec(vectorConfig.getPhysicalIndexName(), vector, topK, excludeDocId, similarSearchIdMatcher, similarityConfig);
         return spec.toSearchRequest();
     }
 
     public SearchRequest buildDuplicate(List<Float> vector, double threshold) {
-        QuerySpec spec = new DuplicateQuerySpec(vectorConfig.getIndexName(), vector, threshold);
+        QuerySpec spec = new DuplicateQuerySpec(vectorConfig.getPhysicalIndexName(), vector, threshold);
         return spec.toSearchRequest();
     }
 }
