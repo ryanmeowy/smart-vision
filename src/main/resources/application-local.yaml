@@ -12,3 +12,13 @@ grpc:
       address: static://127.0.0.1:50051
       # Local debugging does not use TLS and must be set to plaintext.
       negotiation-type: plaintext
+  deadline:
+    # gRPC call deadlines (milliseconds) for local inference service.
+    embed-image-ms: 5000
+    embed-text-ms: 5000
+    ocr-ms: 8000
+    generate-filename-ms: 3000
+    generate-tags-ms: 8000
+    generate-graph-ms: 10000
+    parse-graph-ms: 8000
+    stream-caption-ms: 20000

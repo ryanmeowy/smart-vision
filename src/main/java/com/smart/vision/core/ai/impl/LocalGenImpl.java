@@ -12,13 +12,18 @@ import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import io.grpc.StatusRuntimeException;
 
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.smart.vision.core.constant.CommonConstant.DEFAULT_IMAGE_NAME;
 import static com.smart.vision.core.constant.CommonConstant.SSE_TIMEOUT;
@@ -34,28 +39,66 @@ public class LocalGenImpl implements ContentGenerationService {
     private VisionServiceGrpc.VisionServiceBlockingStub visionStub;
     private final Executor imageGenTaskExecutor;
 
+    @Value("${grpc.deadline.stream-caption-ms:20000}")
+    private long streamCaptionDeadlineMs;
+    @Value("${grpc.deadline.generate-filename-ms:3000}")
+    private long generateFileNameDeadlineMs;
+    @Value("${grpc.deadline.generate-tags-ms:8000}")
+    private long generateTagsDeadlineMs;
+    @Value("${grpc.deadline.generate-graph-ms:10000}")
+    private long generateGraphDeadlineMs;
+    @Value("${grpc.deadline.parse-graph-ms:8000}")
+    private long parseGraphDeadlineMs;
+
     @Override
     public SseEmitter streamGenerateCopy(String imageUrl, String promptType) {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT);
         try {
+            AtomicBoolean cancelled = new AtomicBoolean(false);
+            emitter.onCompletion(() -> cancelled.set(true));
+            emitter.onTimeout(() -> cancelled.set(true));
+
             VisionProto.GenRequest request = VisionProto.GenRequest.newBuilder()
                     .setImageUrl(imageUrl)
                     .setPrompt(PromptEnum.getPromptByType(promptType))
                     .build();
-            Iterator<VisionProto.StringResponse> stringResponseIterator = visionStub.generateCaption(request);
+            long startNs = System.nanoTime();
+            Iterator<VisionProto.StringResponse> stringResponseIterator;
+            try {
+                stringResponseIterator = visionStub
+                        .withDeadlineAfter(streamCaptionDeadlineMs, TimeUnit.MILLISECONDS)
+                        .generateCaption(request);
+            } catch (StatusRuntimeException e) {
+                long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNs);
+                log.error("gRPC generateCaption failed: statusCode={}, deadlineMs={}, elapsedMs={}", e.getStatus().getCode(), streamCaptionDeadlineMs, elapsedMs, e);
+                emitter.completeWithError(e);
+                return emitter;
+            }
+
+            Iterator<VisionProto.StringResponse> finalIterator = stringResponseIterator;
             imageGenTaskExecutor.execute(() -> {
-                while (stringResponseIterator.hasNext()) {
-                    VisionProto.StringResponse response = stringResponseIterator.next();
-                    try {
+                long workerStartNs = System.nanoTime();
+                try {
+                    while (!cancelled.get() && finalIterator.hasNext()) {
+                        VisionProto.StringResponse response = finalIterator.next();
                         emitter.send(response.getContent());
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
                     }
+                    if (!cancelled.get()) {
+                        emitter.complete();
+                    }
+                } catch (StatusRuntimeException e) {
+                    if (cancelled.get()) return;
+                    long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - workerStartNs);
+                    log.error("gRPC generateCaption stream iteration failed: statusCode={}, deadlineMs={}, elapsedMs={}", e.getStatus().getCode(), streamCaptionDeadlineMs, elapsedMs, e);
+                    emitter.completeWithError(e);
+                } catch (Exception e) {
+                    if (cancelled.get()) return;
+                    log.error("gRPC stream generate worker failed: {}", e.getMessage(), e);
+                    emitter.completeWithError(e);
                 }
-                emitter.complete();
             });
         } catch (Exception e) {
-            log.error("gRPC stream generate call failed: {}", e.getMessage());
+            log.error("gRPC stream generate call failed: {}", e.getMessage(), e);
             emitter.completeWithError(e);
         }
         return emitter;
@@ -68,10 +111,18 @@ public class LocalGenImpl implements ContentGenerationService {
             VisionProto.GenRequest request = VisionProto.GenRequest.newBuilder()
                     .setImageUrl(imageUrl)
                     .build();
-            VisionProto.GenFileNameResponse response = visionStub.generateFileName(request);
+            long startNs = System.nanoTime();
+            VisionProto.GenFileNameResponse response = visionStub
+                    .withDeadlineAfter(generateFileNameDeadlineMs, TimeUnit.MILLISECONDS)
+                    .generateFileName(request);
+            long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNs);
+            log.debug("gRPC generateFileName success: deadlineMs={}, elapsedMs={}", generateFileNameDeadlineMs, elapsedMs);
             return response.getName();
+        } catch (StatusRuntimeException e) {
+            log.error("gRPC generateFileName failed: statusCode={}, deadlineMs={}", e.getStatus().getCode(), generateFileNameDeadlineMs, e);
+            throw new RuntimeException("generate file name failed, try again later.");
         } catch (Exception e) {
-            log.error("gRPC gen name call failed: {}", e.getMessage());
+            log.error("gRPC gen name call failed: {}", e.getMessage(), e);
             throw new RuntimeException("generate file name failed, try again later.");
         }
     }
@@ -84,10 +135,15 @@ public class LocalGenImpl implements ContentGenerationService {
             VisionProto.GenRequest request = VisionProto.GenRequest.newBuilder()
                     .setImageUrl(imageUrl)
                     .build();
-            VisionProto.GenTagsResponse response = visionStub.generateTags(request);
+            VisionProto.GenTagsResponse response = visionStub
+                    .withDeadlineAfter(generateTagsDeadlineMs, TimeUnit.MILLISECONDS)
+                    .generateTags(request);
             return response.getTagList();
+        } catch (StatusRuntimeException e) {
+            log.error("gRPC generateTags failed: statusCode={}, deadlineMs={}", e.getStatus().getCode(), generateTagsDeadlineMs, e);
+            throw new RuntimeException("generate tags failed, try again later.");
         } catch (Exception e) {
-            log.error("gRPC gen tags call failed: {}", e.getMessage());
+            log.error("gRPC gen tags call failed: {}", e.getMessage(), e);
             throw new RuntimeException("generate tags failed, try again later.");
         }
     }
@@ -105,11 +161,16 @@ public class LocalGenImpl implements ContentGenerationService {
             VisionProto.GenRequest request = VisionProto.GenRequest.newBuilder()
                     .setImageUrl(imageUrl)
                     .build();
-            VisionProto.GraphTriplesResponse response = visionStub.extractGraphTriples(request);
+            VisionProto.GraphTriplesResponse response = visionStub
+                    .withDeadlineAfter(generateGraphDeadlineMs, TimeUnit.MILLISECONDS)
+                    .extractGraphTriples(request);
             List<VisionProto.GraphTriple> graphTriples = Optional.ofNullable(response).map(VisionProto.GraphTriplesResponse::getTripleList).orElseGet(Lists::newArrayList);
             return graphTriples.stream().map(x -> new GraphTripleDTO(x.getS(), x.getP(), x.getO())).toList();
+        } catch (StatusRuntimeException e) {
+            log.error("gRPC generateGraph failed: statusCode={}, deadlineMs={}", e.getStatus().getCode(), generateGraphDeadlineMs, e);
+            throw new RuntimeException("generate graph failed, try again later.");
         } catch (Exception e) {
-            log.error("gRPC gen graph call failed: {}", e.getMessage());
+            log.error("gRPC gen graph call failed: {}", e.getMessage(), e);
             throw new RuntimeException("generate graph failed, try again later.");
         }
     }
@@ -119,11 +180,16 @@ public class LocalGenImpl implements ContentGenerationService {
         if (!StringUtils.hasText(keyword)) return Lists.newArrayList();
         try {
             VisionProto.TextRequest request = VisionProto.TextRequest.newBuilder().setText(keyword).build();
-            VisionProto.GraphTriplesResponse response = visionStub.parseQueryToGraph(request);
+            VisionProto.GraphTriplesResponse response = visionStub
+                    .withDeadlineAfter(parseGraphDeadlineMs, TimeUnit.MILLISECONDS)
+                    .parseQueryToGraph(request);
             List<VisionProto.GraphTriple> tripleList = response.getTripleList();
             return tripleList.stream().map(x -> new GraphTripleDTO(x.getS(), x.getP(), x.getO())).toList();
+        } catch (StatusRuntimeException e) {
+            log.error("gRPC parseQueryToGraph failed: statusCode={}, deadlineMs={}", e.getStatus().getCode(), parseGraphDeadlineMs, e);
+            throw new RuntimeException("parse triples from keyword failed, try again later.");
         } catch (Exception e) {
-            log.error("gRPC prase triples from keyword call failed: {}", e.getMessage());
+            log.error("gRPC prase triples from keyword call failed: {}", e.getMessage(), e);
             throw new RuntimeException("parse triples from keyword failed, try again later.");
         }
     }
