@@ -1,6 +1,7 @@
 package com.smart.vision.core.strategy;
 
 import com.smart.vision.core.model.enums.StrategyTypeEnum;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -21,9 +22,11 @@ import java.util.Map;
 public class StrategyFactory {
 
     private final Map<StrategyTypeEnum, RetrievalStrategy> strategies;
+    private final MeterRegistry meterRegistry;
 
-    public StrategyFactory(List<RetrievalStrategy> strategyList) {
+    public StrategyFactory(List<RetrievalStrategy> strategyList, MeterRegistry meterRegistry) {
         this.strategies = new EnumMap<>(StrategyTypeEnum.class);
+        this.meterRegistry = meterRegistry;
         for (RetrievalStrategy strategy : strategyList) {
             this.strategies.put(strategy.getType(), strategy);
             log.info("Search strategy registered: {}", strategy.getType().getDesc());
@@ -47,17 +50,51 @@ public class StrategyFactory {
      * @throws IllegalArgumentException if no strategy found for given type
      */
     public RetrievalStrategy getStrategy(String searchType) {
+        String requested = searchType == null ? "null" : searchType;
         try {
             StrategyTypeEnum strategyType = StrategyTypeEnum.getByCode(searchType);
+            if (strategyType == null) {
+                return fallbackWithObservability(requested, "HYBRID", "invalid_strategy_code");
+            }
             RetrievalStrategy retrievalStrategy = strategies.get(strategyType);
             if (retrievalStrategy == null) {
-                log.warn("No effective search strategy was hit. {}", searchType);
-                return strategies.get(StrategyTypeEnum.HYBRID);
+                return fallbackWithObservability(requested, "HYBRID", "strategy_not_registered");
             }
+            meterRegistry.counter("smartvision.strategy.selection",
+                    "requested", requested,
+                    "effective", strategyType.getCode(),
+                    "fallback", "false",
+                    "reason", "none").increment();
+            StrategySelectionContext.set(StrategySelectionContext.SelectionSnapshot.builder()
+                    .requested(requested)
+                    .effective(strategyType.getCode())
+                    .fallback(false)
+                    .reason("none")
+                    .build());
             return retrievalStrategy;
-        }catch (Exception e) {
-            log.error("Failed to get search strategy", e);
-            return strategies.get(StrategyTypeEnum.HYBRID);
+        } catch (Exception e) {
+            log.error("Failed to get search strategy, requested={}", requested, e);
+            return fallbackWithObservability(requested, "HYBRID", "strategy_resolve_exception");
         }
+    }
+
+    private RetrievalStrategy fallbackWithObservability(String requested, String effective, String reason) {
+        meterRegistry.counter("smartvision.strategy.selection",
+                "requested", requested,
+                "effective", effective,
+                "fallback", "true",
+                "reason", reason).increment();
+        meterRegistry.counter("smartvision.strategy.fallback",
+                "requested", requested,
+                "effective", effective,
+                "reason", reason).increment();
+        StrategySelectionContext.set(StrategySelectionContext.SelectionSnapshot.builder()
+                .requested(requested)
+                .effective(effective)
+                .fallback(true)
+                .reason(reason)
+                .build());
+        log.warn("Strategy fallback happened, requested={}, effective={}, reason={}", requested, effective, reason);
+        return strategies.get(StrategyTypeEnum.HYBRID);
     }
 }
