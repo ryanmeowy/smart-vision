@@ -96,8 +96,8 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         filtered.add(results.getFirst());
 
         for (int i = 1; i < hardLimit; i++) {
-            double prevScore = results.get(i - 1).getScore();
-            double currScore = results.get(i).getScore();
+            double prevScore = decisionScore(results.get(i - 1));
+            double currScore = decisionScore(results.get(i));
 
             // Always keep a minimum number of results to avoid empty/too-short lists on long-tail queries.
             if (i < QUALITY_MIN_RESULTS) {
@@ -164,8 +164,20 @@ public class SmartSearchServiceImpl implements SmartSearchService {
                     boolean o2Hit = null != o2.getDocument().getOcrContent() && o2.getDocument().getOcrContent().contains(keyword);
                     if (o1Hit && !o2Hit) return -1;
                     if (!o1Hit && o2Hit) return 1;
-                    return Double.compare(o2.getScore(), o1.getScore());
+                    return Double.compare(decisionScore(o2), decisionScore(o1));
                 })
                 .collect(Collectors.toList());
+    }
+
+    private double decisionScore(ImageSearchResultDTO result) {
+        if (result == null) {
+            return 0;
+        }
+        Double rawScore = result.getRawScore();
+        if (rawScore != null) {
+            return rawScore;
+        }
+        Double fallbackScore = result.getScore();
+        return fallbackScore == null ? 0 : fallbackScore;
     }
 }
