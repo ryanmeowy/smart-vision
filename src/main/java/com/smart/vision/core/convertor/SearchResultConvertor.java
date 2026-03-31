@@ -30,9 +30,11 @@ public class SearchResultConvertor {
                 .map(hit -> {
                     ImageDocument doc = hit.source();
                     doc.setId(Long.parseLong(hit.id()));
+                    double rawScore = hit.score();
                     return ImageSearchResultDTO.builder()
                             .document(doc)
-                            .score(mapScoreToPercentage(hit.score()))
+                            .rawScore(rawScore)
+                            .score(mapScoreToPercentage(rawScore))
                             .sortValues(hit.sort().stream().map(this::unwrapFieldValue).collect(Collectors.toList()))
                             .build();
                 }).collect(Collectors.toList());

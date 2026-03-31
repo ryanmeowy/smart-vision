@@ -16,7 +16,7 @@ import java.util.List;
  * @since 2025/12/15
  */
 @Data
-@Document(indexName = "#{@vectorConfig.getPhysicalIndexName()}", createIndex = false)
+@Document(indexName = "#{@vectorConfig.getReadTargetName()}", createIndex = false)
 public class ImageDocument {
     /**
      * Image ID (ES Doc ID)

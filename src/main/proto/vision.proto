@@ -37,7 +37,11 @@ message TextRequest {
 }
 
 message ImageRequest {
-  string url = 1;
+  oneof image_input {
+    string url = 1;
+    bytes image_bytes = 2;
+  }
+  string mime_type = 3;
 }
 
 message EmbeddingResponse {

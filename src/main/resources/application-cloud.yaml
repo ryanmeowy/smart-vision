@@ -2,5 +2,9 @@ app:
   vector:
     index-name: smart_gallery_cloud
     indexVersion: v2
+    read-alias: smart_gallery_cloud_read
+    write-alias: smart_gallery_cloud_write
     dimension: 1024
     model-type: CLOUD
+  embedding:
+    image-input-mode: url

@@ -21,9 +21,15 @@ public class ImageSearchResultDTO {
     private ImageDocument document;
 
     /**
-     * The similarity score between the search query and this image result
+     * Display score for API output.
      */
     private Double score;
+
+    /**
+     * Raw retrieval score from Elasticsearch. Used for ranking/filter decisions.
+     */
+    private Double rawScore;
+
     /**
      * Search cursor for pagination
      */

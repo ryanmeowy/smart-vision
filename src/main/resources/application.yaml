@@ -33,6 +33,10 @@ app:
     admin-secret: ${APP_ADMIN_SECRET}
     encrypt-key: ${APP_ENCRYPT_KEY}
     encrypt-iv: ${APP_ENCRYPT_IV}
+  embedding:
+    image-input-mode: auto
+  debug:
+    strategy-header-enabled: false
 
 logging:
   level:

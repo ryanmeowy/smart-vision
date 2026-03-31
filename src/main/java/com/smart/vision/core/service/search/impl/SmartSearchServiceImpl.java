@@ -16,6 +16,7 @@ import com.smart.vision.core.strategy.RetrievalStrategy;
 import com.smart.vision.core.strategy.StrategyFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
@@ -26,6 +27,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -48,6 +50,9 @@ import static com.smart.vision.core.model.enums.PresignedValidityEnum.SHORT_TERM
 @Service
 @RequiredArgsConstructor
 public class SmartSearchServiceImpl implements SmartSearchService {
+    @Value("${app.embedding.image-input-mode:auto}")
+    private String imageInputMode;
+
     private final MultiModalEmbeddingService embeddingService;
     private final ImageRepository imageRepository;
     private final ImageDocConvertor imageDocConvertor;
@@ -96,8 +101,8 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         filtered.add(results.getFirst());
 
         for (int i = 1; i < hardLimit; i++) {
-            double prevScore = results.get(i - 1).getScore();
-            double currScore = results.get(i).getScore();
+            double prevScore = decisionScore(results.get(i - 1));
+            double currScore = decisionScore(results.get(i));
 
             // Always keep a minimum number of results to avoid empty/too-short lists on long-tail queries.
             if (i < QUALITY_MIN_RESULTS) {
@@ -141,9 +146,13 @@ public class SmartSearchServiceImpl implements SmartSearchService {
                 log.info("Cache hit, MD5: {}", md5);
             } else {
                 log.info("Cache missed, processing new image, MD5: {}", md5);
-                String objectKey = ossManager.uploadFile(file);
-                String tempAiUrl = ossManager.getAiPresignedUrl(objectKey, SHORT_TERM_VALIDITY.getValidity(), X_OSS_PROCESS_EMBEDDING);
-                vector = embeddingService.embedImage(tempAiUrl);
+                if (shouldUseBytesInput()) {
+                    vector = embeddingService.embedImage(file.getBytes(), file.getContentType());
+                } else {
+                    String objectKey = ossManager.uploadFile(file);
+                    String tempAiUrl = ossManager.getAiPresignedUrl(objectKey, SHORT_TERM_VALIDITY.getValidity(), X_OSS_PROCESS_EMBEDDING);
+                    vector = embeddingService.embedImage(tempAiUrl);
+                }
 
                 redisTemplate.opsForValue().set(cacheKey, vector, 24, TimeUnit.HOURS);
             }
@@ -164,8 +173,32 @@ public class SmartSearchServiceImpl implements SmartSearchService {
                     boolean o2Hit = null != o2.getDocument().getOcrContent() && o2.getDocument().getOcrContent().contains(keyword);
                     if (o1Hit && !o2Hit) return -1;
                     if (!o1Hit && o2Hit) return 1;
-                    return Double.compare(o2.getScore(), o1.getScore());
+                    return Double.compare(decisionScore(o2), decisionScore(o1));
                 })
                 .collect(Collectors.toList());
+    }
+
+    private double decisionScore(ImageSearchResultDTO result) {
+        if (result == null) {
+            return 0;
+        }
+        Double rawScore = result.getRawScore();
+        if (rawScore != null) {
+            return rawScore;
+        }
+        Double fallbackScore = result.getScore();
+        return fallbackScore == null ? 0 : fallbackScore;
+    }
+
+    private boolean shouldUseBytesInput() {
+        String mode = imageInputMode == null ? "auto" : imageInputMode.trim().toLowerCase(Locale.ROOT);
+        if ("bytes".equals(mode)) {
+            return true;
+        }
+        if ("url".equals(mode)) {
+            return false;
+        }
+        String profile = System.getenv(PROFILE_KEY_NAME);
+        return "local".equalsIgnoreCase(profile);
     }
 }
