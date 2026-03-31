@@ -10,6 +10,14 @@ import org.springframework.context.annotation.Configuration;
 public class VectorConfig {
     private String indexName;
     private Integer dimension;
+    /**
+     * Optional read alias. If blank, reads hit physical index directly.
+     */
+    private String readAlias;
+    /**
+     * Optional write alias. If blank, writes hit physical index directly.
+     */
+    private String writeAlias;
 
     /**
      * Physical index version suffix (e.g. v1/v2).
@@ -23,5 +31,19 @@ public class VectorConfig {
             return indexName;
         }
         return indexName + "_" + indexVersion;
+    }
+
+    public String getReadTargetName() {
+        if (readAlias == null || readAlias.isBlank()) {
+            return getPhysicalIndexName();
+        }
+        return readAlias;
+    }
+
+    public String getWriteTargetName() {
+        if (writeAlias == null || writeAlias.isBlank()) {
+            return getPhysicalIndexName();
+        }
+        return writeAlias;
     }
 }

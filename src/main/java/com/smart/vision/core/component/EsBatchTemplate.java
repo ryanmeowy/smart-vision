@@ -4,11 +4,11 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkResponseItem;
+import com.smart.vision.core.config.VectorConfig;
 import com.smart.vision.core.model.BulkSaveResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.elasticsearch.core.convert.ElasticsearchConverter;
-import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
@@ -29,6 +29,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class EsBatchTemplate {
     private final ElasticsearchClient esClient;
+    private final VectorConfig vectorConfig;
     // Core converter of Spring Data ES, read @Document and @Id
     private final ElasticsearchConverter elasticsearchConverter;
 
@@ -49,10 +50,7 @@ public class EsBatchTemplate {
         }
         log.info("bulk save item size:{}", items.size());
         Class<?> clazz = items.getFirst().getClass();
-        IndexCoordinates indexCoordinates = elasticsearchConverter.getMappingContext()
-                .getRequiredPersistentEntity(clazz)
-                .getIndexCoordinates();
-        String indexName = indexCoordinates.getIndexName();
+        String indexName = vectorConfig.getWriteTargetName();
 
         Set<String> inputIds = new HashSet<>();
         try {
