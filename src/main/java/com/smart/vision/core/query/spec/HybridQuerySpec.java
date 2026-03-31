@@ -60,16 +60,14 @@ public class HybridQuerySpec implements QuerySpec {
     }
 
     private KnnSearch buildHybridKnnSearch() {
-        // paramDTO.similarity/topK/limit are populated by HybridRetrievalStrategy
+        // topK/limit are populated by HybridRetrievalStrategy
         int topK = Optional.ofNullable(paramDTO.getTopK()).orElse(EmbeddingConstant.DEFAULT_TOP_K);
-        float similarity = Optional.ofNullable(paramDTO.getSimilarity()).orElse(0.2f);
         int numCandidates = Math.max(EmbeddingConstant.DEFAULT_NUM_CANDIDATES, topK * EmbeddingConstant.NUM_CANDIDATES_FACTOR);
 
         return new KnnSearch.Builder()
                 .field("imageEmbedding")
                 .queryVector(paramDTO.getQueryVector())
                 .k(topK)
-                .similarity(similarity)
                 .boost(EmbeddingConstant.DEFAULT_EMBEDDING_BOOST)
                 .numCandidates(numCandidates)
                 .build();
@@ -108,4 +106,3 @@ public class HybridQuerySpec implements QuerySpec {
         );
     }
 }
-

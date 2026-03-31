@@ -42,9 +42,4 @@ public class HybridSearchParamDTO {
      * The top-K results to retrieve based on relevance or similarity.
      */
     private Integer topK;
-
-    /**
-     * The similarity threshold or score for the query.
-     */
-    private Float similarity;
 }

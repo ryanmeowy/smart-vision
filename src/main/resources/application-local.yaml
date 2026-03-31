@@ -1,7 +1,7 @@
 app:
   vector:
     index-name: smart_gallery_local
-    indexVersion: v1
+    indexVersion: v2
     dimension: 512
     model-type: LOCAL
 

@@ -25,8 +25,10 @@ public class SearchQueryDTO {
      */
     private Integer pageNo;
     /**
-     * minimum similarity threshold
+     * Deprecated for retrieval flow.
+     * Kept for backward compatibility of callers that still send the field.
      */
+    @Deprecated
     private Float similarity;
     /**
      * whether to enable OCR hybrid search
