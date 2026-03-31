@@ -16,7 +16,7 @@
       "type": "dense_vector",
       "dims": "@DIMS@",
       "index": true,
-      "similarity": "cosine",
+      "similarity": "dot_product",
       "index_options": {
         "type": "hnsw",
         "m": 16,

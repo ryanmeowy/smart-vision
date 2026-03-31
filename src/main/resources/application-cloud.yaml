@@ -1,6 +1,6 @@
 app:
   vector:
     index-name: smart_gallery_cloud
-    indexVersion: v1
+    indexVersion: v2
     dimension: 1024
     model-type: CLOUD

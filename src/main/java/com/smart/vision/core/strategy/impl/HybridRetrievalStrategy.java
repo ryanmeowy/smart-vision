@@ -2,7 +2,6 @@
 package com.smart.vision.core.strategy.impl;
 
 import com.smart.vision.core.ai.ContentGenerationService;
-import com.smart.vision.core.config.SimilarityConfig;
 import com.smart.vision.core.model.dto.HybridSearchParamDTO;
 import com.smart.vision.core.model.dto.ImageSearchResultDTO;
 import com.smart.vision.core.model.dto.SearchQueryDTO;
@@ -30,7 +29,6 @@ import static com.smart.vision.core.constant.SearchConstant.DEFAULT_RESULT_LIMIT
 public class HybridRetrievalStrategy implements RetrievalStrategy {
 
     private final ImageRepository imageRepository;
-    private final SimilarityConfig similarityConfig;
     private final ContentGenerationService generationService;
 
     /**
@@ -47,7 +45,6 @@ public class HybridRetrievalStrategy implements RetrievalStrategy {
         HybridSearchParamDTO paramDTO = HybridSearchParamDTO.builder()
                 .queryVector(queryVector)
                 .topK(null == query.getTopK() ? DEFAULT_TOP_K : query.getTopK())
-                .similarity(null == query.getSimilarity() ? similarityConfig.forHybridSearch() : query.getSimilarity())
                 .limit(null == query.getLimit() ? DEFAULT_RESULT_LIMIT : query.getLimit())
                 .keyword(query.getKeyword())
                 .graphTriples(generationService.praseTriplesFromKeyword(query.getKeyword()))

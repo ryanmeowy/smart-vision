@@ -1,20 +1,12 @@
 package com.smart.vision.core.query.spec;
 
-import cn.hutool.core.collection.CollectionUtil;
-import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.KnnSearch;
 import co.elastic.clients.elasticsearch._types.SortOptions;
-import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import com.smart.vision.core.constant.EmbeddingConstant;
-import com.smart.vision.core.config.SimilarityConfig;
-import com.smart.vision.core.model.dto.GraphTripleDTO;
 import com.smart.vision.core.query.SimilarSearchIdMatcher;
-import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
  * Similar search spec: KNN + exclude self (by id filter).
@@ -26,20 +18,17 @@ public class SimilarQuerySpec implements QuerySpec {
     private final Integer topK;
     private final String excludeDocId;
     private final SimilarSearchIdMatcher idMatcher;
-    private final SimilarityConfig similarityConfig;
 
     public SimilarQuerySpec(String indexName,
                               List<Float> vector,
                               Integer topK,
                               String excludeDocId,
-                              SimilarSearchIdMatcher idMatcher,
-                              SimilarityConfig similarityConfig) {
+                              SimilarSearchIdMatcher idMatcher) {
         this.indexName = indexName;
         this.vector = vector;
         this.topK = topK;
         this.excludeDocId = excludeDocId;
         this.idMatcher = idMatcher;
-        this.similarityConfig = similarityConfig;
     }
 
     @Override
@@ -60,7 +49,6 @@ public class SimilarQuerySpec implements QuerySpec {
                 .queryVector(vector)
                 .k(topK)
                 .numCandidates(Math.max(EmbeddingConstant.NUM_CANDIDATES_FACTOR * topK, EmbeddingConstant.DEFAULT_NUM_CANDIDATES))
-                .similarity(similarityConfig.forSimilarSearch())
                 .filter(filterQuery)
                 .build();
         builder.knn(knn);
@@ -75,4 +63,3 @@ public class SimilarQuerySpec implements QuerySpec {
         );
     }
 }
-

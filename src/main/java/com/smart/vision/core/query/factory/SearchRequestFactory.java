@@ -1,7 +1,6 @@
 package com.smart.vision.core.query.factory;
 
 import co.elastic.clients.elasticsearch.core.SearchRequest;
-import com.smart.vision.core.config.SimilarityConfig;
 import com.smart.vision.core.config.VectorConfig;
 import com.smart.vision.core.query.GraphTriplesMatcher;
 import com.smart.vision.core.model.dto.HybridSearchParamDTO;
@@ -26,7 +25,6 @@ import java.util.List;
 public class SearchRequestFactory {
 
     private final VectorConfig vectorConfig;
-    private final SimilarityConfig similarityConfig;
     private final HybridSearchKeywordMatcher hybridSearchKeywordMatcher;
     private final SimilarSearchIdMatcher similarSearchIdMatcher;
     private final GraphTriplesMatcher graphTriplesMatcher;
@@ -37,7 +35,7 @@ public class SearchRequestFactory {
     }
 
     public SearchRequest buildSimilar(List<Float> vector, Integer topK, String excludeDocId) {
-        QuerySpec spec = new SimilarQuerySpec(vectorConfig.getPhysicalIndexName(), vector, topK, excludeDocId, similarSearchIdMatcher, similarityConfig);
+        QuerySpec spec = new SimilarQuerySpec(vectorConfig.getPhysicalIndexName(), vector, topK, excludeDocId, similarSearchIdMatcher);
         return spec.toSearchRequest();
     }
 
@@ -46,4 +44,3 @@ public class SearchRequestFactory {
         return spec.toSearchRequest();
     }
 }
-

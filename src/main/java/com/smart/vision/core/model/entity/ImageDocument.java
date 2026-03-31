@@ -38,9 +38,10 @@ public class ImageDocument {
     private String ocrContent;
 
     /**
-     * Core vector field, dims correspond to Aliyun model dimensions
+     * Core vector field.
+     * Vector dimension is controlled by app.vector.dimension in profile-specific config.
      */
-    @Field(type = FieldType.Dense_Vector, similarity = "cosine", dims = 1024)
+    @Field(type = FieldType.Dense_Vector, similarity = "dot_product")
     private List<Float> imageEmbedding;
 
     /**

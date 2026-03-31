@@ -33,6 +33,8 @@ import static com.smart.vision.core.constant.AliyunConstant.X_OSS_PROCESS_EMBEDD
 import static com.smart.vision.core.constant.CacheConstant.IMAGE_MD5_CACHE_PREFIX;
 import static com.smart.vision.core.constant.CacheConstant.VECTOR_CACHE_PREFIX;
 import static com.smart.vision.core.constant.CommonConstant.PROFILE_KEY_NAME;
+import static com.smart.vision.core.constant.EmbeddingConstant.QUALITY_MIN_RESULTS;
+import static com.smart.vision.core.constant.EmbeddingConstant.QUALITY_RATIO_CUTOFF;
 import static com.smart.vision.core.constant.EmbeddingConstant.SIMILARITY_TOP_K;
 import static com.smart.vision.core.model.enums.PresignedValidityEnum.SHORT_TERM_VALIDITY;
 
@@ -67,8 +69,10 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         log.info("vector cache hit, processing new text, keyword: {}", query.getKeyword());
         RetrievalStrategy strategy = strategyFactory.getStrategy(query.getSearchType());
         List<ImageSearchResultDTO> docs = strategy.search(query, queryVector);
-        log.info("Search completed, number of results: {}", docs.size());
-        return imageDocConvertor.convert2SearchResultDTO(manualRerank(docs, query.getKeyword()));
+        int maxResults = query.getLimit() != null && query.getLimit() > 0 ? query.getLimit() : docs.size();
+        List<ImageSearchResultDTO> filteredDocs = similarFilter(docs, maxResults);
+        log.info("Search completed, number of results before filter: {}, after filter: {}", docs.size(), filteredDocs.size());
+        return imageDocConvertor.convert2SearchResultDTO(manualRerank(filteredDocs, query.getKeyword()));
     }
 
     public List<SearchResultDTO> searchByVector(String docId) {
@@ -82,24 +86,28 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         }
         // Perform search (find the 10 most similar images)
         List<ImageSearchResultDTO> similarDocs = imageRepository.searchSimilar(embedding, SIMILARITY_TOP_K, docId);
-        return imageDocConvertor.convert2SearchResultDTO(similarFilter(similarDocs));
+        return imageDocConvertor.convert2SearchResultDTO(similarFilter(similarDocs, SIMILARITY_TOP_K));
     }
 
-    public List<ImageSearchResultDTO> similarFilter(List<ImageSearchResultDTO> results) {
+    public List<ImageSearchResultDTO> similarFilter(List<ImageSearchResultDTO> results, int maxResults) {
         if (results.isEmpty()) return results;
         List<ImageSearchResultDTO> filtered = new ArrayList<>();
-        if (results.getFirst().getScore() < 0.7) return filtered;
+        int hardLimit = Math.max(1, Math.min(maxResults, results.size()));
         filtered.add(results.getFirst());
-        for (int i = 1; i < results.size(); i++) {
+
+        for (int i = 1; i < hardLimit; i++) {
             double prevScore = results.get(i - 1).getScore();
             double currScore = results.get(i).getScore();
 
-            // Relative drop: if the current score drops by 40% compared to the previous one (ratio < 0.6)
-            // Absolute drop: or directly falls below 0.4 (hard limit)
-            boolean isBigDrop = (currScore / prevScore) < 0.6;
-            boolean isTooLow = currScore < 0.4;
+            // Always keep a minimum number of results to avoid empty/too-short lists on long-tail queries.
+            if (i < QUALITY_MIN_RESULTS) {
+                filtered.add(results.get(i));
+                continue;
+            }
 
-            if (isBigDrop || isTooLow) {
+            boolean isBigDrop = prevScore <= 0 || (currScore / prevScore) < QUALITY_RATIO_CUTOFF;
+
+            if (isBigDrop) {
                 break;
             }
             filtered.add(results.get(i));
@@ -141,7 +149,8 @@ public class SmartSearchServiceImpl implements SmartSearchService {
             }
             RetrievalStrategy strategy = strategyFactory.getStrategy(StrategyTypeEnum.IMAGE_TO_IMAGE.getCode());
             List<ImageSearchResultDTO> imageSearchResultDTOS = strategy.search(null, vector);
-            return imageDocConvertor.convert2SearchResultDTO(imageSearchResultDTOS);
+            int maxResults = limit > 0 ? limit : imageSearchResultDTOS.size();
+            return imageDocConvertor.convert2SearchResultDTO(similarFilter(imageSearchResultDTOS, maxResults));
         } catch (Exception e) {
             log.error("Failed to search by image", e);
             return Lists.newArrayList();
