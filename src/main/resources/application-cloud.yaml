@@ -6,3 +6,5 @@ app:
     write-alias: smart_gallery_cloud_write
     dimension: 1024
     model-type: CLOUD
+  embedding:
+    image-input-mode: url

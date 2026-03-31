@@ -6,6 +6,8 @@ app:
     write-alias: smart_gallery_local_write
     dimension: 512
     model-type: LOCAL
+  embedding:
+    image-input-mode: auto
 
 grpc:
   client:

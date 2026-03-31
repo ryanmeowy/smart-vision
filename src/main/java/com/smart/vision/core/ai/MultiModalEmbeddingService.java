@@ -17,6 +17,15 @@ public interface MultiModalEmbeddingService {
     List<Float> embedImage(String imageUrl);
 
     /**
+     * Get multimodal vector (image bytes).
+     *
+     * @param imageBytes image bytes
+     * @param mimeType image mime type, e.g. image/jpeg
+     * @return vector
+     */
+    List<Float> embedImage(byte[] imageBytes, String mimeType);
+
+    /**
      * Get multimodal vector (text)
      *
      * @param text Text

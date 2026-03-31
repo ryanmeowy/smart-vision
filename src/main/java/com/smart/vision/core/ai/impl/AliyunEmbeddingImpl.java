@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
+import java.util.Base64;
 import java.util.List;
 
 @Slf4j
@@ -38,6 +39,17 @@ public class AliyunEmbeddingImpl implements MultiModalEmbeddingService {
             log.error(AliyunErrorCode.UNKNOWN.getMessage(), e);
         }
         throw new RuntimeException("embed image failed, try again later.");
+    }
+
+    @Override
+    public List<Float> embedImage(byte[] imageBytes, String mimeType) {
+        if (imageBytes == null || imageBytes.length == 0) {
+            throw new RuntimeException("image bytes is empty");
+        }
+        String safeMimeType = (mimeType == null || mimeType.isBlank()) ? "image/jpeg" : mimeType;
+        String base64 = Base64.getEncoder().encodeToString(imageBytes);
+        String dataUri = "data:" + safeMimeType + ";base64," + base64;
+        return embedImage(dataUri);
     }
 
     /**

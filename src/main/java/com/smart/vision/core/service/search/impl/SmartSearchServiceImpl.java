@@ -16,6 +16,7 @@ import com.smart.vision.core.strategy.RetrievalStrategy;
 import com.smart.vision.core.strategy.StrategyFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
@@ -26,6 +27,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -48,6 +50,9 @@ import static com.smart.vision.core.model.enums.PresignedValidityEnum.SHORT_TERM
 @Service
 @RequiredArgsConstructor
 public class SmartSearchServiceImpl implements SmartSearchService {
+    @Value("${app.embedding.image-input-mode:auto}")
+    private String imageInputMode;
+
     private final MultiModalEmbeddingService embeddingService;
     private final ImageRepository imageRepository;
     private final ImageDocConvertor imageDocConvertor;
@@ -141,9 +146,13 @@ public class SmartSearchServiceImpl implements SmartSearchService {
                 log.info("Cache hit, MD5: {}", md5);
             } else {
                 log.info("Cache missed, processing new image, MD5: {}", md5);
-                String objectKey = ossManager.uploadFile(file);
-                String tempAiUrl = ossManager.getAiPresignedUrl(objectKey, SHORT_TERM_VALIDITY.getValidity(), X_OSS_PROCESS_EMBEDDING);
-                vector = embeddingService.embedImage(tempAiUrl);
+                if (shouldUseBytesInput()) {
+                    vector = embeddingService.embedImage(file.getBytes(), file.getContentType());
+                } else {
+                    String objectKey = ossManager.uploadFile(file);
+                    String tempAiUrl = ossManager.getAiPresignedUrl(objectKey, SHORT_TERM_VALIDITY.getValidity(), X_OSS_PROCESS_EMBEDDING);
+                    vector = embeddingService.embedImage(tempAiUrl);
+                }
 
                 redisTemplate.opsForValue().set(cacheKey, vector, 24, TimeUnit.HOURS);
             }
@@ -179,5 +188,17 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         }
         Double fallbackScore = result.getScore();
         return fallbackScore == null ? 0 : fallbackScore;
+    }
+
+    private boolean shouldUseBytesInput() {
+        String mode = imageInputMode == null ? "auto" : imageInputMode.trim().toLowerCase(Locale.ROOT);
+        if ("bytes".equals(mode)) {
+            return true;
+        }
+        if ("url".equals(mode)) {
+            return false;
+        }
+        String profile = System.getenv(PROFILE_KEY_NAME);
+        return "local".equalsIgnoreCase(profile);
     }
 }

@@ -3,6 +3,7 @@ package com.smart.vision.core.ai.impl;
 import com.smart.vision.core.ai.MultiModalEmbeddingService;
 import com.smart.vision.core.grpc.VisionProto;
 import com.smart.vision.core.grpc.VisionServiceGrpc;
+import com.google.protobuf.ByteString;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.springframework.context.annotation.Profile;
@@ -51,6 +52,30 @@ public class LocalEmbeddingImpl implements MultiModalEmbeddingService {
             throw new RuntimeException("embed image failed, try again later.");
         } catch (Exception e) {
             log.error("gRPC image embedding call failed", e);
+            throw new RuntimeException("embed image failed, try again later.");
+        }
+    }
+
+    @Override
+    public List<Float> embedImage(byte[] imageBytes, String mimeType) {
+        long startNs = System.nanoTime();
+        try {
+            VisionProto.ImageRequest request = VisionProto.ImageRequest.newBuilder()
+                    .setImageBytes(ByteString.copyFrom(imageBytes))
+                    .setMimeType(mimeType == null ? "" : mimeType)
+                    .build();
+            VisionProto.EmbeddingResponse embeddingResponse = visionStub
+                    .withDeadlineAfter(embedImageDeadlineMs, TimeUnit.MILLISECONDS)
+                    .embedImage(request);
+            long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNs);
+            log.debug("gRPC embedImage(bytes) success: deadlineMs={}, elapsedMs={}", embedImageDeadlineMs, elapsedMs);
+            return embeddingResponse.getVectorList();
+        } catch (StatusRuntimeException e) {
+            long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNs);
+            log.error("gRPC embedImage(bytes) failed: statusCode={}, deadlineMs={}, elapsedMs={}", e.getStatus().getCode(), embedImageDeadlineMs, elapsedMs, e);
+            throw new RuntimeException("embed image failed, try again later.");
+        } catch (Exception e) {
+            log.error("gRPC image embedding(bytes) call failed", e);
             throw new RuntimeException("embed image failed, try again later.");
         }
     }
