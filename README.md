@@ -156,7 +156,7 @@ streamlit run app.py
 页面能力：
 
 - `Text Search` / `Search By Image` / `Similar Search` / `Hot Words`
-- `Batch Process`（一体化链路：`/api/v1/auth/sts -> OSS 直传 -> /api/v1/image/batch-process`）
+- `Batch Process`（一体化链路：`/api/v1/auth/sts -> OSS 直传 -> /api/v1/image/batch-tasks`，支持异步任务状态查询与失败重试）
 
 ---
 

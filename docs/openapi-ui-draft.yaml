@@ -135,8 +135,11 @@ paths:
   /api/v1/image/batch-process:
     post:
       tags: [Image]
+      deprecated: true
       summary: Batch process uploaded images
       description: |
+        Deprecated. Please use `/api/v1/image/batch-tasks` for async task submission.
+
         Integrated UI flow:
         1) client gets encrypted STS from `/api/v1/auth/sts`
         2) client uploads files to OSS directly
@@ -161,6 +164,103 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BatchUploadResultEnvelope'
+        '401':
+          description: Access token invalid or expired
+
+  /api/v1/image/batch-tasks:
+    post:
+      tags: [Image]
+      summary: Submit async batch task
+      operationId: createImageBatchTask
+      security:
+        - AccessTokenHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              minItems: 1
+              maxItems: 20
+              items:
+                $ref: '#/components/schemas/BatchProcessDTO'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchTaskStatusEnvelope'
+        '401':
+          description: Access token invalid or expired
+
+  /api/v1/image/batch-tasks/{taskId}:
+    get:
+      tags: [Image]
+      summary: Query async batch task status
+      operationId: getImageBatchTask
+      security:
+        - AccessTokenHeader: []
+      parameters:
+        - in: path
+          name: taskId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchTaskStatusEnvelope'
+        '401':
+          description: Access token invalid or expired
+
+  /api/v1/image/batch-tasks/{taskId}/items/{itemId}/retry:
+    post:
+      tags: [Image]
+      summary: Retry one failed image item in async batch task
+      operationId: retryImageBatchTaskItem
+      security:
+        - AccessTokenHeader: []
+      parameters:
+        - in: path
+          name: taskId
+          required: true
+          schema: { type: string }
+        - in: path
+          name: itemId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchTaskStatusEnvelope'
+        '401':
+          description: Access token invalid or expired
+
+  /api/v1/image/batch-tasks/{taskId}/retry-failed:
+    post:
+      tags: [Image]
+      summary: Retry all failed image items in async batch task
+      operationId: retryAllFailedImageBatchTaskItems
+      security:
+        - AccessTokenHeader: []
+      parameters:
+        - in: path
+          name: taskId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchTaskStatusEnvelope'
         '401':
           description: Access token invalid or expired
 
@@ -335,6 +435,36 @@ components:
           items:
             $ref: '#/components/schemas/BatchFailureItem'
 
+    BatchTaskItemStatusDTO:
+      type: object
+      properties:
+        itemId: { type: string }
+        key: { type: string }
+        fileName: { type: string }
+        fileHash: { type: string }
+        status: { type: string, example: PENDING }
+        errorMessage: { type: string }
+        retryCount: { type: integer }
+        updatedAt: { type: integer, format: int64 }
+
+    BatchTaskStatusDTO:
+      type: object
+      properties:
+        taskId: { type: string }
+        status: { type: string, example: RUNNING }
+        total: { type: integer }
+        successCount: { type: integer }
+        failureCount: { type: integer }
+        runningCount: { type: integer }
+        pendingCount: { type: integer }
+        createdAt: { type: integer, format: int64 }
+        updatedAt: { type: integer, format: int64 }
+        completedAt: { type: integer, format: int64, nullable: true }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BatchTaskItemStatusDTO'
+
     SearchResultEnvelope:
       type: object
       properties:
@@ -353,6 +483,15 @@ components:
         message: { type: string, example: Success }
         data:
           $ref: '#/components/schemas/BatchUploadResultDTO'
+        timestamp: { type: integer, format: int64 }
+
+    BatchTaskStatusEnvelope:
+      type: object
+      properties:
+        code: { type: integer, example: 200 }
+        message: { type: string, example: Success }
+        data:
+          $ref: '#/components/schemas/BatchTaskStatusDTO'
         timestamp: { type: integer, format: int64 }
 
     StringEnvelope:

@@ -10,6 +10,8 @@ import com.smart.vision.core.query.spec.DuplicateQuerySpec;
 import com.smart.vision.core.query.spec.HybridQuerySpec;
 import com.smart.vision.core.query.spec.QuerySpec;
 import com.smart.vision.core.query.spec.SimilarQuerySpec;
+import com.smart.vision.core.query.spec.TextOnlyQuerySpec;
+import com.smart.vision.core.query.spec.VectorOnlyQuerySpec;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -41,6 +43,16 @@ public class SearchRequestFactory {
 
     public SearchRequest buildDuplicate(List<Float> vector, double threshold) {
         QuerySpec spec = new DuplicateQuerySpec(vectorConfig.getReadTargetName(), vector, threshold);
+        return spec.toSearchRequest();
+    }
+
+    public SearchRequest buildVectorOnly(List<Float> vector, Integer topK) {
+        QuerySpec spec = new VectorOnlyQuerySpec(vectorConfig.getReadTargetName(), vector, topK);
+        return spec.toSearchRequest();
+    }
+
+    public SearchRequest buildTextOnly(String keyword, Integer limit, Boolean enableOcr) {
+        QuerySpec spec = new TextOnlyQuerySpec(vectorConfig.getReadTargetName(), keyword, limit, enableOcr, hybridSearchKeywordMatcher);
         return spec.toSearchRequest();
     }
 }

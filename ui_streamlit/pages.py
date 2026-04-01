@@ -5,6 +5,7 @@ import html
 import hashlib
 import json
 import os
+import time
 import uuid
 from typing import Any
 
@@ -34,8 +35,8 @@ def render_text_search_page(base_url: str) -> None:
         keyword = row1_col1.text_input("Keyword", placeholder="e.g. 猫咪在沙发上")
         strategy = row1_col2.selectbox(
             "Strategy",
-            options=["0", "1", "2", "3"],
-            help="0: hybrid, 1: vector, 2: text, 3: image-to-image",
+            options=["0", "1", "2"],
+            help="0: hybrid, 1: vector, 2: text",
         )
         row2_col1, row2_col2 = st.columns([2, 2])
         top_k = row2_col1.number_input("TopK", min_value=1, max_value=200, value=30)
@@ -210,11 +211,14 @@ def render_auth_admin_page(base_url: str) -> None:
 
 def render_image_batch_process_page(base_url: str) -> None:
     st.subheader("Batch Process")
-    st.caption("Endpoint: POST /api/v1/image/batch-process")
+    st.caption("Endpoint: POST /api/v1/image/batch-tasks")
     st.info(
-        "Integrated flow: fetch STS -> upload to OSS -> call batch-process. "
-        "Images do not go through backend file upload in this flow."
+        "Integrated flow: fetch STS -> upload to OSS -> submit async task. "
+        "Each image has independent status and can be retried manually when failed."
     )
+
+    if "batch_task_ids" not in st.session_state:
+        st.session_state.batch_task_ids = []
 
     token = st.text_input("X-Access-Token", type="password", help="Required header for protected APIs")
     key_prefix = st.text_input("OSS Key Prefix", value="", placeholder="Input manually, e.g. images/ui-upload/")
@@ -238,7 +242,7 @@ def render_image_batch_process_page(base_url: str) -> None:
         type="password",
     )
 
-    if st.button("Upload To OSS And Process", type="primary"):
+    if st.button("Upload To OSS And Submit Task", type="primary"):
         if not token.strip():
             st.warning("X-Access-Token is required.")
             return
@@ -279,8 +283,8 @@ def render_image_batch_process_page(base_url: str) -> None:
         st.markdown("### Uploaded Items")
         st.dataframe(items, use_container_width=True)
 
-        with st.spinner("Step 3/3: Calling batch-process..."):
-            envelope = _call_batch_process(
+        with st.spinner("Step 3/3: Submitting async task..."):
+            envelope = _submit_batch_task(
                 base_url=_normalize_base_url(base_url),
                 access_token=token.strip(),
                 items=items,
@@ -288,8 +292,146 @@ def render_image_batch_process_page(base_url: str) -> None:
         if envelope is None:
             return
 
-        st.markdown("### Batch Result")
-        st.json(envelope)
+        task = envelope.get("data") if isinstance(envelope, dict) else None
+        task_id = task.get("taskId") if isinstance(task, dict) else None
+        if isinstance(task_id, str) and task_id:
+            if task_id not in st.session_state.batch_task_ids:
+                st.session_state.batch_task_ids.append(task_id)
+            st.success(f"Task submitted: {task_id}")
+        else:
+            st.warning("Task submitted, but taskId was not found in response.")
+
+    st.markdown("### Task Dashboard")
+    task_ids: list[str] = st.session_state.batch_task_ids
+    if not task_ids:
+        st.caption("No submitted tasks yet.")
+        return
+
+    control_col1, control_col2 = st.columns([1, 2])
+    control_col1.button("Refresh Task Status")
+    auto_refresh = control_col2.toggle("Auto refresh every 3 seconds", value=False, key="batch_task_auto_refresh")
+
+    if not token.strip():
+        st.warning("Input X-Access-Token to load task status and retry failed images.")
+        return
+
+    base = _normalize_base_url(base_url)
+    has_active_task = False
+    for task_id in list(reversed(task_ids)):
+        task_payload = _get_batch_task_status(base_url=base, access_token=token.strip(), task_id=task_id)
+        if task_payload is None:
+            continue
+
+        task_data = task_payload.get("data")
+        if not isinstance(task_data, dict):
+            st.error(f"Invalid task data shape for task {task_id}")
+            continue
+        task_status = str(task_data.get("status", ""))
+        if task_status in {"PENDING", "RUNNING"}:
+            has_active_task = True
+
+        _render_single_batch_task(
+            task_data=task_data,
+            base_url=base,
+            access_token=token.strip(),
+        )
+
+    if auto_refresh and has_active_task:
+        time.sleep(3)
+        st.rerun()
+
+
+def _render_single_batch_task(*, task_data: dict[str, Any], base_url: str, access_token: str) -> None:
+    task_id = str(task_data.get("taskId", ""))
+    status = str(task_data.get("status", "UNKNOWN"))
+    total = int(task_data.get("total", 0) or 0)
+    success_count = int(task_data.get("successCount", 0) or 0)
+    failure_count = int(task_data.get("failureCount", 0) or 0)
+    running_count = int(task_data.get("runningCount", 0) or 0)
+    pending_count = int(task_data.get("pendingCount", 0) or 0)
+    done = success_count + failure_count
+    progress = (float(done) / float(total)) if total > 0 else 0.0
+
+    with st.container(border=True):
+        st.markdown(f"**Task:** `{task_id}`")
+        st.caption(
+            f"Status: {status} | total={total} success={success_count} "
+            f"failed={failure_count} running={running_count} pending={pending_count}"
+        )
+        st.progress(progress, text=f"{done}/{total} completed")
+
+        items = task_data.get("items")
+        if not isinstance(items, list):
+            st.warning("Task item payload is invalid.")
+            return
+
+        rows: list[dict[str, Any]] = []
+        failed_items: list[dict[str, Any]] = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            item_status = str(item.get("status", "UNKNOWN"))
+            rows.append(
+                {
+                    "itemId": item.get("itemId"),
+                    "fileName": item.get("fileName"),
+                    "status": item_status,
+                    "retryCount": item.get("retryCount", 0),
+                    "errorMessage": item.get("errorMessage"),
+                    "key": item.get("key"),
+                }
+            )
+            if item_status == "FAILED":
+                failed_items.append(item)
+
+        if failed_items:
+            st.markdown("**Failed Items: Retry**")
+            if st.button(f"Retry All Failed ({len(failed_items)})", key=f"retry_all_{task_id}"):
+                with st.spinner("Retrying all failed items..."):
+                    retried_all = _retry_all_failed_batch_task_items(
+                        base_url=base_url,
+                        access_token=access_token,
+                        task_id=task_id,
+                    )
+                if retried_all is not None:
+                    st.success("Retry-all submitted.")
+                    st.rerun()
+
+        st.markdown("**Items**")
+        item_col_widths = [2.4, 1.0, 0.8, 3.0, 1.2]
+        header = st.columns(item_col_widths)
+        header[0].markdown("`fileName`")
+        header[1].markdown("`status`")
+        header[2].markdown("`retry`")
+        header[3].markdown("`error`")
+        header[4].markdown("`action`")
+
+        for row in rows:
+            file_name = str(row.get("fileName", ""))
+            item_id = str(row.get("itemId", ""))
+            status_text = str(row.get("status", ""))
+            retry_count = int(row.get("retryCount", 0) or 0)
+            error_text = str(row.get("errorMessage", "") or "")
+            cols = st.columns(item_col_widths)
+            cols[0].write(file_name)
+            cols[1].write(status_text)
+            cols[2].write(str(retry_count))
+            cols[3].write(error_text if error_text else "-")
+
+            if status_text == "FAILED" and item_id:
+                if cols[4].button("Retry", key=f"retry_{task_id}_{item_id}"):
+                    with st.spinner(f"Retrying {file_name}..."):
+                        retried = _retry_batch_task_item(
+                            base_url=base_url,
+                            access_token=access_token,
+                            task_id=task_id,
+                            item_id=item_id,
+                        )
+                    if retried is not None:
+                        st.success(f"Retry submitted for {file_name}")
+                        st.rerun()
+            else:
+                cols[4].write("-")
 
 
 def _request_admin_endpoint(
@@ -465,16 +607,16 @@ def _upload_files_to_oss(
     return items
 
 
-def _call_batch_process(*, base_url: str, access_token: str, items: list[dict[str, str]]) -> dict[str, Any] | None:
+def _submit_batch_task(*, base_url: str, access_token: str, items: list[dict[str, str]]) -> dict[str, Any] | None:
     try:
         response = requests.post(
-            f"{base_url}/api/v1/image/batch-process",
+            f"{base_url}/api/v1/image/batch-tasks",
             headers={"X-Access-Token": access_token, "Content-Type": "application/json"},
             json=items,
             timeout=REQUEST_TIMEOUT_SECONDS,
         )
     except requests.exceptions.RequestException as exc:
-        st.error(f"Failed to call /image/batch-process: {exc}")
+        st.error(f"Failed to call /image/batch-tasks: {exc}")
         return None
 
     st.caption(f"HTTP {response.status_code}")
@@ -482,12 +624,96 @@ def _call_batch_process(*, base_url: str, access_token: str, items: list[dict[st
     try:
         envelope = response.json()
     except ValueError:
-        st.error("Invalid batch-process response: non-JSON")
+        st.error("Invalid batch task response: non-JSON")
         st.code(response.text[:1000], language="text")
         return None
 
     if not isinstance(envelope, dict):
-        st.error("Invalid batch-process response shape")
+        st.error("Invalid batch task response shape")
+        return None
+
+    if envelope.get("code") != SUCCESS_CODE:
+        st.error(f"Submit task failed: {envelope}")
+        return None
+
+    return envelope
+
+
+def _get_batch_task_status(*, base_url: str, access_token: str, task_id: str) -> dict[str, Any] | None:
+    try:
+        response = requests.get(
+            f"{base_url}/api/v1/image/batch-tasks/{task_id}",
+            headers={"X-Access-Token": access_token},
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+    except requests.exceptions.RequestException as exc:
+        st.error(f"Failed to query task status: {exc}")
+        return None
+
+    try:
+        envelope = response.json()
+    except ValueError:
+        st.error(f"Invalid task status response for task {task_id}")
+        return None
+
+    if not isinstance(envelope, dict):
+        st.error(f"Invalid task status response shape for task {task_id}")
+        return None
+    if envelope.get("code") != SUCCESS_CODE:
+        st.error(f"Query task status failed for {task_id}: {envelope}")
+        return None
+    return envelope
+
+
+def _retry_batch_task_item(*, base_url: str, access_token: str, task_id: str, item_id: str) -> dict[str, Any] | None:
+    try:
+        response = requests.post(
+            f"{base_url}/api/v1/image/batch-tasks/{task_id}/items/{item_id}/retry",
+            headers={"X-Access-Token": access_token},
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+    except requests.exceptions.RequestException as exc:
+        st.error(f"Failed to retry item: {exc}")
+        return None
+
+    try:
+        envelope = response.json()
+    except ValueError:
+        st.error("Invalid retry response: non-JSON")
+        return None
+
+    if not isinstance(envelope, dict):
+        st.error("Invalid retry response shape")
+        return None
+    if envelope.get("code") != SUCCESS_CODE:
+        st.error(f"Retry failed: {envelope}")
+        return None
+
+    return envelope
+
+
+def _retry_all_failed_batch_task_items(*, base_url: str, access_token: str, task_id: str) -> dict[str, Any] | None:
+    try:
+        response = requests.post(
+            f"{base_url}/api/v1/image/batch-tasks/{task_id}/retry-failed",
+            headers={"X-Access-Token": access_token},
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+    except requests.exceptions.RequestException as exc:
+        st.error(f"Failed to retry all failed items: {exc}")
+        return None
+
+    try:
+        envelope = response.json()
+    except ValueError:
+        st.error("Invalid retry-all response: non-JSON")
+        return None
+
+    if not isinstance(envelope, dict):
+        st.error("Invalid retry-all response shape")
+        return None
+    if envelope.get("code") != SUCCESS_CODE:
+        st.error(f"Retry-all failed: {envelope}")
         return None
 
     return envelope

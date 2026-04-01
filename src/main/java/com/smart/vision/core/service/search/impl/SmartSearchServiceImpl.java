@@ -67,17 +67,14 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         if (StringUtils.hasText(query.getKeyword())) {
             hotSearchManager.incrementScore(query.getKeyword());
         }
-        List<Float> queryVector = getVectorFromCache(query.getKeyword());
-        if (CollectionUtils.isEmpty(queryVector)) {
-            log.info("vector cache missed, processing new text, keyword: {}", query.getKeyword());
-            queryVector = embeddingService.embedText(query.getKeyword());
-            cacheVector(query.getKeyword(), queryVector);
-        }
-        log.info("vector cache hit, processing new text, keyword: {}", query.getKeyword());
         RetrievalStrategy strategy = strategyFactory.getStrategy(query.getSearchType());
+        StrategyTypeEnum effectiveStrategy = strategy.getType();
+        List<Float> queryVector = requiresTextEmbedding(effectiveStrategy) ? getOrCreateQueryVector(query.getKeyword()) : null;
         List<ImageSearchResultDTO> docs = strategy.search(query, queryVector);
         int maxResults = query.getLimit() != null && query.getLimit() > 0 ? query.getLimit() : docs.size();
-        List<ImageSearchResultDTO> filteredDocs = similarFilter(docs, maxResults);
+        List<ImageSearchResultDTO> filteredDocs = shouldApplySimilarityFilter(effectiveStrategy)
+                ? similarFilter(docs, maxResults)
+                : docs.stream().limit(maxResults).collect(Collectors.toList());
         log.info("Search completed, number of results before filter: {}, after filter: {}", docs.size(), filteredDocs.size());
         boolean enableOcr = query.getEnableOcr() == null || query.getEnableOcr();
         return imageDocConvertor.convert2SearchResultDTO(manualRerank(filteredDocs, query.getKeyword(), enableOcr));
@@ -106,7 +103,6 @@ public class SmartSearchServiceImpl implements SmartSearchService {
             ImageSearchResultDTO current = results.get(i);
             double currScore = decisionScore(current);
 
-            // Hard floor first: never keep low-quality tail just for minimum count.
             if (currScore < qualityAbsoluteMinScore) {
                 break;
             }
@@ -244,5 +240,27 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         }
         String profile = System.getenv(PROFILE_KEY_NAME);
         return "local".equalsIgnoreCase(profile);
+    }
+
+    private List<Float> getOrCreateQueryVector(String keyword) {
+        List<Float> queryVector = getVectorFromCache(keyword);
+        if (CollectionUtils.isEmpty(queryVector)) {
+            log.info("vector cache missed, processing new text, keyword: {}", keyword);
+            queryVector = embeddingService.embedText(keyword);
+            cacheVector(keyword, queryVector);
+            return queryVector;
+        }
+        log.info("vector cache hit, processing new text, keyword: {}", keyword);
+        return queryVector;
+    }
+
+    private boolean requiresTextEmbedding(StrategyTypeEnum strategyType) {
+        return strategyType == StrategyTypeEnum.HYBRID || strategyType == StrategyTypeEnum.VECTOR_ONLY;
+    }
+
+    private boolean shouldApplySimilarityFilter(StrategyTypeEnum strategyType) {
+        return strategyType == StrategyTypeEnum.HYBRID;
+//                || strategyType == StrategyTypeEnum.VECTOR_ONLY
+//                || strategyType == StrategyTypeEnum.IMAGE_TO_IMAGE;
     }
 }
