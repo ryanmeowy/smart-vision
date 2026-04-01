@@ -1,7 +1,11 @@
 package com.smart.vision.core.controller;
 
+import com.smart.vision.core.ai.ContentGenerationService;
+import com.smart.vision.core.ai.ImageOcrService;
+import com.smart.vision.core.manager.OssManager;
 import com.smart.vision.core.manager.HotSearchManager;
 import com.smart.vision.core.model.Result;
+import com.smart.vision.core.model.dto.GraphTripleDTO;
 import com.smart.vision.core.model.dto.SearchQueryDTO;
 import com.smart.vision.core.model.dto.SearchResultDTO;
 import com.smart.vision.core.service.search.SmartSearchService;
@@ -10,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -17,11 +22,20 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Executor;
+import java.util.stream.Stream;
 
+import static com.smart.vision.core.constant.AliyunConstant.X_OSS_PROCESS_EMBEDDING;
+import static com.smart.vision.core.model.enums.PresignedValidityEnum.MEDIUM_TERM_VALIDITY;
 import static com.smart.vision.core.constant.SearchConstant.IMAGE_MAX_SIZE;
 import static com.smart.vision.core.constant.SearchConstant.MAX_INPUT_LENGTH;
 
@@ -42,6 +56,10 @@ public class SearchApiController {
 
     private final SmartSearchService searchService;
     private final HotSearchManager hotSearchManager;
+    private final ContentGenerationService contentGenerationService;
+    private final ImageOcrService imageOcrService;
+    private final OssManager ossManager;
+    private final Executor imageGenTaskExecutor;
 
     @PostMapping("/search")
     public Result<List<SearchResultDTO>> search(@RequestBody SearchQueryDTO query, HttpServletResponse response) {
@@ -83,6 +101,160 @@ public class SearchApiController {
             attachStrategyDebugHeaders(response);
             StrategySelectionContext.clear();
         }
+    }
+
+    @PostMapping(
+            value = "/analyze/stream",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+            produces = "text/event-stream;charset=UTF-8"
+    )
+    public SseEmitter analyzeByImageStream(@RequestParam("file") MultipartFile file,
+                                           @RequestParam(value = "mode", defaultValue = "general") String mode,
+                                           @RequestParam(value = "enableOcr", defaultValue = "true") boolean enableOcr,
+                                           @RequestParam(value = "enableGraph", defaultValue = "true") boolean enableGraph) {
+        SseEmitter emitter = new SseEmitter(120_000L);
+        imageGenTaskExecutor.execute(() -> runAnalyzeTask(emitter, file, mode, enableOcr, enableGraph));
+        return emitter;
+    }
+
+    private void runAnalyzeTask(SseEmitter emitter,
+                                MultipartFile file,
+                                String mode,
+                                boolean enableOcr,
+                                boolean enableGraph) {
+        try {
+            if (file == null || file.isEmpty()) {
+                sendEvent(emitter, "error", Map.of("message", "Please upload an image"));
+                sendDone(emitter, false);
+                return;
+            }
+            if (file.getSize() > IMAGE_MAX_SIZE) {
+                sendEvent(emitter, "error", Map.of("message", "The image is too large, please upload an image within 10MB"));
+                sendDone(emitter, false);
+                return;
+            }
+            String fileName = StringUtils.hasText(file.getOriginalFilename()) ? file.getOriginalFilename() : "unknown";
+            sendEvent(emitter, "meta", Map.of(
+                    "fileName", fileName,
+                    "fileSize", file.getSize(),
+                    "mode", StringUtils.hasText(mode) ? mode : "general",
+                    "enableOcr", enableOcr,
+                    "enableGraph", enableGraph
+            ));
+
+            String objectKey = ossManager.uploadFile(file);
+            if (!StringUtils.hasText(objectKey)) {
+                sendEvent(emitter, "error", Map.of("message", "Upload image failed, please try again."));
+                sendDone(emitter, false);
+                return;
+            }
+            String imageUrl = ossManager.getAiPresignedUrl(
+                    objectKey,
+                    MEDIUM_TERM_VALIDITY.getValidity(),
+                    X_OSS_PROCESS_EMBEDDING
+            );
+
+            String summary = safeTrim(contentGenerationService.generateSummary(imageUrl));
+            streamTextChunks(emitter, "summary", summary, 48);
+            sendEvent(emitter, "summary_end", Map.of("text", summary));
+
+            List<String> tags = contentGenerationService.generateTags(imageUrl);
+            sendEvent(emitter, "tags", Map.of("items", tags == null ? List.of() : tags));
+
+            String ocrText = "";
+            if (enableOcr) {
+                ocrText = safeTrim(imageOcrService.extractText(imageUrl));
+                streamTextChunks(emitter, "ocr", ocrText, 80);
+                sendEvent(emitter, "ocr_end", Map.of("text", ocrText));
+            } else {
+                sendEvent(emitter, "ocr_end", Map.of("text", ""));
+            }
+
+            List<GraphTripleDTO> graph = List.of();
+            if (enableGraph) {
+                graph = contentGenerationService.generateGraph(imageUrl);
+            }
+            sendEvent(emitter, "graph", Map.of("items", graph == null ? List.of() : graph));
+
+            List<String> suggestions = buildSearchSuggestions(tags, ocrText, graph);
+            sendEvent(emitter, "suggestions", Map.of("items", suggestions));
+            sendDone(emitter, true);
+        } catch (Exception e) {
+            log.error("Analyze image stream failed: {}", e.getMessage(), e);
+            try {
+                sendEvent(emitter, "error", Map.of("message", "Analyze failed, try again later."));
+                sendDone(emitter, false);
+            } catch (IOException ignored) {
+                emitter.completeWithError(e);
+            }
+        }
+    }
+
+    private void sendDone(SseEmitter emitter, boolean success) throws IOException {
+        sendEvent(emitter, "done", Map.of("ok", success));
+        emitter.complete();
+    }
+
+    private void sendEvent(SseEmitter emitter, String event, Object payload) throws IOException {
+        emitter.send(SseEmitter.event().name(event).data(payload));
+    }
+
+    private void streamTextChunks(SseEmitter emitter, String event, String text, int chunkSize) throws IOException {
+        if (!StringUtils.hasText(text)) {
+            return;
+        }
+        int normalizedChunk = Math.max(20, chunkSize);
+        for (int start = 0; start < text.length(); start += normalizedChunk) {
+            int end = Math.min(text.length(), start + normalizedChunk);
+            String delta = text.substring(start, end);
+            sendEvent(emitter, event, Map.of("delta", delta));
+        }
+    }
+
+    private String safeTrim(String value) {
+        return StringUtils.hasText(value) ? value.trim() : "";
+    }
+
+    private List<String> buildSearchSuggestions(List<String> tags, String ocrText, List<GraphTripleDTO> graph) {
+        LinkedHashSet<String> ordered = new LinkedHashSet<>();
+        if (tags != null) {
+            tags.stream()
+                    .filter(StringUtils::hasText)
+                    .map(String::trim)
+                    .forEach(ordered::add);
+        }
+
+        if (StringUtils.hasText(ocrText)) {
+            Stream.of(ocrText.split("[，。！？、,.;:\\s]+"))
+                    .map(String::trim)
+                    .filter(token -> token.length() >= 2 && token.length() <= 12)
+                    .limit(12)
+                    .forEach(ordered::add);
+        }
+
+        if (graph != null) {
+            graph.stream()
+                    .filter(item -> item != null)
+                    .forEach(item -> {
+                        String s = safeTrim(item.getS());
+                        String p = safeTrim(item.getP());
+                        String o = safeTrim(item.getO());
+                        if (StringUtils.hasText(s)) ordered.add(s);
+                        if (StringUtils.hasText(o)) ordered.add(o);
+                        if (StringUtils.hasText(s) && StringUtils.hasText(o)) {
+                            ordered.add((s + " " + o).trim());
+                        }
+                        if (StringUtils.hasText(s) && StringUtils.hasText(p) && StringUtils.hasText(o)) {
+                            ordered.add((s + " " + p + " " + o).trim());
+                        }
+                    });
+        }
+
+        List<String> suggestions = new ArrayList<>(ordered);
+        if (suggestions.size() > 10) {
+            return suggestions.subList(0, 10);
+        }
+        return suggestions;
     }
 
     private void attachStrategyDebugHeaders(HttpServletResponse response) {

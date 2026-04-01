@@ -132,6 +132,39 @@ paths:
               schema:
                 $ref: '#/components/schemas/SearchResultEnvelope'
 
+  /api/v1/vision/analyze/stream:
+    post:
+      tags: [Vision]
+      summary: Stream image analysis result
+      operationId: visionAnalyzeByImageStream
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                mode:
+                  type: string
+                  default: general
+                enableOcr:
+                  type: boolean
+                  default: true
+                enableGraph:
+                  type: boolean
+                  default: true
+      responses:
+        '200':
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
   /api/v1/image/batch-process:
     post:
       tags: [Image]

@@ -19,6 +19,13 @@ public interface ContentGenerationService {
     SseEmitter streamGenerateCopy(String imageUrl, String promptType);
 
     /**
+     * Generate one-shot summary for the image.
+     * @param imageUrl Image URL
+     * @return summary text
+     */
+    String generateSummary(String imageUrl);
+
+    /**
      * Generate a unique file name for the image
      * @param imageUrl Image URL
      * @return Unique file name

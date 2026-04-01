@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 import static com.smart.vision.core.constant.CommonConstant.DEFAULT_IMAGE_NAME;
 import static com.smart.vision.core.constant.CommonConstant.SSE_TIMEOUT;
@@ -102,6 +103,40 @@ public class LocalGenImpl implements ContentGenerationService {
             emitter.completeWithError(e);
         }
         return emitter;
+    }
+
+    @Override
+    public String generateSummary(String imageUrl) {
+        if (!StringUtils.hasText(imageUrl)) return "";
+        VisionProto.GenRequest request = VisionProto.GenRequest.newBuilder()
+                .setImageUrl(imageUrl)
+                .setPrompt(PromptEnum.DEFAULT.getPrompt())
+                .build();
+        long startNs = System.nanoTime();
+        try {
+            Iterator<VisionProto.StringResponse> iterator = visionStub
+                    .withDeadlineAfter(streamCaptionDeadlineMs, TimeUnit.MILLISECONDS)
+                    .generateCaption(request);
+            StringBuilder sb = new StringBuilder();
+            while (iterator.hasNext()) {
+                String chunk = Optional.ofNullable(iterator.next()).map(VisionProto.StringResponse::getContent).orElse("");
+                if (!chunk.isBlank()) {
+                    sb.append(chunk);
+                }
+            }
+            String result = sb.toString().trim();
+            if (result.isEmpty()) {
+                return "";
+            }
+            return result.lines().collect(Collectors.joining(System.lineSeparator())).trim();
+        } catch (StatusRuntimeException e) {
+            long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNs);
+            log.error("gRPC generateSummary failed: statusCode={}, deadlineMs={}, elapsedMs={}", e.getStatus().getCode(), streamCaptionDeadlineMs, elapsedMs, e);
+            throw new RuntimeException("generate summary failed, try again later.");
+        } catch (Exception e) {
+            log.error("gRPC generateSummary call failed: {}", e.getMessage(), e);
+            throw new RuntimeException("generate summary failed, try again later.");
+        }
     }
 
     @Override

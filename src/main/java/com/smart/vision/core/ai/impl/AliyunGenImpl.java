@@ -29,6 +29,20 @@ public class AliyunGenImpl implements ContentGenerationService {
     }
 
     @Override
+    public String generateSummary(String imageUrl) {
+        try {
+            return genManager.generateSummary(imageUrl);
+        } catch (NoApiKeyException e) {
+            log.error(AliyunErrorCode.API_KEY_MISSING.getMessage(), e);
+        } catch (UploadFileException e) {
+            log.error(AliyunErrorCode.UPLOAD_FAILED.getMessage(), e);
+        } catch (Exception e) {
+            log.error(AliyunErrorCode.UNKNOWN.getMessage(), e);
+        }
+        throw new RuntimeException("generate summary failed, try again later.");
+    }
+
+    @Override
     public String generateFileName(String imageUrl) {
         try {
             return genManager.genFileName(imageUrl);

@@ -120,6 +120,136 @@ def render_image_search_page(base_url: str) -> None:
         _render_search_results(state["results"], layout_key="image")
 
 
+def render_image_analyze_page(base_url: str) -> None:
+    st.subheader("Image Analyze")
+    st.caption("Endpoint: POST /api/v1/vision/analyze/stream")
+    st.info("Upload one image and stream full analysis: summary, tags, OCR, graph, and search suggestions.")
+
+    with st.form("image_analyze_form"):
+        uploaded = st.file_uploader(
+            "Upload image",
+            type=["png", "jpg", "jpeg", "webp"],
+            accept_multiple_files=False,
+            key="image_analyze_upload",
+        )
+        col1, col2 = st.columns(2)
+        enable_ocr = col1.checkbox("Enable OCR", value=True)
+        enable_graph = col2.checkbox("Enable Graph (SPO)", value=True)
+        submitted = st.form_submit_button("Run Analyze", type="primary")
+
+    if not submitted:
+        return
+
+    if uploaded is None:
+        st.warning("Please upload an image file first.")
+        return
+
+    st.markdown("### Uploaded Image")
+    st.image(uploaded.getvalue(), caption=uploaded.name, width=480)
+
+    st.markdown("### Streaming Analysis")
+    st.markdown("**Meta**")
+    meta_box = st.empty()
+    st.markdown("**Summary**")
+    summary_box = st.empty()
+    st.markdown("**Tags**")
+    tags_box = st.empty()
+    st.markdown("**OCR Text**")
+    ocr_box = st.empty()
+    st.markdown("**Graph Triples**")
+    graph_box = st.empty()
+    st.markdown("**Search Suggestions**")
+    suggestion_box = st.empty()
+    status_box = st.empty()
+
+    summary_text = ""
+    ocr_text = ""
+    tags: list[str] = []
+    graph_items: list[dict[str, Any]] = []
+    suggestions: list[str] = []
+
+    try:
+        response = requests.post(
+            f"{_normalize_base_url(base_url)}/api/v1/vision/analyze/stream",
+            files={"file": (uploaded.name, uploaded.getvalue(), uploaded.type or "application/octet-stream")},
+            data={
+                "mode": "general",
+                "enableOcr": str(bool(enable_ocr)).lower(),
+                "enableGraph": str(bool(enable_graph)).lower(),
+            },
+            stream=True,
+            timeout=(5, 180),
+        )
+    except requests.exceptions.RequestException as exc:
+        st.error(f"Failed to call /vision/analyze/stream: {exc}")
+        return
+
+    if response.status_code >= 400:
+        st.error(f"HTTP {response.status_code}: {response.text[:600]}")
+        return
+
+    # SSE defaults may be decoded as latin-1 by requests when charset is absent.
+    # Force UTF-8 to avoid garbled Chinese characters.
+    response.encoding = "utf-8"
+
+    for event_name, payload in _iter_sse_events(response):
+        if event_name == "meta":
+            meta_box.json(payload)
+            continue
+        if event_name == "summary":
+            delta = _safe_str(payload.get("delta")) if isinstance(payload, dict) else ""
+            summary_text = _render_typewriter_delta(summary_box, summary_text, delta)
+            continue
+        if event_name == "summary_end":
+            final_text = _safe_str(payload.get("text")) if isinstance(payload, dict) else ""
+            if final_text:
+                summary_text = final_text
+            summary_box.write(summary_text if summary_text else "-")
+            continue
+        if event_name == "tags":
+            items = payload.get("items") if isinstance(payload, dict) else None
+            if isinstance(items, list):
+                tags = [str(x).strip() for x in items if str(x).strip()]
+            tags_box.write(tags if tags else [])
+            continue
+        if event_name == "ocr":
+            delta = _safe_str(payload.get("delta")) if isinstance(payload, dict) else ""
+            ocr_text += delta
+            ocr_box.code(ocr_text if ocr_text else "-", language="text")
+            continue
+        if event_name == "ocr_end":
+            final_ocr = _safe_str(payload.get("text")) if isinstance(payload, dict) else ""
+            if final_ocr:
+                ocr_text = final_ocr
+            ocr_box.code(ocr_text if ocr_text else "-", language="text")
+            continue
+        if event_name == "graph":
+            items = payload.get("items") if isinstance(payload, dict) else None
+            if isinstance(items, list):
+                graph_items = [x for x in items if isinstance(x, dict)]
+            if graph_items:
+                graph_box.dataframe(graph_items, use_container_width=True)
+            else:
+                graph_box.info("No graph triples.")
+            continue
+        if event_name == "suggestions":
+            items = payload.get("items") if isinstance(payload, dict) else None
+            if isinstance(items, list):
+                suggestions = [str(x).strip() for x in items if str(x).strip()]
+            suggestion_box.write(suggestions if suggestions else [])
+            continue
+        if event_name == "error":
+            message = _safe_str(payload.get("message")) if isinstance(payload, dict) else "Analyze failed."
+            status_box.error(message or "Analyze failed.")
+            continue
+        if event_name == "done":
+            ok = bool(payload.get("ok")) if isinstance(payload, dict) else False
+            if ok:
+                status_box.success("Analyze completed.")
+            else:
+                status_box.warning("Analyze finished with errors.")
+
+
 def render_similar_search_page(base_url: str) -> None:
     st.subheader("Similar Search")
     st.caption("Endpoint: GET /api/v1/vision/similar")
@@ -781,6 +911,61 @@ def _request_json(
         st.stop()
 
     return data, headers, status_code
+
+
+def _iter_sse_events(response: requests.Response):
+    event_name = "message"
+    data_lines: list[str] = []
+    for raw_line in response.iter_lines(decode_unicode=False):
+        if raw_line is None:
+            continue
+        if isinstance(raw_line, bytes):
+            line = raw_line.decode("utf-8", errors="replace").strip()
+        else:
+            line = str(raw_line).strip()
+        if not line:
+            if data_lines:
+                payload_text = "\n".join(data_lines).strip()
+                if payload_text:
+                    yield event_name, _parse_sse_payload(payload_text)
+            event_name = "message"
+            data_lines = []
+            continue
+        if line.startswith(":"):
+            continue
+        if line.startswith("event:"):
+            event_name = line[6:].strip() or "message"
+            continue
+        if line.startswith("data:"):
+            data_lines.append(line[5:].strip())
+
+
+def _parse_sse_payload(payload_text: str) -> Any:
+    try:
+        return json.loads(payload_text)
+    except ValueError:
+        return {"text": payload_text}
+
+
+def _render_typewriter_delta(box: Any, base_text: str, delta: str) -> str:
+    if not delta:
+        box.write(base_text if base_text else "-")
+        return base_text
+
+    # Keep UI responsive for long content: animate short chunks, fast-append long chunks.
+    should_fast_append = len(base_text) > 2000
+    if should_fast_append:
+        updated = base_text + delta
+        box.write(updated if updated else "-")
+        return updated
+
+    updated = base_text
+    for ch in delta:
+        updated += ch
+        box.write(f"{updated}▌")
+        time.sleep(0.012)
+    box.write(updated if updated else "-")
+    return updated
 
 
 def _render_response_meta(status_code: int, headers: dict[str, str]) -> None:
