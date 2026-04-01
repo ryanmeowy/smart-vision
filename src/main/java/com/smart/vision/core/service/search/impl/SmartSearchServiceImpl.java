@@ -77,7 +77,8 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         int maxResults = query.getLimit() != null && query.getLimit() > 0 ? query.getLimit() : docs.size();
         List<ImageSearchResultDTO> filteredDocs = similarFilter(docs, maxResults);
         log.info("Search completed, number of results before filter: {}, after filter: {}", docs.size(), filteredDocs.size());
-        return imageDocConvertor.convert2SearchResultDTO(manualRerank(filteredDocs, query.getKeyword()));
+        boolean enableOcr = query.getEnableOcr() == null || query.getEnableOcr();
+        return imageDocConvertor.convert2SearchResultDTO(manualRerank(filteredDocs, query.getKeyword(), enableOcr));
     }
 
     public List<SearchResultDTO> searchByVector(String docId) {
@@ -166,16 +167,49 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         }
     }
 
-    private List<ImageSearchResultDTO> manualRerank(List<ImageSearchResultDTO> list, String keyword) {
+    private List<ImageSearchResultDTO> manualRerank(List<ImageSearchResultDTO> list, String keyword, boolean enableOcr) {
+        if (!StringUtils.hasText(keyword) || CollectionUtils.isEmpty(list)) {
+            return list;
+        }
+        String normalizedKeyword = keyword.trim().toLowerCase(Locale.ROOT);
+
         return list.stream()
                 .sorted((o1, o2) -> {
-                    boolean o1Hit = null != o1.getDocument().getOcrContent() && o1.getDocument().getOcrContent().contains(keyword);
-                    boolean o2Hit = null != o2.getDocument().getOcrContent() && o2.getDocument().getOcrContent().contains(keyword);
-                    if (o1Hit && !o2Hit) return -1;
-                    if (!o1Hit && o2Hit) return 1;
+                    int o1HitScore = keywordHitScore(o1, normalizedKeyword, enableOcr);
+                    int o2HitScore = keywordHitScore(o2, normalizedKeyword, enableOcr);
+                    if (o1HitScore != o2HitScore) {
+                        return Integer.compare(o2HitScore, o1HitScore);
+                    }
                     return Double.compare(decisionScore(o2), decisionScore(o1));
                 })
                 .collect(Collectors.toList());
+    }
+
+    private int keywordHitScore(ImageSearchResultDTO result, String normalizedKeyword, boolean enableOcr) {
+        if (result == null || result.getDocument() == null) {
+            return 0;
+        }
+
+        int score = 0;
+        ImageDocument doc = result.getDocument();
+
+        if (containsIgnoreCase(doc.getFileName(), normalizedKeyword)) {
+            score += 3;
+        }
+        if (!CollectionUtils.isEmpty(doc.getTags())) {
+            boolean tagHit = doc.getTags().stream().anyMatch(tag -> containsIgnoreCase(tag, normalizedKeyword));
+            if (tagHit) {
+                score += 2;
+            }
+        }
+        if (enableOcr && containsIgnoreCase(doc.getOcrContent(), normalizedKeyword)) {
+            score += 4;
+        }
+        return score;
+    }
+
+    private boolean containsIgnoreCase(String text, String normalizedKeyword) {
+        return StringUtils.hasText(text) && text.toLowerCase(Locale.ROOT).contains(normalizedKeyword);
     }
 
     private double decisionScore(ImageSearchResultDTO result) {

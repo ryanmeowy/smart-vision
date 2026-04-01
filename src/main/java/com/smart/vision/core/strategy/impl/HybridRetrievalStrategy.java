@@ -47,6 +47,7 @@ public class HybridRetrievalStrategy implements RetrievalStrategy {
                 .topK(null == query.getTopK() ? DEFAULT_TOP_K : query.getTopK())
                 .limit(null == query.getLimit() ? DEFAULT_RESULT_LIMIT : query.getLimit())
                 .keyword(query.getKeyword())
+                .enableOcr(query.getEnableOcr() == null ? Boolean.TRUE : query.getEnableOcr())
                 .graphTriples(generationService.praseTriplesFromKeyword(query.getKeyword()))
                 .build();
         return imageRepository.hybridSearch(paramDTO);
