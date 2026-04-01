@@ -78,7 +78,7 @@ public class HybridQuerySpec implements QuerySpec {
         boolean hasClause = false;
 
         if (paramDTO.getKeyword() != null && !paramDTO.getKeyword().isBlank()) {
-            Optional<Query> keywordQueryOpt = keywordMatcher.match(paramDTO.getKeyword());
+            Optional<Query> keywordQueryOpt = keywordMatcher.match(paramDTO.getKeyword(), isEnableOcrEnabled());
             if (keywordQueryOpt.isPresent()) {
                 combined.should(keywordQueryOpt.get());
                 hasClause = true;
@@ -96,6 +96,10 @@ public class HybridQuerySpec implements QuerySpec {
         }
 
         return Query.of(q -> q.bool(combined.build()));
+    }
+
+    private boolean isEnableOcrEnabled() {
+        return paramDTO.getEnableOcr() == null || paramDTO.getEnableOcr();
     }
 
     private static List<SortOptions> defaultSort() {

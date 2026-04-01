@@ -33,7 +33,7 @@ public class SearchQueryDTO {
     /**
      * whether to enable OCR hybrid search
      */
-    private boolean enableOcr;
+    private Boolean enableOcr = true;
     /**
      * search strategy type
      * @see com.smart.vision.core.model.enums.StrategyTypeEnum

@@ -42,4 +42,9 @@ public class HybridSearchParamDTO {
      * The top-K results to retrieve based on relevance or similarity.
      */
     private Integer topK;
+
+    /**
+     * Whether OCR keyword matching is enabled in hybrid query.
+     */
+    private Boolean enableOcr;
 }

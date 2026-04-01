@@ -52,6 +52,8 @@ import static com.smart.vision.core.model.enums.PresignedValidityEnum.SHORT_TERM
 public class SmartSearchServiceImpl implements SmartSearchService {
     @Value("${app.embedding.image-input-mode:auto}")
     private String imageInputMode;
+    @Value("${app.search.quality-absolute-min-score:0.72}")
+    private double qualityAbsoluteMinScore;
 
     private final MultiModalEmbeddingService embeddingService;
     private final ImageRepository imageRepository;
@@ -77,7 +79,8 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         int maxResults = query.getLimit() != null && query.getLimit() > 0 ? query.getLimit() : docs.size();
         List<ImageSearchResultDTO> filteredDocs = similarFilter(docs, maxResults);
         log.info("Search completed, number of results before filter: {}, after filter: {}", docs.size(), filteredDocs.size());
-        return imageDocConvertor.convert2SearchResultDTO(manualRerank(filteredDocs, query.getKeyword()));
+        boolean enableOcr = query.getEnableOcr() == null || query.getEnableOcr();
+        return imageDocConvertor.convert2SearchResultDTO(manualRerank(filteredDocs, query.getKeyword(), enableOcr));
     }
 
     public List<SearchResultDTO> searchByVector(String docId) {
@@ -89,7 +92,6 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         if (CollectionUtils.isEmpty(embedding)) {
             throw new RuntimeException("The image has not been vectorized yet");
         }
-        // Perform search (find the 10 most similar images)
         List<ImageSearchResultDTO> similarDocs = imageRepository.searchSimilar(embedding, SIMILARITY_TOP_K, docId);
         return imageDocConvertor.convert2SearchResultDTO(similarFilter(similarDocs, SIMILARITY_TOP_K));
     }
@@ -98,24 +100,33 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         if (results.isEmpty()) return results;
         List<ImageSearchResultDTO> filtered = new ArrayList<>();
         int hardLimit = Math.max(1, Math.min(maxResults, results.size()));
-        filtered.add(results.getFirst());
+        double prevKeptScore = -1d;
 
-        for (int i = 1; i < hardLimit; i++) {
-            double prevScore = decisionScore(results.get(i - 1));
-            double currScore = decisionScore(results.get(i));
+        for (int i = 0; i < hardLimit; i++) {
+            ImageSearchResultDTO current = results.get(i);
+            double currScore = decisionScore(current);
 
-            // Always keep a minimum number of results to avoid empty/too-short lists on long-tail queries.
-            if (i < QUALITY_MIN_RESULTS) {
-                filtered.add(results.get(i));
+            // Hard floor first: never keep low-quality tail just for minimum count.
+            if (currScore < qualityAbsoluteMinScore) {
+                break;
+            }
+
+            if (filtered.isEmpty()) {
+                filtered.add(current);
+                prevKeptScore = currScore;
                 continue;
             }
 
-            boolean isBigDrop = prevScore <= 0 || (currScore / prevScore) < QUALITY_RATIO_CUTOFF;
-
-            if (isBigDrop) {
-                break;
+            boolean needBypassRatioCutoff = filtered.size() < QUALITY_MIN_RESULTS;
+            if (!needBypassRatioCutoff) {
+                boolean isBigDrop = prevKeptScore <= 0 || (currScore / prevKeptScore) < QUALITY_RATIO_CUTOFF;
+                if (isBigDrop) {
+                    break;
+                }
             }
-            filtered.add(results.get(i));
+
+            filtered.add(current);
+            prevKeptScore = currScore;
         }
         return filtered;
     }
@@ -166,16 +177,49 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         }
     }
 
-    private List<ImageSearchResultDTO> manualRerank(List<ImageSearchResultDTO> list, String keyword) {
+    private List<ImageSearchResultDTO> manualRerank(List<ImageSearchResultDTO> list, String keyword, boolean enableOcr) {
+        if (!StringUtils.hasText(keyword) || CollectionUtils.isEmpty(list)) {
+            return list;
+        }
+        String normalizedKeyword = keyword.trim().toLowerCase(Locale.ROOT);
+
         return list.stream()
                 .sorted((o1, o2) -> {
-                    boolean o1Hit = null != o1.getDocument().getOcrContent() && o1.getDocument().getOcrContent().contains(keyword);
-                    boolean o2Hit = null != o2.getDocument().getOcrContent() && o2.getDocument().getOcrContent().contains(keyword);
-                    if (o1Hit && !o2Hit) return -1;
-                    if (!o1Hit && o2Hit) return 1;
+                    int o1HitScore = keywordHitScore(o1, normalizedKeyword, enableOcr);
+                    int o2HitScore = keywordHitScore(o2, normalizedKeyword, enableOcr);
+                    if (o1HitScore != o2HitScore) {
+                        return Integer.compare(o2HitScore, o1HitScore);
+                    }
                     return Double.compare(decisionScore(o2), decisionScore(o1));
                 })
                 .collect(Collectors.toList());
+    }
+
+    private int keywordHitScore(ImageSearchResultDTO result, String normalizedKeyword, boolean enableOcr) {
+        if (result == null || result.getDocument() == null) {
+            return 0;
+        }
+
+        int score = 0;
+        ImageDocument doc = result.getDocument();
+
+        if (containsIgnoreCase(doc.getFileName(), normalizedKeyword)) {
+            score += 3;
+        }
+        if (!CollectionUtils.isEmpty(doc.getTags())) {
+            boolean tagHit = doc.getTags().stream().anyMatch(tag -> containsIgnoreCase(tag, normalizedKeyword));
+            if (tagHit) {
+                score += 2;
+            }
+        }
+        if (enableOcr && containsIgnoreCase(doc.getOcrContent(), normalizedKeyword)) {
+            score += 4;
+        }
+        return score;
+    }
+
+    private boolean containsIgnoreCase(String text, String normalizedKeyword) {
+        return StringUtils.hasText(text) && text.toLowerCase(Locale.ROOT).contains(normalizedKeyword);
     }
 
     private double decisionScore(ImageSearchResultDTO result) {
