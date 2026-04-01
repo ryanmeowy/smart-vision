@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import html
 import hashlib
 import json
 import os
@@ -18,6 +19,8 @@ RESULT_STATE_KEYS = {
     "similar": "result_state_similar",
 }
 LAYOUT_OPTIONS = ["Large (2 per row)", "Compact (3 per row)"]
+OCR_PREVIEW_MAX_CHARS = 100
+HIGHLIGHT_PREVIEW_MAX_CHARS = 80
 
 
 def render_text_search_page(base_url: str) -> None:
@@ -565,6 +568,7 @@ def _render_search_results(results: list[Any], *, layout_key: str) -> None:
     if not results:
         st.info("No results found.")
         return
+    _inject_result_text_styles()
 
     pref_key = f"result_layout_pref_{layout_key}"
     if pref_key not in st.session_state:
@@ -594,32 +598,25 @@ def _render_search_results(results: list[Any], *, layout_key: str) -> None:
     # Masonry-like distribution: keep adding cards down each column to reduce row-gap blank space.
     for idx, item in enumerate(normalized_results):
         with cols[idx % num_cols]:
-            with st.container(border=True):
-                image_url = _safe_str(item.get("url"))
-                if image_url:
-                    _render_large_preview(image_url)
-                else:
-                    st.caption("No image URL")
+            image_url = _safe_str(item.get("url"))
+            filename = _safe_str(item.get("filename")) or "Unnamed"
+            doc_id = _safe_str(item.get("id")) or "-"
+            score = "-" if item.get("score") is None else str(item.get("score"))
+            tags = item.get("tags")
+            tags_text = ", ".join(str(tag) for tag in tags[:8]) if isinstance(tags, list) and tags else "-"
+            highlight = _clip_text(_safe_str(item.get("highlight")), HIGHLIGHT_PREVIEW_MAX_CHARS)
+            ocr_text = _clip_text(_safe_str(item.get("ocrText")), OCR_PREVIEW_MAX_CHARS)
 
-                st.markdown(f"**{_safe_str(item.get('filename')) or 'Unnamed'}**")
-                st.caption(f"id: {_safe_str(item.get('id')) or '-'}")
-                score = item.get("score")
-                if score is not None:
-                    st.text(f"score: {score}")
-
-                tags = item.get("tags")
-                if isinstance(tags, list) and tags:
-                    st.text("tags: " + ", ".join(str(tag) for tag in tags[:8]))
-
-                highlight = _safe_str(item.get("highlight"))
-                if highlight:
-                    st.caption("highlight")
-                    st.write(highlight)
-
-                ocr_text = _safe_str(item.get("ocrText"))
-                if ocr_text:
-                    st.caption("ocrText")
-                    st.write(ocr_text[:160] + ("..." if len(ocr_text) > 160 else ""))
+            card_html = ["<div class='result-card'>", _render_large_preview(image_url, filename), "<div class='result-meta'>"]
+            card_html.append(_meta_row("id", doc_id))
+            card_html.append(_meta_row("score", score))
+            card_html.append(_meta_row("tags", tags_text))
+            if highlight:
+                card_html.append(_meta_row("highlight", highlight))
+            if ocr_text:
+                card_html.append(_meta_row("ocrText", ocr_text))
+            card_html.append("</div></div>")
+            st.markdown("".join(card_html), unsafe_allow_html=True)
 
 
 def _safe_str(value: Any) -> str:
@@ -647,9 +644,114 @@ def _get_result_state(page: str) -> dict[str, Any]:
     return st.session_state[key]
 
 
-def _render_large_preview(image_url: str) -> None:
-    # Avoid Streamlit thumbnail-like rendering by using explicit HTML img.
+def _render_large_preview(image_url: str, filename: str) -> str:
+    safe_filename = html.escape(filename)
+    if image_url:
+        safe_image_url = html.escape(image_url, quote=True)
+        return (
+            "<div class='result-image-wrap'>"
+            f"<img src=\"{safe_image_url}\" class='result-image' />"
+            f"<div class='result-filename'>{safe_filename}</div>"
+            "</div>"
+        )
+    return (
+        "<div class='result-image-wrap result-image-empty'>"
+        "<div class='result-no-image'>No image URL</div>"
+        f"<div class='result-filename'>{safe_filename}</div>"
+        "</div>"
+    )
+
+
+def _inject_result_text_styles() -> None:
     st.markdown(
-        f'<img src="{image_url}" style="width:100%;height:auto;display:block;border-radius:10px;" />',
+        """
+        <style>
+        .result-card {
+          margin-top: 4px;
+          border: 1px solid rgba(120, 130, 150, 0.32);
+          border-radius: 12px;
+          background: rgba(255, 255, 255, 0.03);
+          overflow: hidden;
+        }
+        .result-image-wrap {
+          position: relative;
+          width: 100%;
+          background: rgba(13, 18, 28, 0.72);
+        }
+        .result-image {
+          width: 100%;
+          height: auto;
+          display: block;
+        }
+        .result-image-empty {
+          min-height: 160px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .result-no-image {
+          color: #8b9bb0;
+          font-size: 12px;
+        }
+        .result-filename {
+          position: absolute;
+          right: 8px;
+          bottom: 8px;
+          max-width: calc(100% - 16px);
+          padding: 2px 6px;
+          border-radius: 6px;
+          font-size: 11px;
+          line-height: 1.2;
+          color: #f4f8ff;
+          background: rgba(12, 16, 24, 0.78);
+          backdrop-filter: blur(2px);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .result-meta {
+          padding: 6px 8px 7px;
+          border-top: 1px solid rgba(120, 130, 150, 0.2);
+          background: rgba(4, 8, 14, 0.3);
+        }
+        .result-row {
+          margin: 1px 0;
+          line-height: 1.18;
+          font-size: 11px;
+          display: flex;
+          align-items: flex-start;
+          gap: 7px;
+        }
+        .result-key {
+          min-width: 56px;
+          color: #8ea0b6;
+          font-weight: 700;
+          letter-spacing: 0.01em;
+          text-transform: none;
+        }
+        .result-val {
+          color: #e7eef7;
+          font-weight: 400;
+          word-break: break-word;
+          overflow-wrap: anywhere;
+        }
+        </style>
+        """,
         unsafe_allow_html=True,
     )
+
+
+def _meta_row(key: str, value: str) -> str:
+    return (
+        "<div class='result-row'>"
+        f"<span class='result-key'>{html.escape(key)}:</span>"
+        f"<span class='result-val'>{html.escape(value)}</span>"
+        "</div>"
+    )
+
+
+def _clip_text(text: str, max_chars: int) -> str:
+    if not text:
+        return ""
+    text = text.strip()
+    return text if len(text) <= max_chars else text[:max_chars] + "..."

@@ -1,4 +1,5 @@
 import streamlit as st
+from pathlib import Path
 
 from pages import render_hot_words_page
 from pages import render_auth_admin_page
@@ -8,7 +9,7 @@ from pages import render_similar_search_page
 from pages import render_text_search_page
 
 st.set_page_config(
-    page_title="Smart Vision UI Demo",
+    page_title="Smart Vision Frontend Validation",
     page_icon="🖼️",
     layout="wide",
 )
@@ -23,6 +24,38 @@ def init_state() -> None:
         st.session_state.show_debug_panel = True
     if "request_timeout_seconds" not in st.session_state:
         st.session_state.request_timeout_seconds = 20
+    if "theme_mode_prev" not in st.session_state:
+        st.session_state.theme_mode_prev = st.session_state.theme_mode
+
+
+def write_streamlit_theme_config(theme_mode: str) -> None:
+    config_dir = Path(__file__).resolve().parent / ".streamlit"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    config_file = config_dir / "config.toml"
+
+    mode = (theme_mode or "System").strip().lower()
+    if mode == "dark":
+        base = "dark"
+    elif mode == "light":
+        base = "light"
+    else:
+        # Streamlit has no explicit 'system' base in config; keep light as default fallback.
+        base = "light"
+
+    config_file.write_text(
+        "\n".join(
+            [
+                "[theme]",
+                f'base = "{base}"',
+                'primaryColor = "#1677ff"',
+                'backgroundColor = "#ffffff"' if base == "light" else 'backgroundColor = "#0e1117"',
+                'secondaryBackgroundColor = "#f0f2f6"' if base == "light" else 'secondaryBackgroundColor = "#1b1f2a"',
+                'textColor = "#142235"' if base == "light" else 'textColor = "#e7eef8"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 def render_sidebar() -> str:
@@ -34,11 +67,16 @@ def render_sidebar() -> str:
             value=st.session_state.base_url,
             help="Example: http://localhost:8080",
         ).strip()
-        st.session_state.theme_mode = st.selectbox(
+        selected_theme_mode = st.selectbox(
             "Theme",
             ["Light", "Dark", "System"],
             index=["Light", "Dark", "System"].index(st.session_state.theme_mode),
         )
+        st.session_state.theme_mode = selected_theme_mode
+        if st.session_state.theme_mode != st.session_state.theme_mode_prev:
+            write_streamlit_theme_config(st.session_state.theme_mode)
+            st.session_state.theme_mode_prev = st.session_state.theme_mode
+            st.info("Theme config saved. Please refresh/restart Streamlit to apply native theme.")
         st.divider()
         st.session_state.show_debug_panel = st.checkbox(
             "Show Debug Panel",
@@ -70,6 +108,9 @@ def render_sidebar() -> str:
 
 def main() -> None:
     init_state()
+    config_file = Path(__file__).resolve().parent / ".streamlit" / "config.toml"
+    if not config_file.exists():
+        write_streamlit_theme_config(st.session_state.theme_mode)
     current_page = render_sidebar()
 
     st.title("Smart Vision Frontend Validation")

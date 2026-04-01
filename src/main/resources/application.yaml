@@ -35,6 +35,8 @@ app:
     encrypt-iv: ${APP_ENCRYPT_IV}
   embedding:
     image-input-mode: auto
+  search:
+    quality-absolute-min-score: 0.72
   debug:
     strategy-header-enabled: false
 

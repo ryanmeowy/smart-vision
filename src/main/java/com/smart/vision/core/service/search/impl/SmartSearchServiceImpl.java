@@ -52,6 +52,8 @@ import static com.smart.vision.core.model.enums.PresignedValidityEnum.SHORT_TERM
 public class SmartSearchServiceImpl implements SmartSearchService {
     @Value("${app.embedding.image-input-mode:auto}")
     private String imageInputMode;
+    @Value("${app.search.quality-absolute-min-score:0.72}")
+    private double qualityAbsoluteMinScore;
 
     private final MultiModalEmbeddingService embeddingService;
     private final ImageRepository imageRepository;
@@ -90,7 +92,6 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         if (CollectionUtils.isEmpty(embedding)) {
             throw new RuntimeException("The image has not been vectorized yet");
         }
-        // Perform search (find the 10 most similar images)
         List<ImageSearchResultDTO> similarDocs = imageRepository.searchSimilar(embedding, SIMILARITY_TOP_K, docId);
         return imageDocConvertor.convert2SearchResultDTO(similarFilter(similarDocs, SIMILARITY_TOP_K));
     }
@@ -99,24 +100,33 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         if (results.isEmpty()) return results;
         List<ImageSearchResultDTO> filtered = new ArrayList<>();
         int hardLimit = Math.max(1, Math.min(maxResults, results.size()));
-        filtered.add(results.getFirst());
+        double prevKeptScore = -1d;
 
-        for (int i = 1; i < hardLimit; i++) {
-            double prevScore = decisionScore(results.get(i - 1));
-            double currScore = decisionScore(results.get(i));
+        for (int i = 0; i < hardLimit; i++) {
+            ImageSearchResultDTO current = results.get(i);
+            double currScore = decisionScore(current);
 
-            // Always keep a minimum number of results to avoid empty/too-short lists on long-tail queries.
-            if (i < QUALITY_MIN_RESULTS) {
-                filtered.add(results.get(i));
+            // Hard floor first: never keep low-quality tail just for minimum count.
+            if (currScore < qualityAbsoluteMinScore) {
+                break;
+            }
+
+            if (filtered.isEmpty()) {
+                filtered.add(current);
+                prevKeptScore = currScore;
                 continue;
             }
 
-            boolean isBigDrop = prevScore <= 0 || (currScore / prevScore) < QUALITY_RATIO_CUTOFF;
-
-            if (isBigDrop) {
-                break;
+            boolean needBypassRatioCutoff = filtered.size() < QUALITY_MIN_RESULTS;
+            if (!needBypassRatioCutoff) {
+                boolean isBigDrop = prevKeptScore <= 0 || (currScore / prevKeptScore) < QUALITY_RATIO_CUTOFF;
+                if (isBigDrop) {
+                    break;
+                }
             }
-            filtered.add(results.get(i));
+
+            filtered.add(current);
+            prevKeptScore = currScore;
         }
         return filtered;
     }
