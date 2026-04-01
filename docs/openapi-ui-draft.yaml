@@ -1,0 +1,382 @@
+openapi: 3.0.3
+info:
+  title: Smart Vision API (UI Draft)
+  version: 0.1.0
+  description: |
+    OpenAPI-style draft for frontend integration.
+    This file is manually maintained for UI generation and may be refined later.
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+tags:
+  - name: Vision
+    description: Search and retrieval
+  - name: Image
+    description: Image ingestion
+  - name: Auth
+    description: Token and STS endpoints
+  - name: Gen
+    description: AI generation stream (deprecated)
+
+paths:
+  /api/v1/vision/search:
+    post:
+      tags: [Vision]
+      summary: Text search
+      operationId: visionSearch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchQueryDTO'
+            examples:
+              default:
+                value:
+                  keyword: "猫咪在沙发上"
+                  topK: 30
+                  limit: 20
+                  searchType: "0"
+      responses:
+        '200':
+          description: Success
+          headers:
+            X-Strategy-Requested:
+              schema: { type: string }
+              description: Optional debug header (when app.debug.strategy-header-enabled=true)
+            X-Strategy-Effective:
+              schema: { type: string }
+              description: Optional debug header
+            X-Strategy-Fallback:
+              schema: { type: string }
+              description: Optional debug header
+            X-Strategy-Fallback-Reason:
+              schema: { type: string }
+              description: Optional debug header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResultEnvelope'
+
+  /api/v1/vision/similar:
+    get:
+      tags: [Vision]
+      summary: Similar search by image document id
+      operationId: visionSimilar
+      parameters:
+        - in: query
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResultEnvelope'
+
+  /api/v1/vision/hot-words:
+    get:
+      tags: [Vision]
+      summary: Get hot search words
+      operationId: visionHotWords
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StringListEnvelope'
+
+  /api/v1/vision/search-by-image:
+    post:
+      tags: [Vision]
+      summary: Search by uploaded image
+      operationId: visionSearchByImage
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Success
+          headers:
+            X-Strategy-Requested:
+              schema: { type: string }
+            X-Strategy-Effective:
+              schema: { type: string }
+            X-Strategy-Fallback:
+              schema: { type: string }
+            X-Strategy-Fallback-Reason:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResultEnvelope'
+
+  /api/v1/image/batch-process:
+    post:
+      tags: [Image]
+      summary: Batch process uploaded images
+      description: |
+        Integrated UI flow:
+        1) client gets encrypted STS from `/api/v1/auth/sts`
+        2) client uploads files to OSS directly
+        3) client submits OSS keys to this endpoint
+      operationId: imageBatchProcess
+      security:
+        - AccessTokenHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              minItems: 1
+              maxItems: 20
+              items:
+                $ref: '#/components/schemas/BatchProcessDTO'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchUploadResultEnvelope'
+        '401':
+          description: Access token invalid or expired
+
+  /api/v1/auth/refresh-token:
+    get:
+      tags: [Auth]
+      summary: Refresh upload token (admin)
+      operationId: authRefreshToken
+      security:
+        - AdminSecretHeader: []
+      parameters:
+        - in: query
+          name: code
+          required: false
+          schema: { type: string }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StringEnvelope'
+        '403':
+          description: Unauthorized access
+
+  /api/v1/auth/clean-token:
+    get:
+      tags: [Auth]
+      summary: Clean upload token (admin)
+      operationId: authCleanToken
+      security:
+        - AdminSecretHeader: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NullEnvelope'
+        '403':
+          description: Unauthorized access
+
+  /api/v1/auth/sts:
+    get:
+      tags: [Auth]
+      summary: Get encrypted STS token payload
+      description: |
+        Returns encrypted JSON string in `data`, not plaintext credentials.
+        Frontend should treat decrypt material as sensitive and never auto-load from `.env`.
+      operationId: authGetSts
+      security:
+        - AccessTokenHeader: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StringEnvelope'
+        '401':
+          description: Access token invalid or expired
+
+  /api/v1/gen/stream:
+    get:
+      tags: [Gen]
+      summary: Stream generated copy (deprecated)
+      deprecated: true
+      operationId: genStream
+      parameters:
+        - in: query
+          name: id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: style
+          required: false
+          schema:
+            type: string
+            default: xiaohongshu
+      responses:
+        '200':
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+components:
+  securitySchemes:
+    AdminSecretHeader:
+      type: apiKey
+      in: header
+      name: X-Admin-Secret
+    AccessTokenHeader:
+      type: apiKey
+      in: header
+      name: X-Access-Token
+
+  schemas:
+    SearchQueryDTO:
+      type: object
+      properties:
+        keyword:
+          type: string
+          maxLength: 50
+          description: Required by backend controller logic
+        topK:
+          type: integer
+        pageNo:
+          type: integer
+        similarity:
+          type: number
+          format: float
+          deprecated: true
+        enableOcr:
+          type: boolean
+        searchType:
+          type: string
+          description: "0:HYBRID, 1:VECTOR_ONLY, 2:TEXT_ONLY, 3:IMAGE_TO_IMAGE"
+          enum: ["0", "1", "2", "3"]
+        limit:
+          type: integer
+        searchAfter:
+          type: array
+          items: {}
+
+    SearchResultDTO:
+      type: object
+      properties:
+        id: { type: string }
+        url: { type: string }
+        score:
+          type: number
+          format: double
+        ocrText: { type: string }
+        highlight: { type: string }
+        filename: { type: string }
+        sortValues:
+          type: array
+          items: {}
+        tags:
+          type: array
+          items: { type: string }
+
+    BatchProcessDTO:
+      type: object
+      required: [key, fileName, fileHash]
+      properties:
+        key:
+          type: string
+          description: OSS object key
+        fileName:
+          type: string
+        fileHash:
+          type: string
+
+    BatchFailureItem:
+      type: object
+      properties:
+        filename: { type: string }
+        errorMessage: { type: string }
+        objectKey: { type: string }
+
+    BatchUploadResultDTO:
+      type: object
+      properties:
+        total: { type: integer }
+        successCount: { type: integer }
+        failureCount: { type: integer }
+        failures:
+          type: array
+          items:
+            $ref: '#/components/schemas/BatchFailureItem'
+
+    SearchResultEnvelope:
+      type: object
+      properties:
+        code: { type: integer, example: 200 }
+        message: { type: string, example: Success }
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchResultDTO'
+        timestamp: { type: integer, format: int64 }
+
+    BatchUploadResultEnvelope:
+      type: object
+      properties:
+        code: { type: integer, example: 200 }
+        message: { type: string, example: Success }
+        data:
+          $ref: '#/components/schemas/BatchUploadResultDTO'
+        timestamp: { type: integer, format: int64 }
+
+    StringEnvelope:
+      type: object
+      properties:
+        code: { type: integer, example: 200 }
+        message: { type: string, example: Success }
+        data: { type: string }
+        timestamp: { type: integer, format: int64 }
+
+    StringListEnvelope:
+      type: object
+      properties:
+        code: { type: integer, example: 200 }
+        message: { type: string, example: Success }
+        data:
+          type: array
+          items: { type: string }
+        timestamp: { type: integer, format: int64 }
+
+    NullEnvelope:
+      type: object
+      properties:
+        code: { type: integer, example: 200 }
+        message: { type: string, example: Success }
+        data: { nullable: true }
+        timestamp: { type: integer, format: int64 }
