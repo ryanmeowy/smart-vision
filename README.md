@@ -158,12 +158,6 @@ streamlit run app.py
 - `Text Search` / `Search By Image` / `Similar Search` / `Hot Words`
 - `Batch Process`（一体化链路：`/api/v1/auth/sts -> OSS 直传 -> /api/v1/image/batch-process`）
 
-安全约束（重要）：
-
-- Streamlit UI 不读取 `.env` 文件
-- 敏感字段（如 `X-Access-Token`、`APP_ENCRYPT_KEY`、`APP_ENCRYPT_IV`）仅支持手工输入
-- 不要在前端代码中硬编码任何 `apikey/password/secret/token`
-
 ---
 
 ## 配置说明
