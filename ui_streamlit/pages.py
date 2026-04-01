@@ -171,6 +171,39 @@ def render_hot_words_page(base_url: str) -> None:
         st.write(words)
 
 
+def render_auth_admin_page(base_url: str) -> None:
+    st.subheader("Auth Admin")
+    st.caption("Endpoints: GET /api/v1/auth/refresh-token, GET /api/v1/auth/clean-token")
+    st.warning("Admin operation: keep `X-Admin-Secret` private and do not expose in shared demos.")
+
+    admin_secret = st.text_input("X-Admin-Secret", type="password")
+    refresh_code = st.text_input("Refresh Code (optional)")
+
+    col1, col2 = st.columns(2)
+    if col1.button("Refresh Token", type="primary"):
+        if not admin_secret.strip():
+            st.warning("X-Admin-Secret is required.")
+        else:
+            params = {"code": refresh_code.strip()} if refresh_code.strip() else None
+            _request_admin_endpoint(
+                base_url=_normalize_base_url(base_url),
+                path="/api/v1/auth/refresh-token",
+                admin_secret=admin_secret.strip(),
+                params=params,
+            )
+
+    if col2.button("Clean Token", type="secondary"):
+        if not admin_secret.strip():
+            st.warning("X-Admin-Secret is required.")
+        else:
+            _request_admin_endpoint(
+                base_url=_normalize_base_url(base_url),
+                path="/api/v1/auth/clean-token",
+                admin_secret=admin_secret.strip(),
+                params=None,
+            )
+
+
 def render_image_batch_process_page(base_url: str) -> None:
     st.subheader("Batch Process")
     st.caption("Endpoint: POST /api/v1/image/batch-process")
@@ -253,6 +286,32 @@ def render_image_batch_process_page(base_url: str) -> None:
 
         st.markdown("### Batch Result")
         st.json(envelope)
+
+
+def _request_admin_endpoint(
+    *,
+    base_url: str,
+    path: str,
+    admin_secret: str,
+    params: dict[str, str] | None,
+) -> None:
+    try:
+        response = requests.get(
+            f"{base_url}{path}",
+            headers={"X-Admin-Secret": admin_secret},
+            params=params,
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+    except requests.exceptions.RequestException as exc:
+        st.error(f"Request failed: {exc}")
+        return
+
+    st.caption(f"HTTP {response.status_code}")
+    try:
+        payload = response.json()
+        st.json(payload)
+    except ValueError:
+        st.code(response.text[:1000], language="text")
 
 
 def _fetch_and_decrypt_sts(

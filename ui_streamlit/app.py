@@ -1,6 +1,7 @@
 import streamlit as st
 
 from pages import render_hot_words_page
+from pages import render_auth_admin_page
 from pages import render_image_batch_process_page
 from pages import render_image_search_page
 from pages import render_similar_search_page
@@ -61,6 +62,7 @@ def render_sidebar() -> str:
                 "Similar Search",
                 "Hot Words",
                 "Batch Process",
+                "Auth Admin",
             ],
         )
     return page
@@ -85,6 +87,9 @@ def main() -> None:
         return
     if current_page == "Batch Process":
         render_image_batch_process_page(st.session_state.base_url)
+        return
+    if current_page == "Auth Admin":
+        render_auth_admin_page(st.session_state.base_url)
         return
     render_hot_words_page(st.session_state.base_url)
 
