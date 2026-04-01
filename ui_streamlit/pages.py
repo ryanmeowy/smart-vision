@@ -12,11 +12,19 @@ import streamlit as st
 
 REQUEST_TIMEOUT_SECONDS = 20
 SUCCESS_CODE = 200
+RESULT_STATE_KEYS = {
+    "text": "result_state_text",
+    "image": "result_state_image",
+    "similar": "result_state_similar",
+}
+LAYOUT_OPTIONS = ["Large (2 per row)", "Compact (3 per row)"]
 
 
 def render_text_search_page(base_url: str) -> None:
     st.subheader("Text Search")
     st.caption("Endpoint: POST /api/v1/vision/search")
+
+    state = _get_result_state("text")
 
     with st.form("text_search_form"):
         col1, col2, col3 = st.columns([3, 1, 1])
@@ -51,14 +59,24 @@ def render_text_search_page(base_url: str) -> None:
                 json=payload,
             )
 
-        _render_response_meta(status_code, headers)
-        st.code(_pretty_json(payload), language="json")
-        _render_search_results(data)
+        state["results"] = data
+        state["headers"] = headers
+        state["status_code"] = status_code
+        state["payload_text"] = _pretty_json(payload)
+        state["has_searched"] = True
+
+    if state["has_searched"]:
+        _render_response_meta(state["status_code"], state["headers"])
+        if state["payload_text"]:
+            st.code(state["payload_text"], language="json")
+        _render_search_results(state["results"], layout_key="text")
 
 
 def render_image_search_page(base_url: str) -> None:
     st.subheader("Search By Image")
     st.caption("Endpoint: POST /api/v1/vision/search-by-image")
+
+    state = _get_result_state("image")
 
     with st.form("image_search_form"):
         uploaded = st.file_uploader(
@@ -82,17 +100,26 @@ def render_image_search_page(base_url: str) -> None:
                 files={"file": (uploaded.name, uploaded.getvalue(), uploaded.type or "application/octet-stream")},
             )
 
-        _render_response_meta(status_code, headers)
-        st.code(
-            f"POST {_normalize_base_url(base_url)}/api/v1/vision/search-by-image?limit={int(limit)}",
-            language="bash",
+        state["results"] = data
+        state["headers"] = headers
+        state["status_code"] = status_code
+        state["payload_text"] = (
+            f"POST {_normalize_base_url(base_url)}/api/v1/vision/search-by-image?limit={int(limit)}"
         )
-        _render_search_results(data)
+        state["has_searched"] = True
+
+    if state["has_searched"]:
+        _render_response_meta(state["status_code"], state["headers"])
+        if state["payload_text"]:
+            st.code(state["payload_text"], language="bash")
+        _render_search_results(state["results"], layout_key="image")
 
 
 def render_similar_search_page(base_url: str) -> None:
     st.subheader("Similar Search")
     st.caption("Endpoint: GET /api/v1/vision/similar")
+
+    state = _get_result_state("similar")
 
     with st.form("similar_search_form"):
         image_id = st.text_input("Image ID", placeholder="e.g. 1234567890")
@@ -110,12 +137,17 @@ def render_similar_search_page(base_url: str) -> None:
                 params={"id": image_id.strip()},
             )
 
-        _render_response_meta(status_code, headers)
-        st.code(
-            f"GET {_normalize_base_url(base_url)}/api/v1/vision/similar?id={image_id.strip()}",
-            language="bash",
-        )
-        _render_search_results(data)
+        state["results"] = data
+        state["headers"] = headers
+        state["status_code"] = status_code
+        state["payload_text"] = f"GET {_normalize_base_url(base_url)}/api/v1/vision/similar?id={image_id.strip()}"
+        state["has_searched"] = True
+
+    if state["has_searched"]:
+        _render_response_meta(state["status_code"], state["headers"])
+        if state["payload_text"]:
+            st.code(state["payload_text"], language="bash")
+        _render_search_results(state["results"], layout_key="similar")
 
 
 def render_hot_words_page(base_url: str) -> None:
@@ -469,48 +501,66 @@ def _render_response_meta(status_code: int, headers: dict[str, str]) -> None:
         st.json({k: v for k, v in headers.items() if v})
 
 
-def _render_search_results(results: list[Any]) -> None:
+def _render_search_results(results: list[Any], *, layout_key: str) -> None:
     st.markdown("### Results")
     if not results:
         st.info("No results found.")
         return
+
+    pref_key = f"result_layout_pref_{layout_key}"
+    if pref_key not in st.session_state:
+        st.session_state[pref_key] = LAYOUT_OPTIONS[0]
+
+    current_pref = st.session_state[pref_key]
+    if current_pref not in LAYOUT_OPTIONS:
+        current_pref = LAYOUT_OPTIONS[0]
+
+    layout_mode = st.radio(
+        "Result Layout",
+        options=LAYOUT_OPTIONS,
+        index=LAYOUT_OPTIONS.index(current_pref),
+        horizontal=True,
+        key=f"result_layout_mode_{layout_key}",
+    )
+    st.session_state[pref_key] = layout_mode
+
+    num_cols = 2 if layout_mode.startswith("Large") else 3
 
     normalized_results = [item for item in results if isinstance(item, dict)]
     if not normalized_results:
         st.error("Unexpected response shape: result items are not objects.")
         return
 
-    for row_start in range(0, len(normalized_results), 3):
-        row = normalized_results[row_start : row_start + 3]
-        cols = st.columns(3)
-        for idx, item in enumerate(row):
-            with cols[idx]:
-                with st.container(border=True):
-                    image_url = _safe_str(item.get("url"))
-                    if image_url:
-                        st.image(image_url, use_container_width=True)
-                    else:
-                        st.caption("No image URL")
+    cols = st.columns(num_cols)
+    # Masonry-like distribution: keep adding cards down each column to reduce row-gap blank space.
+    for idx, item in enumerate(normalized_results):
+        with cols[idx % num_cols]:
+            with st.container(border=True):
+                image_url = _safe_str(item.get("url"))
+                if image_url:
+                    _render_large_preview(image_url)
+                else:
+                    st.caption("No image URL")
 
-                    st.markdown(f"**{_safe_str(item.get('filename')) or 'Unnamed'}**")
-                    st.caption(f"id: {_safe_str(item.get('id')) or '-'}")
-                    score = item.get("score")
-                    if score is not None:
-                        st.text(f"score: {score}")
+                st.markdown(f"**{_safe_str(item.get('filename')) or 'Unnamed'}**")
+                st.caption(f"id: {_safe_str(item.get('id')) or '-'}")
+                score = item.get("score")
+                if score is not None:
+                    st.text(f"score: {score}")
 
-                    tags = item.get("tags")
-                    if isinstance(tags, list) and tags:
-                        st.text("tags: " + ", ".join(str(tag) for tag in tags[:8]))
+                tags = item.get("tags")
+                if isinstance(tags, list) and tags:
+                    st.text("tags: " + ", ".join(str(tag) for tag in tags[:8]))
 
-                    highlight = _safe_str(item.get("highlight"))
-                    if highlight:
-                        st.caption("highlight")
-                        st.write(highlight)
+                highlight = _safe_str(item.get("highlight"))
+                if highlight:
+                    st.caption("highlight")
+                    st.write(highlight)
 
-                    ocr_text = _safe_str(item.get("ocrText"))
-                    if ocr_text:
-                        st.caption("ocrText")
-                        st.write(ocr_text[:160] + ("..." if len(ocr_text) > 160 else ""))
+                ocr_text = _safe_str(item.get("ocrText"))
+                if ocr_text:
+                    st.caption("ocrText")
+                    st.write(ocr_text[:160] + ("..." if len(ocr_text) > 160 else ""))
 
 
 def _safe_str(value: Any) -> str:
@@ -523,3 +573,24 @@ def _normalize_base_url(base_url: str) -> str:
 
 def _pretty_json(payload: dict[str, Any]) -> str:
     return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+def _get_result_state(page: str) -> dict[str, Any]:
+    key = RESULT_STATE_KEYS[page]
+    if key not in st.session_state:
+        st.session_state[key] = {
+            "has_searched": False,
+            "results": [],
+            "headers": {},
+            "status_code": 200,
+            "payload_text": "",
+        }
+    return st.session_state[key]
+
+
+def _render_large_preview(image_url: str) -> None:
+    # Avoid Streamlit thumbnail-like rendering by using explicit HTML img.
+    st.markdown(
+        f'<img src="{image_url}" style="width:100%;height:auto;display:block;border-radius:10px;" />',
+        unsafe_allow_html=True,
+    )

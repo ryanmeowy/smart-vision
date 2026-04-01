@@ -1,3 +1,4 @@
 /.env
 /.idea
 /target
+/ui_streamlit/.venv
