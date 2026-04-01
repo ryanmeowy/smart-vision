@@ -26,7 +26,7 @@ public interface SmartSearchService {
      * @see SearchQueryDTO#getKeyword() search keyword or text query
      * @see SearchQueryDTO#getTopK() maximum number of results to return
      * @see SearchQueryDTO#getSimilarity() deprecated, retrieval now follows topK-first strategy
-     * @see SearchQueryDTO#isEnableOcr() whether to enable OCR-based text search
+     * @see SearchQueryDTO#getEnableOcr() whether to enable OCR-based text search
      */
     List<SearchResultDTO> search(SearchQueryDTO query);
 

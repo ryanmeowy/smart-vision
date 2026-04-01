@@ -30,15 +30,16 @@ def render_text_search_page(base_url: str) -> None:
     state = _get_result_state("text")
 
     with st.form("text_search_form"):
-        col1, col2, col3 = st.columns([3, 1, 1])
-        keyword = col1.text_input("Keyword", placeholder="e.g. 猫咪在沙发上")
-        search_type = col2.selectbox(
+        row1_col1, row1_col2 = st.columns([5, 2])
+        keyword = row1_col1.text_input("Keyword", placeholder="e.g. 猫咪在沙发上")
+        strategy = row1_col2.selectbox(
             "Strategy",
             options=["0", "1", "2", "3"],
             help="0: hybrid, 1: vector, 2: text, 3: image-to-image",
         )
-        limit = col3.number_input("Limit", min_value=1, max_value=100, value=20)
-        top_k = st.number_input("TopK", min_value=1, max_value=200, value=30)
+        row2_col1, row2_col2 = st.columns([2, 2])
+        top_k = row2_col1.number_input("TopK", min_value=1, max_value=200, value=30)
+        limit = row2_col2.number_input("Limit", min_value=1, max_value=100, value=20)
         enable_ocr = st.checkbox("Enable OCR", value=True)
         submitted = st.form_submit_button("Run Search", type="primary")
 
@@ -49,7 +50,7 @@ def render_text_search_page(base_url: str) -> None:
 
         payload = {
             "keyword": keyword.strip(),
-            "searchType": str(search_type),
+            "searchType": str(strategy),
             "limit": int(limit),
             "topK": int(top_k),
             "enableOcr": bool(enable_ocr),
