@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import os
 import uuid
 from typing import Any
 
@@ -154,18 +155,17 @@ def render_image_batch_process_page(base_url: str) -> None:
         accept_multiple_files=True,
     )
 
-    bucket_name = st.text_input("OSS Bucket", value="", placeholder="Input manually")
-    oss_endpoint = st.text_input("OSS Endpoint", value="", placeholder="Input manually")
+    env_cfg = _load_env_config()
+    bucket_name = st.text_input("OSS Bucket", value=env_cfg.get("ALIYUN_OSS_BUCKET_NAME", ""))
+    oss_endpoint = st.text_input("OSS Endpoint", value=env_cfg.get("OSS_ENDPOINT", ""))
     encrypt_key = st.text_input(
         "APP_ENCRYPT_KEY (base64)",
-        value="",
-        placeholder="Input manually",
+        value=env_cfg.get("APP_ENCRYPT_KEY", ""),
         type="password",
     )
     encrypt_iv = st.text_input(
         "APP_ENCRYPT_IV (base64)",
-        value="",
-        placeholder="Input manually",
+        value=env_cfg.get("APP_ENCRYPT_IV", ""),
         type="password",
     )
 
@@ -284,6 +284,30 @@ def _fetch_and_decrypt_sts(
         "accessKeySecret": parsed["accessKeySecret"],
         "securityToken": parsed["securityToken"],
     }
+
+
+def _load_env_config() -> dict[str, str]:
+    cfg: dict[str, str] = {}
+    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
+
+    if os.path.exists(env_path):
+        try:
+            with open(env_path, "r", encoding="utf-8") as f:
+                for raw in f:
+                    line = raw.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    key, value = line.split("=", 1)
+                    cfg[key.strip()] = value.strip()
+        except OSError:
+            pass
+
+    for key in ["ALIYUN_OSS_BUCKET_NAME", "OSS_ENDPOINT", "APP_ENCRYPT_KEY", "APP_ENCRYPT_IV"]:
+        value = os.getenv(key)
+        if value:
+            cfg[key] = value
+
+    return cfg
 
 
 def _aes_cbc_pkcs5_decrypt_base64(*, ciphertext_b64: str, key_b64: str, iv_b64: str) -> str | None:

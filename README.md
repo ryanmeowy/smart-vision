@@ -139,6 +139,25 @@ python server.py
 mvn spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
+### 4. 启动 Streamlit UI（可选）
+
+```bash
+cd ui_streamlit
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+默认地址：
+
+- `http://localhost:8501`
+
+页面能力：
+
+- `Text Search` / `Search By Image` / `Similar Search` / `Hot Words`
+- `Batch Process`（一体化链路：`/api/v1/auth/sts -> OSS 直传 -> /api/v1/image/batch-process`）
+
 ---
 
 ## 配置说明
