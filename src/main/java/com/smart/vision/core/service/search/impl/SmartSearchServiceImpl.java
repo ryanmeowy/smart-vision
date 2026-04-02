@@ -6,6 +6,7 @@ import com.smart.vision.core.convertor.ImageDocConvertor;
 import com.smart.vision.core.manager.HotSearchManager;
 import com.smart.vision.core.manager.OssManager;
 import com.smart.vision.core.model.dto.ImageSearchResultDTO;
+import com.smart.vision.core.model.dto.GraphTripleDTO;
 import com.smart.vision.core.model.dto.SearchQueryDTO;
 import com.smart.vision.core.model.dto.SearchResultDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
@@ -78,7 +79,10 @@ public class SmartSearchServiceImpl implements SmartSearchService {
                 : docs.stream().limit(maxResults).collect(Collectors.toList());
         log.info("Search completed, number of results before filter: {}, after filter: {}", docs.size(), filteredDocs.size());
         boolean enableOcr = query.getEnableOcr() == null || query.getEnableOcr();
-        return imageDocConvertor.convert2SearchResultDTO(manualRerank(filteredDocs, query.getKeyword(), enableOcr));
+        List<ImageSearchResultDTO> reranked = manualRerank(filteredDocs, query.getKeyword(), enableOcr);
+        List<SearchResultDTO> dtoList = imageDocConvertor.convert2SearchResultDTO(reranked);
+        applyVectorHitStatusForSearch(dtoList, reranked, query.getKeyword(), enableOcr, effectiveStrategy);
+        return dtoList;
     }
 
     public List<SearchResultDTO> searchByVector(String docId) {
@@ -93,7 +97,9 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         List<ImageSearchResultDTO> similarDocs = imageRepository.searchSimilar(embedding, SIMILARITY_TOP_K, docId);
         List<ImageSearchResultDTO> filtered = similarFilter(similarDocs, SIMILARITY_TOP_K);
         applySimilarDisplayScore(filtered);
-        return imageDocConvertor.convert2SearchResultDTO(filtered);
+        List<SearchResultDTO> dtoList = imageDocConvertor.convert2SearchResultDTO(filtered);
+        applyFixedVectorStatus(dtoList, "VECTOR_ONLY_LIKE");
+        return dtoList;
     }
 
     public List<ImageSearchResultDTO> similarFilter(List<ImageSearchResultDTO> results, int maxResults) {
@@ -171,7 +177,9 @@ public class SmartSearchServiceImpl implements SmartSearchService {
             int maxResults = limit > 0 ? limit : imageSearchResultDTOS.size();
             List<ImageSearchResultDTO> filtered = similarFilter(imageSearchResultDTOS, maxResults);
             applySimilarDisplayScore(filtered);
-            return imageDocConvertor.convert2SearchResultDTO(filtered);
+            List<SearchResultDTO> dtoList = imageDocConvertor.convert2SearchResultDTO(filtered);
+            applyFixedVectorStatus(dtoList, "VECTOR_ONLY_LIKE");
+            return dtoList;
         } catch (Exception e) {
             log.error("Failed to search by image", e);
             return Lists.newArrayList();
@@ -276,5 +284,81 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         for (ImageSearchResultDTO result : results) {
             result.setScore(mapScoreForSimilar(result.getRawScore()));
         }
+    }
+
+    private void applyVectorHitStatusForSearch(List<SearchResultDTO> dtoList,
+                                               List<ImageSearchResultDTO> sourceDocs,
+                                               String keyword,
+                                               boolean enableOcr,
+                                               StrategyTypeEnum strategyType) {
+        if (CollectionUtils.isEmpty(dtoList) || CollectionUtils.isEmpty(sourceDocs)) {
+            return;
+        }
+        String normalizedKeyword = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
+        int bound = Math.min(dtoList.size(), sourceDocs.size());
+
+        for (int i = 0; i < bound; i++) {
+            SearchResultDTO dto = dtoList.get(i);
+            ImageSearchResultDTO source = sourceDocs.get(i);
+            ImageDocument doc = source == null ? null : source.getDocument();
+            dto.setVectorHitStatus(computeVectorHitStatus(doc, normalizedKeyword, enableOcr, strategyType));
+        }
+    }
+
+    private void applyFixedVectorStatus(List<SearchResultDTO> dtoList, String status) {
+        if (CollectionUtils.isEmpty(dtoList)) {
+            return;
+        }
+        for (SearchResultDTO dto : dtoList) {
+            dto.setVectorHitStatus(status);
+        }
+    }
+
+    private String computeVectorHitStatus(ImageDocument doc,
+                                          String normalizedKeyword,
+                                          boolean enableOcr,
+                                          StrategyTypeEnum strategyType) {
+        if (strategyType == StrategyTypeEnum.TEXT_ONLY) {
+            return "TEXT_ONLY";
+        }
+        if (strategyType == StrategyTypeEnum.VECTOR_ONLY || strategyType == StrategyTypeEnum.IMAGE_TO_IMAGE) {
+            return "VECTOR_ONLY_LIKE";
+        }
+        if (strategyType == StrategyTypeEnum.HYBRID) {
+            boolean textHit = hasTextHit(doc, normalizedKeyword, enableOcr);
+            return textHit ? "VECTOR_AND_TEXT" : "VECTOR_ONLY_LIKE";
+        }
+        return "TEXT_ONLY";
+    }
+
+    private boolean hasTextHit(ImageDocument doc, String normalizedKeyword, boolean enableOcr) {
+        if (doc == null || !StringUtils.hasText(normalizedKeyword)) {
+            return false;
+        }
+        if (enableOcr && containsIgnoreCase(doc.getOcrContent(), normalizedKeyword)) {
+            return true;
+        }
+        if (!CollectionUtils.isEmpty(doc.getTags())) {
+            boolean tagHit = doc.getTags().stream().anyMatch(tag -> containsIgnoreCase(tag, normalizedKeyword));
+            if (tagHit) {
+                return true;
+            }
+        }
+        if (containsIgnoreCase(doc.getFileName(), normalizedKeyword)) {
+            return true;
+        }
+        if (!CollectionUtils.isEmpty(doc.getRelations())) {
+            for (GraphTripleDTO triple : doc.getRelations()) {
+                if (triple == null) {
+                    continue;
+                }
+                if (containsIgnoreCase(triple.getS(), normalizedKeyword)
+                        || containsIgnoreCase(triple.getP(), normalizedKeyword)
+                        || containsIgnoreCase(triple.getO(), normalizedKeyword)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }

@@ -487,6 +487,9 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/GraphTripleDTO'
+        vectorHitStatus:
+          type: string
+          enum: [VECTOR_ONLY_LIKE, VECTOR_AND_TEXT, TEXT_ONLY]
 
     BatchProcessDTO:
       type: object

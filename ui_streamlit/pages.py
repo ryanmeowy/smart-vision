@@ -5,6 +5,7 @@ import html
 import hashlib
 import json
 import os
+import re
 import time
 import uuid
 from typing import Any
@@ -86,6 +87,7 @@ def render_text_search_page(base_url: str) -> None:
             state["headers"] = headers
             state["status_code"] = status_code
             state["payload_text"] = _pretty_json(draft_payload)
+            state["keyword"] = draft_payload.get("keyword", "")
             state["has_searched"] = True
         finally:
             _complete_action("text_search")
@@ -95,7 +97,7 @@ def render_text_search_page(base_url: str) -> None:
         _render_response_meta(state["status_code"], state["headers"])
         if state["payload_text"]:
             st.code(state["payload_text"], language="json")
-        _render_search_results(state["results"], layout_key="text")
+        _render_search_results(state["results"], layout_key="text", highlight_term=_safe_str(state.get("keyword")))
 
 
 def render_image_search_page(base_url: str) -> None:
@@ -1433,7 +1435,7 @@ def _render_response_meta(status_code: int, headers: dict[str, str]) -> None:
         st.json({k: v for k, v in headers.items() if v})
 
 
-def _render_search_results(results: list[Any], *, layout_key: str) -> None:
+def _render_search_results(results: list[Any], *, layout_key: str, highlight_term: str = "") -> None:
     st.markdown("### Results")
     if not results:
         st.info("No results found.")
@@ -1480,17 +1482,26 @@ def _render_search_results(results: list[Any], *, layout_key: str) -> None:
                 _format_relations_preview(item.get("relations"), max_items=SPO_PREVIEW_MAX_ITEMS),
                 SPO_PREVIEW_MAX_CHARS,
             )
+            vector_status = _safe_str(item.get("vectorHitStatus")) or "-"
+            tags_html = _highlight_text_html(tags_text, highlight_term)
+            ocr_html = _highlight_text_html(ocr_text, highlight_term) if ocr_text else ""
+            spo_html = _highlight_text_html(relations_text, highlight_term) if relations_text else ""
 
-            card_html = ["<div class='result-card'>", _render_large_preview(image_url, filename), "<div class='result-meta'>"]
+            card_html = [
+                "<div class='result-card'>",
+                _render_large_preview(image_url, filename, highlight_term=highlight_term),
+                "<div class='result-meta'>",
+            ]
             card_html.append(_meta_row("id", doc_id))
             card_html.append(_meta_row("score", score))
-            card_html.append(_meta_row("tags", tags_text))
+            card_html.append(_meta_row_html("tags", tags_html))
             if relations_text:
-                card_html.append(_meta_row_single_line("spo", relations_text))
+                card_html.append(_meta_row_single_line_html("spo", spo_html, relations_text))
+            card_html.append(_meta_row("vector", vector_status))
             if highlight:
                 card_html.append(_meta_row("highlight", highlight))
             if ocr_text:
-                card_html.append(_meta_row("ocrText", ocr_text))
+                card_html.append(_meta_row_html("ocrText", ocr_html))
             card_html.append("</div></div>")
             st.markdown("".join(card_html), unsafe_allow_html=True)
 
@@ -1502,6 +1513,15 @@ def _format_relations_preview(relations: Any, *, max_items: int) -> str:
 
     triples = [_format_relation_line(row, delimiter="-") for row in rows[:max_items]]
     return "; ".join(triples)
+
+
+def _highlight_text_html(text: str, keyword: str) -> str:
+    safe_text = html.escape(_safe_str(text))
+    key = _safe_str(keyword)
+    if not safe_text or not key:
+        return safe_text
+    pattern = re.compile(re.escape(key), re.IGNORECASE)
+    return pattern.sub(lambda m: f"<mark class='hit-mark'>{m.group(0)}</mark>", safe_text)
 
 
 def _normalize_relations(relations: Any) -> list[dict[str, str]]:
@@ -1621,8 +1641,8 @@ def _get_result_state(page: str) -> dict[str, Any]:
     return st.session_state[key]
 
 
-def _render_large_preview(image_url: str, filename: str) -> str:
-    safe_filename = html.escape(filename)
+def _render_large_preview(image_url: str, filename: str, highlight_term: str = "") -> str:
+    safe_filename = _highlight_text_html(filename, highlight_term) if _safe_str(highlight_term) else html.escape(filename)
     if image_url:
         safe_image_url = html.escape(image_url, quote=True)
         return (
@@ -1720,6 +1740,12 @@ def _inject_result_text_styles() -> None:
           overflow: hidden;
           text-overflow: ellipsis;
         }
+        .hit-mark {
+          background: rgba(255, 216, 107, 0.92);
+          color: #2b1f00;
+          border-radius: 3px;
+          padding: 0 4px;
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -1741,6 +1767,24 @@ def _meta_row_single_line(key: str, value: str) -> str:
         "<div class='result-row'>"
         f"<span class='result-key'>{html.escape(key)}:</span>"
         f"<span class='result-val-one-line' title='{safe_value}'>{safe_value}</span>"
+        "</div>"
+    )
+
+
+def _meta_row_html(key: str, value_html: str) -> str:
+    return (
+        "<div class='result-row'>"
+        f"<span class='result-key'>{html.escape(key)}:</span>"
+        f"<span class='result-val'>{value_html}</span>"
+        "</div>"
+    )
+
+
+def _meta_row_single_line_html(key: str, value_html: str, raw_value: str) -> str:
+    return (
+        "<div class='result-row'>"
+        f"<span class='result-key'>{html.escape(key)}:</span>"
+        f"<span class='result-val-one-line' title='{html.escape(raw_value)}'>{value_html}</span>"
         "</div>"
     )
 
