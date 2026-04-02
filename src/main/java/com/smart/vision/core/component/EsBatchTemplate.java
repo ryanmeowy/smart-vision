@@ -30,7 +30,6 @@ import java.util.Set;
 public class EsBatchTemplate {
     private final ElasticsearchClient esClient;
     private final VectorConfig vectorConfig;
-    // Core converter of Spring Data ES, read @Document and @Id
     private final ElasticsearchConverter elasticsearchConverter;
 
     /**

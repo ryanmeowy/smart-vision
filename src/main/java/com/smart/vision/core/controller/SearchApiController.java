@@ -8,7 +8,9 @@ import com.smart.vision.core.model.Result;
 import com.smart.vision.core.model.dto.GraphTripleDTO;
 import com.smart.vision.core.model.dto.SearchQueryDTO;
 import com.smart.vision.core.model.dto.SearchResultDTO;
+import com.smart.vision.core.model.dto.VectorCompareResultDTO;
 import com.smart.vision.core.service.search.SmartSearchService;
+import com.smart.vision.core.service.search.VectorCompareService;
 import com.smart.vision.core.strategy.StrategySelectionContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -60,6 +62,7 @@ public class SearchApiController {
     private final ImageOcrService imageOcrService;
     private final OssManager ossManager;
     private final Executor imageGenTaskExecutor;
+    private final VectorCompareService vectorCompareService;
 
     @PostMapping("/search")
     public Result<List<SearchResultDTO>> search(@RequestBody SearchQueryDTO query, HttpServletResponse response) {
@@ -115,6 +118,31 @@ public class SearchApiController {
         SseEmitter emitter = new SseEmitter(120_000L);
         imageGenTaskExecutor.execute(() -> runAnalyzeTask(emitter, file, mode, enableOcr, enableGraph));
         return emitter;
+    }
+
+    @PostMapping(value = "/vector-compare", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Result<VectorCompareResultDTO> vectorCompare(@RequestParam("leftType") String leftType,
+                                                        @RequestParam(value = "leftText", required = false) String leftText,
+                                                        @RequestParam(value = "leftFile", required = false) MultipartFile leftFile,
+                                                        @RequestParam("rightType") String rightType,
+                                                        @RequestParam(value = "rightText", required = false) String rightText,
+                                                        @RequestParam(value = "rightFile", required = false) MultipartFile rightFile) {
+        try {
+            VectorCompareResultDTO result = vectorCompareService.compare(
+                    leftType,
+                    leftText,
+                    leftFile,
+                    rightType,
+                    rightText,
+                    rightFile
+            );
+            return Result.success(result);
+        } catch (IllegalArgumentException e) {
+            return Result.error(400, e.getMessage());
+        } catch (Exception e) {
+            log.error("Vector compare failed: {}", e.getMessage(), e);
+            return Result.error("Vector compare failed, please try again later.");
+        }
     }
 
     private void runAnalyzeTask(SseEmitter emitter,

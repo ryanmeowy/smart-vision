@@ -14,6 +14,7 @@ import streamlit as st
 
 REQUEST_TIMEOUT_SECONDS = 20
 SUCCESS_CODE = 200
+MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024
 RESULT_STATE_KEYS = {
     "text": "result_state_text",
     "image": "result_state_image",
@@ -42,7 +43,18 @@ def render_text_search_page(base_url: str) -> None:
         top_k = row2_col1.number_input("TopK", min_value=1, max_value=200, value=30)
         limit = row2_col2.number_input("Limit", min_value=1, max_value=100, value=20)
         enable_ocr = st.checkbox("Enable OCR", value=True)
-        submitted = st.form_submit_button("Run Search", type="primary")
+        draft_payload = {
+            "keyword": keyword.strip(),
+            "searchType": str(strategy),
+            "limit": int(limit),
+            "topK": int(top_k),
+            "enableOcr": bool(enable_ocr),
+        }
+        submitted = st.form_submit_button(
+            "Run Search",
+            type="primary",
+            disabled=_is_action_busy("text_search", draft_payload),
+        )
 
     if submitted:
         if not keyword.strip():
@@ -56,19 +68,26 @@ def render_text_search_page(base_url: str) -> None:
             "topK": int(top_k),
             "enableOcr": bool(enable_ocr),
         }
+        _queue_action("text_search", payload)
+        st.rerun()
 
-        with st.spinner("Searching..."):
-            data, headers, status_code = _request_json(
-                method="POST",
-                url=f"{_normalize_base_url(base_url)}/api/v1/vision/search",
-                json=payload,
-            )
+    if _consume_queued_action("text_search", draft_payload):
+        try:
+            with st.spinner("Searching..."):
+                data, headers, status_code = _request_json(
+                    method="POST",
+                    url=f"{_normalize_base_url(base_url)}/api/v1/vision/search",
+                    json=draft_payload,
+                )
 
-        state["results"] = data
-        state["headers"] = headers
-        state["status_code"] = status_code
-        state["payload_text"] = _pretty_json(payload)
-        state["has_searched"] = True
+            state["results"] = data
+            state["headers"] = headers
+            state["status_code"] = status_code
+            state["payload_text"] = _pretty_json(draft_payload)
+            state["has_searched"] = True
+        finally:
+            _complete_action("text_search")
+        st.rerun()
 
     if state["has_searched"]:
         _render_response_meta(state["status_code"], state["headers"])
@@ -80,6 +99,7 @@ def render_text_search_page(base_url: str) -> None:
 def render_image_search_page(base_url: str) -> None:
     st.subheader("Search By Image")
     st.caption("Endpoint: POST /api/v1/vision/search-by-image")
+    st.caption("Image limit: up to 10MB per file. Backend will apply compression for embedding when needed.")
 
     state = _get_result_state("image")
 
@@ -90,28 +110,45 @@ def render_image_search_page(base_url: str) -> None:
             accept_multiple_files=False,
         )
         limit = st.number_input("Limit", min_value=1, max_value=100, value=20)
-        submitted = st.form_submit_button("Run Image Search", type="primary")
+        draft_payload = {
+            "limit": int(limit),
+            "file": _uploaded_file_fingerprint(uploaded),
+        }
+        submitted = st.form_submit_button(
+            "Run Image Search",
+            type="primary",
+            disabled=_is_action_busy("image_search", draft_payload),
+        )
 
     if submitted:
         if uploaded is None:
             st.warning("Please upload an image file first.")
             return
+        if not _validate_uploaded_image_size(uploaded, "Uploaded image"):
+            return
+        _queue_action("image_search", draft_payload)
+        st.rerun()
 
-        with st.spinner("Searching by image..."):
-            data, headers, status_code = _request_json(
-                method="POST",
-                url=f"{_normalize_base_url(base_url)}/api/v1/vision/search-by-image",
-                params={"limit": int(limit)},
-                files={"file": (uploaded.name, uploaded.getvalue(), uploaded.type or "application/octet-stream")},
+    if _consume_queued_action("image_search", draft_payload):
+        try:
+            with st.spinner("Searching by image..."):
+                data, headers, status_code = _request_json(
+                    method="POST",
+                    url=f"{_normalize_base_url(base_url)}/api/v1/vision/search-by-image",
+                    params={"limit": int(limit)},
+                    files={"file": (uploaded.name, uploaded.getvalue(), uploaded.type or "application/octet-stream")},
+                )
+
+            state["results"] = data
+            state["headers"] = headers
+            state["status_code"] = status_code
+            state["payload_text"] = (
+                f"POST {_normalize_base_url(base_url)}/api/v1/vision/search-by-image?limit={int(limit)}"
             )
-
-        state["results"] = data
-        state["headers"] = headers
-        state["status_code"] = status_code
-        state["payload_text"] = (
-            f"POST {_normalize_base_url(base_url)}/api/v1/vision/search-by-image?limit={int(limit)}"
-        )
-        state["has_searched"] = True
+            state["has_searched"] = True
+        finally:
+            _complete_action("image_search")
+        st.rerun()
 
     if state["has_searched"]:
         _render_response_meta(state["status_code"], state["headers"])
@@ -124,6 +161,23 @@ def render_image_analyze_page(base_url: str) -> None:
     st.subheader("Image Analyze")
     st.caption("Endpoint: POST /api/v1/vision/analyze/stream")
     st.info("Upload one image and stream full analysis: summary, tags, OCR, graph, and search suggestions.")
+    st.caption("Image limit: up to 10MB per file. Backend will apply compression for embedding when needed.")
+
+    analyze_state_key = "image_analyze_state"
+    if analyze_state_key not in st.session_state or not isinstance(st.session_state[analyze_state_key], dict):
+        st.session_state[analyze_state_key] = {
+            "has_result": False,
+            "image_name": "",
+            "image_bytes": None,
+            "meta": {},
+            "summary": "",
+            "tags": [],
+            "ocr": "",
+            "graph": [],
+            "suggestions": [],
+            "status": "",
+        }
+    analyze_state = st.session_state[analyze_state_key]
 
     with st.form("image_analyze_form"):
         uploaded = st.file_uploader(
@@ -135,119 +189,409 @@ def render_image_analyze_page(base_url: str) -> None:
         col1, col2 = st.columns(2)
         enable_ocr = col1.checkbox("Enable OCR", value=True)
         enable_graph = col2.checkbox("Enable Graph (SPO)", value=True)
-        submitted = st.form_submit_button("Run Analyze", type="primary")
+        analyze_payload = {
+            "file": _uploaded_file_fingerprint(uploaded),
+            "enableOcr": bool(enable_ocr),
+            "enableGraph": bool(enable_graph),
+        }
+        submitted = st.form_submit_button(
+            "Run Analyze",
+            type="primary",
+            disabled=_is_action_busy("image_analyze", analyze_payload),
+        )
+
+    if submitted:
+        if uploaded is None:
+            st.warning("Please upload an image file first.")
+            return
+        if not _validate_uploaded_image_size(uploaded, "Uploaded image"):
+            return
+        _queue_action("image_analyze", analyze_payload)
+        st.rerun()
+
+    if _consume_queued_action("image_analyze", analyze_payload):
+        if uploaded is None:
+            _complete_action("image_analyze")
+            st.rerun()
+            return
+        try:
+            st.markdown("### Uploaded Image")
+            st.image(uploaded.getvalue(), caption=uploaded.name, width=480)
+
+            st.markdown("### Streaming Analysis")
+            st.markdown("**Meta**")
+            meta_box = st.empty()
+            st.markdown("**Summary**")
+            summary_box = st.empty()
+            st.markdown("**Tags**")
+            tags_box = st.empty()
+            st.markdown("**OCR Text**")
+            ocr_box = st.empty()
+            st.markdown("**Graph Triples**")
+            graph_box = st.empty()
+            st.markdown("**Search Suggestions**")
+            suggestion_box = st.empty()
+            status_box = st.empty()
+
+            summary_text = ""
+            ocr_text = ""
+            tags: list[str] = []
+            graph_items: list[dict[str, Any]] = []
+            suggestions: list[str] = []
+            meta_payload: dict[str, Any] = {}
+            final_status = ""
+
+            try:
+                response = requests.post(
+                    f"{_normalize_base_url(base_url)}/api/v1/vision/analyze/stream",
+                    files={"file": (uploaded.name, uploaded.getvalue(), uploaded.type or "application/octet-stream")},
+                    data={
+                        "mode": "general",
+                        "enableOcr": str(bool(enable_ocr)).lower(),
+                        "enableGraph": str(bool(enable_graph)).lower(),
+                    },
+                    stream=True,
+                    timeout=(5, 180),
+                )
+            except requests.exceptions.RequestException as exc:
+                st.error(f"Failed to call /vision/analyze/stream: {exc}")
+                return
+
+            if response.status_code >= 400:
+                st.error(f"HTTP {response.status_code}: {response.text[:600]}")
+                return
+
+            response.encoding = "utf-8"
+
+            for event_name, payload in _iter_sse_events(response):
+                if event_name == "meta":
+                    if isinstance(payload, dict):
+                        meta_payload = payload
+                    meta_box.json(payload)
+                    continue
+                if event_name == "summary":
+                    delta = _safe_str(payload.get("delta")) if isinstance(payload, dict) else ""
+                    summary_text = _render_typewriter_delta(summary_box, summary_text, delta)
+                    continue
+                if event_name == "summary_end":
+                    final_text = _safe_str(payload.get("text")) if isinstance(payload, dict) else ""
+                    if final_text:
+                        summary_text = final_text
+                    summary_box.write(summary_text if summary_text else "-")
+                    continue
+                if event_name == "tags":
+                    items = payload.get("items") if isinstance(payload, dict) else None
+                    if isinstance(items, list):
+                        tags = [str(x).strip() for x in items if str(x).strip()]
+                    tags_box.write(tags if tags else [])
+                    continue
+                if event_name == "ocr":
+                    delta = _safe_str(payload.get("delta")) if isinstance(payload, dict) else ""
+                    ocr_text += delta
+                    ocr_box.code(ocr_text if ocr_text else "-", language="text")
+                    continue
+                if event_name == "ocr_end":
+                    final_ocr = _safe_str(payload.get("text")) if isinstance(payload, dict) else ""
+                    if final_ocr:
+                        ocr_text = final_ocr
+                    ocr_box.code(ocr_text if ocr_text else "-", language="text")
+                    continue
+                if event_name == "graph":
+                    items = payload.get("items") if isinstance(payload, dict) else None
+                    if isinstance(items, list):
+                        graph_items = [x for x in items if isinstance(x, dict)]
+                    if graph_items:
+                        graph_box.dataframe(graph_items, use_container_width=True)
+                    else:
+                        graph_box.info("No graph triples.")
+                    continue
+                if event_name == "suggestions":
+                    items = payload.get("items") if isinstance(payload, dict) else None
+                    if isinstance(items, list):
+                        suggestions = [str(x).strip() for x in items if str(x).strip()]
+                    suggestion_box.write(suggestions if suggestions else [])
+                    continue
+                if event_name == "error":
+                    message = _safe_str(payload.get("message")) if isinstance(payload, dict) else "Analyze failed."
+                    final_status = message or "Analyze failed."
+                    status_box.error(final_status)
+                    continue
+                if event_name == "done":
+                    ok = bool(payload.get("ok")) if isinstance(payload, dict) else False
+                    final_status = "Analyze completed." if ok else "Analyze finished with errors."
+                    if ok:
+                        status_box.success(final_status)
+                    else:
+                        status_box.warning(final_status)
+
+            analyze_state["has_result"] = True
+            analyze_state["image_name"] = uploaded.name
+            analyze_state["image_bytes"] = uploaded.getvalue()
+            analyze_state["meta"] = meta_payload
+            analyze_state["summary"] = summary_text
+            analyze_state["tags"] = tags
+            analyze_state["ocr"] = ocr_text
+            analyze_state["graph"] = graph_items
+            analyze_state["suggestions"] = suggestions
+            analyze_state["status"] = final_status
+        finally:
+            _complete_action("image_analyze")
+            st.rerun()
+        return
+
+    if analyze_state.get("has_result"):
+        st.markdown("### Uploaded Image")
+        image_bytes = analyze_state.get("image_bytes")
+        if image_bytes:
+            st.image(image_bytes, caption=str(analyze_state.get("image_name", "")), width=480)
+
+        st.markdown("### Analysis Result")
+        st.markdown("**Meta**")
+        st.json(analyze_state.get("meta", {}))
+        st.markdown("**Summary**")
+        st.write(str(analyze_state.get("summary", "")) or "-")
+        st.markdown("**Tags**")
+        st.write(analyze_state.get("tags", []))
+        st.markdown("**OCR Text**")
+        st.code(str(analyze_state.get("ocr", "")) or "-", language="text")
+        st.markdown("**Graph Triples**")
+        graph_items = analyze_state.get("graph", [])
+        if isinstance(graph_items, list) and graph_items:
+            st.dataframe(graph_items, use_container_width=True)
+        else:
+            st.info("No graph triples.")
+        st.markdown("**Search Suggestions**")
+        st.write(analyze_state.get("suggestions", []))
+        status_text = str(analyze_state.get("status", ""))
+        if status_text:
+            st.success(status_text)
+
+
+def render_vector_compare_page(base_url: str) -> None:
+    st.subheader("Vector Compare")
+    st.caption("Endpoint: POST /api/v1/vision/vector-compare")
+    st.info("Compare semantic vectors for text-text, image-image, or image-text pairs.")
+    st.caption("Image limit: up to 10MB per file. Backend will apply compression for embedding when needed.")
+
+    left_col, right_col = st.columns(2)
+    left_type = left_col.selectbox("Left Input Type", options=["text", "image"], key="vector_left_type")
+    right_type = right_col.selectbox("Right Input Type", options=["text", "image"], key="vector_right_type")
+
+    left_text = ""
+    right_text = ""
+    left_file = None
+    right_file = None
+
+    if left_type == "text":
+        left_text = st.text_area(
+            "Left Text",
+            placeholder="Input text for semantic compare...",
+            height=110,
+            key="vector_left_text",
+        )
+    else:
+        left_file = st.file_uploader(
+            "Left Image",
+            type=["png", "jpg", "jpeg", "webp"],
+            accept_multiple_files=False,
+            key="vector_left_file",
+        )
+
+    if right_type == "text":
+        right_text = st.text_area(
+            "Right Text",
+            placeholder="Input text for semantic compare...",
+            height=110,
+            key="vector_right_text",
+        )
+    else:
+        right_file = st.file_uploader(
+            "Right Image",
+            type=["png", "jpg", "jpeg", "webp"],
+            accept_multiple_files=False,
+            key="vector_right_file",
+        )
+
+    compare_payload = {
+        "leftType": left_type,
+        "rightType": right_type,
+        "leftText": left_text.strip() if left_type == "text" else "",
+        "rightText": right_text.strip() if right_type == "text" else "",
+        "leftFile": _uploaded_file_fingerprint(left_file) if left_file is not None else {},
+        "rightFile": _uploaded_file_fingerprint(right_file) if right_file is not None else {},
+    }
+    submitted = st.button(
+        "Run Vector Compare",
+        type="primary",
+        disabled=_is_action_busy("vector_compare", compare_payload),
+    )
+
+    compare_state_key = "vector_compare_state"
+    if compare_state_key not in st.session_state or not isinstance(st.session_state[compare_state_key], dict):
+        st.session_state[compare_state_key] = {
+            "has_result": False,
+            "request_data": {},
+            "left_type": "text",
+            "right_type": "text",
+            "left_text": "",
+            "right_text": "",
+            "left_image_name": "",
+            "right_image_name": "",
+            "left_image_bytes": None,
+            "right_image_bytes": None,
+            "result": {},
+            "status_code": 200,
+        }
+    compare_state = st.session_state[compare_state_key]
 
     if not submitted:
-        return
+        if compare_state.get("has_result"):
+            _render_vector_compare_result(compare_state)
+    else:
+        if left_type == "text" and not left_text.strip():
+            st.warning("Left text is required.")
+            return
+        if right_type == "text" and not right_text.strip():
+            st.warning("Right text is required.")
+            return
+        if left_type == "image" and left_file is None:
+            st.warning("Please upload the left image.")
+            return
+        if right_type == "image" and right_file is None:
+            st.warning("Please upload the right image.")
+            return
+        if left_type == "image" and not _validate_uploaded_image_size(left_file, "Left image"):
+            return
+        if right_type == "image" and not _validate_uploaded_image_size(right_file, "Right image"):
+            return
+        _queue_action("vector_compare", compare_payload)
+        st.rerun()
 
-    if uploaded is None:
-        st.warning("Please upload an image file first.")
-        return
+    request_data = {
+        "leftType": left_type,
+        "rightType": right_type,
+    }
+    if left_type == "text":
+        request_data["leftText"] = left_text.strip()
+    if right_type == "text":
+        request_data["rightText"] = right_text.strip()
 
-    st.markdown("### Uploaded Image")
-    st.image(uploaded.getvalue(), caption=uploaded.name, width=480)
-
-    st.markdown("### Streaming Analysis")
-    st.markdown("**Meta**")
-    meta_box = st.empty()
-    st.markdown("**Summary**")
-    summary_box = st.empty()
-    st.markdown("**Tags**")
-    tags_box = st.empty()
-    st.markdown("**OCR Text**")
-    ocr_box = st.empty()
-    st.markdown("**Graph Triples**")
-    graph_box = st.empty()
-    st.markdown("**Search Suggestions**")
-    suggestion_box = st.empty()
-    status_box = st.empty()
-
-    summary_text = ""
-    ocr_text = ""
-    tags: list[str] = []
-    graph_items: list[dict[str, Any]] = []
-    suggestions: list[str] = []
-
-    try:
-        response = requests.post(
-            f"{_normalize_base_url(base_url)}/api/v1/vision/analyze/stream",
-            files={"file": (uploaded.name, uploaded.getvalue(), uploaded.type or "application/octet-stream")},
-            data={
-                "mode": "general",
-                "enableOcr": str(bool(enable_ocr)).lower(),
-                "enableGraph": str(bool(enable_graph)).lower(),
-            },
-            stream=True,
-            timeout=(5, 180),
+    request_files: dict[str, Any] = {}
+    if left_type == "image" and left_file is not None:
+        request_files["leftFile"] = (
+            left_file.name,
+            left_file.getvalue(),
+            left_file.type or "application/octet-stream",
         )
-    except requests.exceptions.RequestException as exc:
-        st.error(f"Failed to call /vision/analyze/stream: {exc}")
+    if right_type == "image" and right_file is not None:
+        request_files["rightFile"] = (
+            right_file.name,
+            right_file.getvalue(),
+            right_file.type or "application/octet-stream",
+        )
+
+    if _consume_queued_action("vector_compare", compare_payload):
+        try:
+            try:
+                response = requests.post(
+                    f"{_normalize_base_url(base_url)}/api/v1/vision/vector-compare",
+                    data=request_data,
+                    files=request_files if request_files else None,
+                    timeout=REQUEST_TIMEOUT_SECONDS,
+                )
+            except requests.exceptions.Timeout:
+                st.error("Request timed out. Please retry later.")
+                return
+            except requests.exceptions.RequestException as exc:
+                st.error(f"Request failed: {exc}")
+                return
+
+            status_code = response.status_code
+            st.caption(f"HTTP {status_code}")
+            if response.status_code >= 400:
+                st.error(f"HTTP {response.status_code}: {response.text[:600]}")
+                return
+
+            try:
+                envelope = response.json()
+            except ValueError:
+                st.error("Backend returned non-JSON response.")
+                return
+
+            if not isinstance(envelope, dict):
+                st.error("Unexpected response shape.")
+                return
+
+            if envelope.get("code") != SUCCESS_CODE:
+                st.error(f"Business error {envelope.get('code')}: {envelope.get('message', 'Unknown error')}")
+                return
+
+            result = envelope.get("data")
+            if not isinstance(result, dict):
+                st.error("Unexpected response shape: data is not an object.")
+                return
+
+            compare_state["has_result"] = True
+            compare_state["request_data"] = dict(request_data)
+            compare_state["left_type"] = left_type
+            compare_state["right_type"] = right_type
+            compare_state["left_text"] = left_text.strip()
+            compare_state["right_text"] = right_text.strip()
+            compare_state["left_image_name"] = left_file.name if left_file is not None else ""
+            compare_state["right_image_name"] = right_file.name if right_file is not None else ""
+            compare_state["left_image_bytes"] = left_file.getvalue() if left_file is not None else None
+            compare_state["right_image_bytes"] = right_file.getvalue() if right_file is not None else None
+            compare_state["result"] = result
+            compare_state["status_code"] = status_code
+        finally:
+            _complete_action("vector_compare")
+            st.rerun()
+
+
+def _render_vector_compare_result(compare_state: dict[str, Any]) -> None:
+    status_code = int(compare_state.get("status_code", 200) or 200)
+    st.caption(f"HTTP {status_code}")
+    result = compare_state.get("result")
+    if not isinstance(result, dict):
         return
 
-    if response.status_code >= 400:
-        st.error(f"HTTP {response.status_code}: {response.text[:600]}")
-        return
+    st.markdown("### Compare Result")
+    metric_col1, metric_col2, metric_col3 = st.columns(3)
+    metric_col1.metric("Cosine Similarity", str(result.get("cosineSimilarity", "-")))
+    score_percent = result.get("scorePercent")
+    metric_col2.metric("Score Percent", "-" if score_percent is None else f"{score_percent}%")
+    metric_col3.metric("Match Level", str(result.get("matchLevel", "-")))
 
-    # SSE defaults may be decoded as latin-1 by requests when charset is absent.
-    # Force UTF-8 to avoid garbled Chinese characters.
-    response.encoding = "utf-8"
+    st.markdown("### Input Preview")
+    preview_col1, preview_col2 = st.columns(2)
+    left_type = str(compare_state.get("left_type", "text"))
+    right_type = str(compare_state.get("right_type", "text"))
+    if left_type == "text":
+        preview_col1.text_area("Left Value", value=str(compare_state.get("left_text", "")), height=120, disabled=True)
+    else:
+        left_image_bytes = compare_state.get("left_image_bytes")
+        left_image_name = str(compare_state.get("left_image_name", "left_image"))
+        if left_image_bytes:
+            preview_col1.image(left_image_bytes, caption=left_image_name, width=320)
+    if right_type == "text":
+        preview_col2.text_area("Right Value", value=str(compare_state.get("right_text", "")), height=120, disabled=True)
+    else:
+        right_image_bytes = compare_state.get("right_image_bytes")
+        right_image_name = str(compare_state.get("right_image_name", "right_image"))
+        if right_image_bytes:
+            preview_col2.image(right_image_bytes, caption=right_image_name, width=320)
 
-    for event_name, payload in _iter_sse_events(response):
-        if event_name == "meta":
-            meta_box.json(payload)
-            continue
-        if event_name == "summary":
-            delta = _safe_str(payload.get("delta")) if isinstance(payload, dict) else ""
-            summary_text = _render_typewriter_delta(summary_box, summary_text, delta)
-            continue
-        if event_name == "summary_end":
-            final_text = _safe_str(payload.get("text")) if isinstance(payload, dict) else ""
-            if final_text:
-                summary_text = final_text
-            summary_box.write(summary_text if summary_text else "-")
-            continue
-        if event_name == "tags":
-            items = payload.get("items") if isinstance(payload, dict) else None
-            if isinstance(items, list):
-                tags = [str(x).strip() for x in items if str(x).strip()]
-            tags_box.write(tags if tags else [])
-            continue
-        if event_name == "ocr":
-            delta = _safe_str(payload.get("delta")) if isinstance(payload, dict) else ""
-            ocr_text += delta
-            ocr_box.code(ocr_text if ocr_text else "-", language="text")
-            continue
-        if event_name == "ocr_end":
-            final_ocr = _safe_str(payload.get("text")) if isinstance(payload, dict) else ""
-            if final_ocr:
-                ocr_text = final_ocr
-            ocr_box.code(ocr_text if ocr_text else "-", language="text")
-            continue
-        if event_name == "graph":
-            items = payload.get("items") if isinstance(payload, dict) else None
-            if isinstance(items, list):
-                graph_items = [x for x in items if isinstance(x, dict)]
-            if graph_items:
-                graph_box.dataframe(graph_items, use_container_width=True)
-            else:
-                graph_box.info("No graph triples.")
-            continue
-        if event_name == "suggestions":
-            items = payload.get("items") if isinstance(payload, dict) else None
-            if isinstance(items, list):
-                suggestions = [str(x).strip() for x in items if str(x).strip()]
-            suggestion_box.write(suggestions if suggestions else [])
-            continue
-        if event_name == "error":
-            message = _safe_str(payload.get("message")) if isinstance(payload, dict) else "Analyze failed."
-            status_box.error(message or "Analyze failed.")
-            continue
-        if event_name == "done":
-            ok = bool(payload.get("ok")) if isinstance(payload, dict) else False
-            if ok:
-                status_box.success("Analyze completed.")
-            else:
-                status_box.warning("Analyze finished with errors.")
+    st.markdown("### Meta")
+    st.json(result)
+
+    if st.session_state.get("show_debug_panel", True):
+        st.markdown("### Debug Request Payload")
+        safe_payload = dict(compare_state.get("request_data", {}))
+        if "leftText" in safe_payload:
+            safe_payload["leftText"] = _clip_text(str(safe_payload["leftText"]), 200)
+        if "rightText" in safe_payload:
+            safe_payload["rightText"] = _clip_text(str(safe_payload["rightText"]), 200)
+        st.code(_pretty_json(safe_payload), language="json")
 
 
 def render_similar_search_page(base_url: str) -> None:
@@ -258,25 +602,37 @@ def render_similar_search_page(base_url: str) -> None:
 
     with st.form("similar_search_form"):
         image_id = st.text_input("Image ID", placeholder="e.g. 1234567890")
-        submitted = st.form_submit_button("Run Similar Search", type="primary")
+        draft_payload = {"imageId": image_id.strip()}
+        submitted = st.form_submit_button(
+            "Run Similar Search",
+            type="primary",
+            disabled=_is_action_busy("similar_search", draft_payload),
+        )
 
     if submitted:
         if not image_id.strip():
             st.warning("Image ID is required.")
             return
+        _queue_action("similar_search", draft_payload)
+        st.rerun()
 
-        with st.spinner("Searching similar images..."):
-            data, headers, status_code = _request_json(
-                method="GET",
-                url=f"{_normalize_base_url(base_url)}/api/v1/vision/similar",
-                params={"id": image_id.strip()},
-            )
+    if _consume_queued_action("similar_search", draft_payload):
+        try:
+            with st.spinner("Searching similar images..."):
+                data, headers, status_code = _request_json(
+                    method="GET",
+                    url=f"{_normalize_base_url(base_url)}/api/v1/vision/similar",
+                    params={"id": image_id.strip()},
+                )
 
-        state["results"] = data
-        state["headers"] = headers
-        state["status_code"] = status_code
-        state["payload_text"] = f"GET {_normalize_base_url(base_url)}/api/v1/vision/similar?id={image_id.strip()}"
-        state["has_searched"] = True
+            state["results"] = data
+            state["headers"] = headers
+            state["status_code"] = status_code
+            state["payload_text"] = f"GET {_normalize_base_url(base_url)}/api/v1/vision/similar?id={image_id.strip()}"
+            state["has_searched"] = True
+        finally:
+            _complete_action("similar_search")
+        st.rerun()
 
     if state["has_searched"]:
         _render_response_meta(state["status_code"], state["headers"])
@@ -289,21 +645,40 @@ def render_hot_words_page(base_url: str) -> None:
     st.subheader("Hot Words")
     st.caption("Endpoint: GET /api/v1/vision/hot-words")
 
-    if st.button("Fetch Hot Words", type="primary"):
-        with st.spinner("Loading hot words..."):
-            data, _, status_code = _request_json(
-                method="GET",
-                url=f"{_normalize_base_url(base_url)}/api/v1/vision/hot-words",
-            )
+    if "hot_words_state" not in st.session_state or not isinstance(st.session_state["hot_words_state"], dict):
+        st.session_state["hot_words_state"] = {"has_loaded": False, "status_code": 200, "words": []}
 
-        st.caption(f"HTTP {status_code}")
-        words = data if isinstance(data, list) else []
-        if not words:
+    payload = {"endpoint": "hot_words"}
+    if st.button("Fetch Hot Words", type="primary", disabled=_is_action_busy("hot_words", payload)):
+        _queue_action("hot_words", payload)
+        st.rerun()
+
+    if _consume_queued_action("hot_words", payload):
+        try:
+            with st.spinner("Loading hot words..."):
+                data, _, status_code = _request_json(
+                    method="GET",
+                    url=f"{_normalize_base_url(base_url)}/api/v1/vision/hot-words",
+                )
+            words = data if isinstance(data, list) else []
+            st.session_state["hot_words_state"] = {
+                "has_loaded": True,
+                "status_code": status_code,
+                "words": words,
+            }
+        finally:
+            _complete_action("hot_words")
+            st.rerun()
+
+    hot_words_state = st.session_state["hot_words_state"]
+    if hot_words_state.get("has_loaded"):
+        st.caption(f"HTTP {hot_words_state.get('status_code', 200)}")
+        words = hot_words_state.get("words")
+        if isinstance(words, list) and words:
+            st.markdown("### Hot Words")
+            st.write(words)
+        else:
             st.info("No hot words currently.")
-            return
-
-        st.markdown("### Hot Words")
-        st.write(words)
 
 
 def render_auth_admin_page(base_url: str) -> None:
@@ -315,10 +690,20 @@ def render_auth_admin_page(base_url: str) -> None:
     refresh_code = st.text_input("Refresh Code (optional)")
 
     col1, col2 = st.columns(2)
-    if col1.button("Refresh Token", type="primary"):
+    refresh_payload = {"code": refresh_code.strip(), "hasSecret": bool(admin_secret.strip())}
+    if col1.button(
+        "Refresh Token",
+        type="primary",
+        disabled=_is_action_busy("auth_refresh_token", refresh_payload),
+    ):
         if not admin_secret.strip():
             st.warning("X-Admin-Secret is required.")
         else:
+            _queue_action("auth_refresh_token", refresh_payload)
+            st.rerun()
+
+    if _consume_queued_action("auth_refresh_token", refresh_payload):
+        try:
             params = {"code": refresh_code.strip()} if refresh_code.strip() else None
             _request_admin_endpoint(
                 base_url=_normalize_base_url(base_url),
@@ -326,17 +711,33 @@ def render_auth_admin_page(base_url: str) -> None:
                 admin_secret=admin_secret.strip(),
                 params=params,
             )
+        finally:
+            _complete_action("auth_refresh_token")
+            st.rerun()
 
-    if col2.button("Clean Token", type="secondary"):
+    clean_payload = {"hasSecret": bool(admin_secret.strip())}
+    if col2.button(
+        "Clean Token",
+        type="secondary",
+        disabled=_is_action_busy("auth_clean_token", clean_payload),
+    ):
         if not admin_secret.strip():
             st.warning("X-Admin-Secret is required.")
         else:
+            _queue_action("auth_clean_token", clean_payload)
+            st.rerun()
+
+    if _consume_queued_action("auth_clean_token", clean_payload):
+        try:
             _request_admin_endpoint(
                 base_url=_normalize_base_url(base_url),
                 path="/api/v1/auth/clean-token",
                 admin_secret=admin_secret.strip(),
                 params=None,
             )
+        finally:
+            _complete_action("auth_clean_token")
+            st.rerun()
 
 
 def render_image_batch_process_page(base_url: str) -> None:
@@ -346,6 +747,7 @@ def render_image_batch_process_page(base_url: str) -> None:
         "Integrated flow: fetch STS -> upload to OSS -> submit async task. "
         "Each image has independent status and can be retried manually when failed."
     )
+    st.caption("Image limit: up to 10MB per file.")
 
     if "batch_task_ids" not in st.session_state:
         st.session_state.batch_task_ids = []
@@ -372,12 +774,35 @@ def render_image_batch_process_page(base_url: str) -> None:
         type="password",
     )
 
-    if st.button("Upload To OSS And Submit Task", type="primary"):
+    draft_file_signatures = [_uploaded_file_fingerprint(file) for file in files] if files else []
+    batch_submit_payload = {
+        "keyPrefix": key_prefix.strip(),
+        "bucket": bucket_name.strip(),
+        "endpoint": oss_endpoint.strip(),
+        "files": draft_file_signatures,
+    }
+    if st.button(
+        "Upload To OSS And Submit Task",
+        type="primary",
+        disabled=_is_action_busy("batch_submit_task", batch_submit_payload),
+    ):
         if not token.strip():
             st.warning("X-Access-Token is required.")
             return
         if not files:
             st.warning("Please select at least one file.")
+            return
+        oversize_files = [
+            str(file.name)
+            for file in files
+            if getattr(file, "size", 0) > MAX_IMAGE_UPLOAD_BYTES
+        ]
+        if oversize_files:
+            st.warning(
+                "These files exceed 10MB and cannot be uploaded: "
+                + ", ".join(oversize_files[:5])
+                + (" ..." if len(oversize_files) > 5 else "")
+            )
             return
         if not key_prefix.strip():
             st.warning("OSS Key Prefix is required.")
@@ -388,48 +813,55 @@ def render_image_batch_process_page(base_url: str) -> None:
         if not encrypt_key.strip() or not encrypt_iv.strip():
             st.warning("APP_ENCRYPT_KEY and APP_ENCRYPT_IV are required for STS decryption.")
             return
+        _queue_action("batch_submit_task", batch_submit_payload)
+        st.rerun()
 
-        with st.spinner("Step 1/3: Fetching and decrypting STS token..."):
-            sts = _fetch_and_decrypt_sts(
-                base_url=_normalize_base_url(base_url),
-                access_token=token.strip(),
-                encrypt_key_b64=encrypt_key.strip(),
-                encrypt_iv_b64=encrypt_iv.strip(),
-            )
-        if sts is None:
-            return
+    if _consume_queued_action("batch_submit_task", batch_submit_payload):
+        try:
+            with st.spinner("Step 1/3: Fetching and decrypting STS token..."):
+                sts = _fetch_and_decrypt_sts(
+                    base_url=_normalize_base_url(base_url),
+                    access_token=token.strip(),
+                    encrypt_key_b64=encrypt_key.strip(),
+                    encrypt_iv_b64=encrypt_iv.strip(),
+                )
+            if sts is None:
+                return
 
-        with st.spinner("Step 2/3: Uploading files to OSS..."):
-            items = _upload_files_to_oss(
-                files=files,
-                key_prefix=key_prefix,
-                bucket_name=bucket_name.strip(),
-                endpoint=oss_endpoint.strip(),
-                sts=sts,
-            )
-        if not items:
-            return
+            with st.spinner("Step 2/3: Uploading files to OSS..."):
+                items = _upload_files_to_oss(
+                    files=files,
+                    key_prefix=key_prefix,
+                    bucket_name=bucket_name.strip(),
+                    endpoint=oss_endpoint.strip(),
+                    sts=sts,
+                )
+            if not items:
+                return
 
-        st.markdown("### Uploaded Items")
-        st.dataframe(items, use_container_width=True)
+            st.markdown("### Uploaded Items")
+            st.dataframe(items, use_container_width=True)
 
-        with st.spinner("Step 3/3: Submitting async task..."):
-            envelope = _submit_batch_task(
-                base_url=_normalize_base_url(base_url),
-                access_token=token.strip(),
-                items=items,
-            )
-        if envelope is None:
-            return
+            with st.spinner("Step 3/3: Submitting async task..."):
+                envelope = _submit_batch_task(
+                    base_url=_normalize_base_url(base_url),
+                    access_token=token.strip(),
+                    items=items,
+                )
+            if envelope is None:
+                return
 
-        task = envelope.get("data") if isinstance(envelope, dict) else None
-        task_id = task.get("taskId") if isinstance(task, dict) else None
-        if isinstance(task_id, str) and task_id:
-            if task_id not in st.session_state.batch_task_ids:
-                st.session_state.batch_task_ids.append(task_id)
-            st.success(f"Task submitted: {task_id}")
-        else:
-            st.warning("Task submitted, but taskId was not found in response.")
+            task = envelope.get("data") if isinstance(envelope, dict) else None
+            task_id = task.get("taskId") if isinstance(task, dict) else None
+            if isinstance(task_id, str) and task_id:
+                if task_id not in st.session_state.batch_task_ids:
+                    st.session_state.batch_task_ids.append(task_id)
+                st.success(f"Task submitted: {task_id}")
+            else:
+                st.warning("Task submitted, but taskId was not found in response.")
+        finally:
+            _complete_action("batch_submit_task")
+            st.rerun()
 
     st.markdown("### Task Dashboard")
     task_ids: list[str] = st.session_state.batch_task_ids
@@ -516,15 +948,27 @@ def _render_single_batch_task(*, task_data: dict[str, Any], base_url: str, acces
 
         if failed_items:
             st.markdown("**Failed Items: Retry**")
-            if st.button(f"Retry All Failed ({len(failed_items)})", key=f"retry_all_{task_id}"):
-                with st.spinner("Retrying all failed items..."):
-                    retried_all = _retry_all_failed_batch_task_items(
-                        base_url=base_url,
-                        access_token=access_token,
-                        task_id=task_id,
-                    )
-                if retried_all is not None:
-                    st.success("Retry-all submitted.")
+            retry_all_payload = {"taskId": task_id, "failedCount": len(failed_items)}
+            if st.button(
+                f"Retry All Failed ({len(failed_items)})",
+                key=f"retry_all_{task_id}",
+                disabled=_is_action_busy("batch_retry_all", retry_all_payload),
+            ):
+                _queue_action("batch_retry_all", retry_all_payload)
+                st.rerun()
+
+            if _consume_queued_action("batch_retry_all", retry_all_payload):
+                try:
+                    with st.spinner("Retrying all failed items..."):
+                        retried_all = _retry_all_failed_batch_task_items(
+                            base_url=base_url,
+                            access_token=access_token,
+                            task_id=task_id,
+                        )
+                    if retried_all is not None:
+                        st.success("Retry-all submitted.")
+                finally:
+                    _complete_action("batch_retry_all")
                     st.rerun()
 
         st.markdown("**Items**")
@@ -549,16 +993,28 @@ def _render_single_batch_task(*, task_data: dict[str, Any], base_url: str, acces
             cols[3].write(error_text if error_text else "-")
 
             if status_text == "FAILED" and item_id:
-                if cols[4].button("Retry", key=f"retry_{task_id}_{item_id}"):
-                    with st.spinner(f"Retrying {file_name}..."):
-                        retried = _retry_batch_task_item(
-                            base_url=base_url,
-                            access_token=access_token,
-                            task_id=task_id,
-                            item_id=item_id,
-                        )
-                    if retried is not None:
-                        st.success(f"Retry submitted for {file_name}")
+                retry_item_payload = {"taskId": task_id, "itemId": item_id}
+                if cols[4].button(
+                    "Retry",
+                    key=f"retry_{task_id}_{item_id}",
+                    disabled=_is_action_busy("batch_retry_item", retry_item_payload),
+                ):
+                    _queue_action("batch_retry_item", retry_item_payload)
+                    st.rerun()
+
+                if _consume_queued_action("batch_retry_item", retry_item_payload):
+                    try:
+                        with st.spinner(f"Retrying {file_name}..."):
+                            retried = _retry_batch_task_item(
+                                base_url=base_url,
+                                access_token=access_token,
+                                task_id=task_id,
+                                item_id=item_id,
+                            )
+                        if retried is not None:
+                            st.success(f"Retry submitted for {file_name}")
+                    finally:
+                        _complete_action("batch_retry_item")
                         st.rerun()
             else:
                 cols[4].write("-")
@@ -1033,6 +1489,76 @@ def _render_search_results(results: list[Any], *, layout_key: str) -> None:
 
 def _safe_str(value: Any) -> str:
     return value.strip() if isinstance(value, str) else ""
+
+
+def _validate_uploaded_image_size(uploaded: Any, label: str) -> bool:
+    if uploaded is None:
+        return False
+    size = int(getattr(uploaded, "size", 0) or 0)
+    if size <= 0:
+        return True
+    if size > MAX_IMAGE_UPLOAD_BYTES:
+        st.warning(f"{label} is too large ({size / 1024 / 1024:.2f}MB). Please upload an image within 10MB.")
+        return False
+    return True
+
+
+def _uploaded_file_fingerprint(uploaded: Any) -> dict[str, Any]:
+    if uploaded is None:
+        return {}
+    return {
+        "name": str(getattr(uploaded, "name", "")),
+        "size": int(getattr(uploaded, "size", 0) or 0),
+        "type": str(getattr(uploaded, "type", "")),
+    }
+
+
+def _idempotent_signature(payload: Any) -> str:
+    normalized_payload = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str)
+    return hashlib.sha256(normalized_payload.encode("utf-8")).hexdigest()
+
+
+def _get_action_registry() -> dict[str, Any]:
+    key = "__action_registry"
+    registry = st.session_state.get(key)
+    if not isinstance(registry, dict):
+        registry = {}
+        st.session_state[key] = registry
+    return registry
+
+
+def _is_action_busy(action_key: str, payload: Any) -> bool:
+    record = _get_action_registry().get(action_key)
+    if not isinstance(record, dict):
+        return False
+    status = str(record.get("status", "idle"))
+    signature = str(record.get("signature", ""))
+    return status in {"queued", "running"} and signature == _idempotent_signature(payload)
+
+
+def _queue_action(action_key: str, payload: Any) -> None:
+    _get_action_registry()[action_key] = {
+        "status": "queued",
+        "signature": _idempotent_signature(payload),
+        "queuedAt": time.time(),
+    }
+
+
+def _consume_queued_action(action_key: str, payload: Any) -> bool:
+    record = _get_action_registry().get(action_key)
+    if not isinstance(record, dict):
+        return False
+    if str(record.get("status", "")) != "queued":
+        return False
+    if str(record.get("signature", "")) != _idempotent_signature(payload):
+        return False
+    record["status"] = "running"
+    record["runningAt"] = time.time()
+    return True
+
+
+def _complete_action(action_key: str) -> None:
+    _get_action_registry().pop(action_key, None)
 
 
 def _normalize_base_url(base_url: str) -> str:

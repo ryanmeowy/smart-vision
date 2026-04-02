@@ -165,6 +165,45 @@ paths:
               schema:
                 type: string
 
+  /api/v1/vision/vector-compare:
+    post:
+      tags: [Vision]
+      summary: Compare two multimodal inputs by vector similarity
+      operationId: visionVectorCompare
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [leftType, rightType]
+              properties:
+                leftType:
+                  type: string
+                  enum: [text, image]
+                leftText:
+                  type: string
+                  maxLength: 500
+                leftFile:
+                  type: string
+                  format: binary
+                rightType:
+                  type: string
+                  enum: [text, image]
+                rightText:
+                  type: string
+                  maxLength: 500
+                rightFile:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VectorCompareEnvelope'
+
   /api/v1/image/batch-process:
     post:
       tags: [Image]
@@ -498,6 +537,38 @@ components:
           items:
             $ref: '#/components/schemas/BatchTaskItemStatusDTO'
 
+    VectorCompareResultDTO:
+      type: object
+      properties:
+        leftType: { type: string, enum: [text, image] }
+        rightType: { type: string, enum: [text, image] }
+        cosineSimilarity:
+          type: number
+          format: double
+          description: Cosine similarity in range [-1, 1].
+        scorePercent:
+          type: number
+          format: double
+          description: Normalized score in range [0, 100].
+        matchLevel:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+        leftDimension: { type: integer }
+        rightDimension: { type: integer }
+        leftNorm:
+          type: number
+          format: double
+        rightNorm:
+          type: number
+          format: double
+        leftCacheHit:
+          type: boolean
+        rightCacheHit:
+          type: boolean
+        elapsedMs:
+          type: integer
+          format: int64
+
     SearchResultEnvelope:
       type: object
       properties:
@@ -525,6 +596,15 @@ components:
         message: { type: string, example: Success }
         data:
           $ref: '#/components/schemas/BatchTaskStatusDTO'
+        timestamp: { type: integer, format: int64 }
+
+    VectorCompareEnvelope:
+      type: object
+      properties:
+        code: { type: integer, example: 200 }
+        message: { type: string, example: Success }
+        data:
+          $ref: '#/components/schemas/VectorCompareResultDTO'
         timestamp: { type: integer, format: int64 }
 
     StringEnvelope:
