@@ -4,3 +4,5 @@
 /ui_streamlit/.venv
 /ui_streamlit/venv
 /ui_streamlit/.streamlit
+/docs/*.md
+/docs/*.sh

@@ -33,19 +33,54 @@ def render_text_search_page(base_url: str) -> None:
     st.caption("Endpoint: POST /api/v1/vision/search")
 
     state = _get_result_state("text")
+    keyword_store_key = "text_search_keyword_store"
+    keyword_widget_key = "text_search_keyword_widget"
+    strategy_store_key = "text_search_strategy_store"
+    strategy_widget_key = "text_search_strategy_widget"
+    topk_store_key = "text_search_topk_store"
+    topk_widget_key = "text_search_topk_widget"
+    limit_store_key = "text_search_limit_store"
+    limit_widget_key = "text_search_limit_widget"
+    ocr_store_key = "text_search_enable_ocr_store"
+    ocr_widget_key = "text_search_enable_ocr_widget"
+    if keyword_store_key not in st.session_state:
+        st.session_state[keyword_store_key] = ""
+    if keyword_widget_key not in st.session_state:
+        st.session_state[keyword_widget_key] = st.session_state[keyword_store_key]
+    if strategy_store_key not in st.session_state:
+        st.session_state[strategy_store_key] = "0"
+    if strategy_widget_key not in st.session_state:
+        st.session_state[strategy_widget_key] = st.session_state[strategy_store_key]
+    if topk_store_key not in st.session_state:
+        st.session_state[topk_store_key] = 30
+    if topk_widget_key not in st.session_state:
+        st.session_state[topk_widget_key] = int(st.session_state[topk_store_key])
+    if limit_store_key not in st.session_state:
+        st.session_state[limit_store_key] = 20
+    if limit_widget_key not in st.session_state:
+        st.session_state[limit_widget_key] = int(st.session_state[limit_store_key])
+    if ocr_store_key not in st.session_state:
+        st.session_state[ocr_store_key] = True
+    if ocr_widget_key not in st.session_state:
+        st.session_state[ocr_widget_key] = bool(st.session_state[ocr_store_key])
 
     with st.form("text_search_form"):
         row1_col1, row1_col2 = st.columns([5, 2])
-        keyword = row1_col1.text_input("Keyword", placeholder="e.g. 猫咪在沙发上")
+        keyword = row1_col1.text_input(
+            "Keyword",
+            placeholder="e.g. 猫咪在沙发上",
+            key=keyword_widget_key,
+        )
         strategy = row1_col2.selectbox(
             "Strategy",
             options=["0", "1", "2"],
             help="0: hybrid, 1: vector, 2: text",
+            key=strategy_widget_key,
         )
         row2_col1, row2_col2 = st.columns([2, 2])
-        top_k = row2_col1.number_input("TopK", min_value=1, max_value=200, value=30)
-        limit = row2_col2.number_input("Limit", min_value=1, max_value=100, value=20)
-        enable_ocr = st.checkbox("Enable OCR", value=True)
+        top_k = row2_col1.number_input("TopK", min_value=1, max_value=200, key=topk_widget_key)
+        limit = row2_col2.number_input("Limit", min_value=1, max_value=100, key=limit_widget_key)
+        enable_ocr = st.checkbox("Enable OCR", key=ocr_widget_key)
         draft_payload = {
             "keyword": keyword.strip(),
             "searchType": str(strategy),
@@ -58,6 +93,11 @@ def render_text_search_page(base_url: str) -> None:
             type="primary",
             disabled=_is_action_busy("text_search", draft_payload),
         )
+    st.session_state[keyword_store_key] = keyword
+    st.session_state[strategy_store_key] = str(strategy)
+    st.session_state[topk_store_key] = int(top_k)
+    st.session_state[limit_store_key] = int(limit)
+    st.session_state[ocr_store_key] = bool(enable_ocr)
 
     if submitted:
         if not keyword.strip():
@@ -106,23 +146,30 @@ def render_image_search_page(base_url: str) -> None:
     st.caption("Image limit: up to 10MB per file. Backend will apply compression for embedding when needed.")
 
     state = _get_result_state("image")
+    limit_store_key = "image_search_limit_store"
+    limit_widget_key = "image_search_limit_widget"
+    if limit_store_key not in st.session_state:
+        st.session_state[limit_store_key] = 20
+    if limit_widget_key not in st.session_state:
+        st.session_state[limit_widget_key] = int(st.session_state[limit_store_key])
 
-    with st.form("image_search_form"):
-        uploaded = st.file_uploader(
-            "Upload image",
-            type=["png", "jpg", "jpeg", "webp"],
-            accept_multiple_files=False,
-        )
-        limit = st.number_input("Limit", min_value=1, max_value=100, value=20)
-        draft_payload = {
-            "limit": int(limit),
-            "file": _uploaded_file_fingerprint(uploaded),
-        }
-        submitted = st.form_submit_button(
-            "Run Image Search",
-            type="primary",
-            disabled=_is_action_busy("image_search", draft_payload),
-        )
+    uploaded = st.file_uploader(
+        "Upload image",
+        type=["png", "jpg", "jpeg", "webp"],
+        accept_multiple_files=False,
+        key="image_search_upload_widget",
+    )
+    limit = st.number_input("Limit", min_value=1, max_value=100, key=limit_widget_key)
+    draft_payload = {
+        "limit": int(limit),
+        "file": _uploaded_file_fingerprint(uploaded),
+    }
+    submitted = st.button(
+        "Run Image Search",
+        type="primary",
+        disabled=_is_action_busy("image_search", draft_payload),
+    )
+    st.session_state[limit_store_key] = int(limit)
 
     if submitted:
         if uploaded is None:
@@ -168,6 +215,18 @@ def render_image_analyze_page(base_url: str) -> None:
     st.caption("Image limit: up to 10MB per file. Backend will apply compression for embedding when needed.")
 
     analyze_state_key = "image_analyze_state"
+    enable_ocr_store_key = "image_analyze_enable_ocr_store"
+    enable_ocr_widget_key = "image_analyze_enable_ocr_widget"
+    enable_graph_store_key = "image_analyze_enable_graph_store"
+    enable_graph_widget_key = "image_analyze_enable_graph_widget"
+    if enable_ocr_store_key not in st.session_state:
+        st.session_state[enable_ocr_store_key] = True
+    if enable_ocr_widget_key not in st.session_state:
+        st.session_state[enable_ocr_widget_key] = bool(st.session_state[enable_ocr_store_key])
+    if enable_graph_store_key not in st.session_state:
+        st.session_state[enable_graph_store_key] = True
+    if enable_graph_widget_key not in st.session_state:
+        st.session_state[enable_graph_widget_key] = bool(st.session_state[enable_graph_store_key])
     if analyze_state_key not in st.session_state or not isinstance(st.session_state[analyze_state_key], dict):
         st.session_state[analyze_state_key] = {
             "has_result": False,
@@ -183,26 +242,27 @@ def render_image_analyze_page(base_url: str) -> None:
         }
     analyze_state = st.session_state[analyze_state_key]
 
-    with st.form("image_analyze_form"):
-        uploaded = st.file_uploader(
-            "Upload image",
-            type=["png", "jpg", "jpeg", "webp"],
-            accept_multiple_files=False,
-            key="image_analyze_upload",
-        )
-        col1, col2 = st.columns(2)
-        enable_ocr = col1.checkbox("Enable OCR", value=True)
-        enable_graph = col2.checkbox("Enable Graph (SPO)", value=True)
-        analyze_payload = {
-            "file": _uploaded_file_fingerprint(uploaded),
-            "enableOcr": bool(enable_ocr),
-            "enableGraph": bool(enable_graph),
-        }
-        submitted = st.form_submit_button(
-            "Run Analyze",
-            type="primary",
-            disabled=_is_action_busy("image_analyze", analyze_payload),
-        )
+    uploaded = st.file_uploader(
+        "Upload image",
+        type=["png", "jpg", "jpeg", "webp"],
+        accept_multiple_files=False,
+        key="image_analyze_upload_widget",
+    )
+    col1, col2 = st.columns(2)
+    enable_ocr = col1.checkbox("Enable OCR", key=enable_ocr_widget_key)
+    enable_graph = col2.checkbox("Enable Graph (SPO)", key=enable_graph_widget_key)
+    analyze_payload = {
+        "file": _uploaded_file_fingerprint(uploaded),
+        "enableOcr": bool(enable_ocr),
+        "enableGraph": bool(enable_graph),
+    }
+    submitted = st.button(
+        "Run Analyze",
+        type="primary",
+        disabled=_is_action_busy("image_analyze", analyze_payload),
+    )
+    st.session_state[enable_ocr_store_key] = bool(enable_ocr)
+    st.session_state[enable_graph_store_key] = bool(enable_graph)
 
     if submitted:
         if uploaded is None:
@@ -220,7 +280,7 @@ def render_image_analyze_page(base_url: str) -> None:
             return
         try:
             st.markdown("### Uploaded Image")
-            st.image(uploaded.getvalue(), caption=uploaded.name, width=480)
+            st.image(uploaded.getvalue(), caption=uploaded.name, width=320)
 
             st.markdown("### Streaming Analysis")
             st.markdown("**Meta**")
@@ -347,7 +407,7 @@ def render_image_analyze_page(base_url: str) -> None:
         st.markdown("### Uploaded Image")
         image_bytes = analyze_state.get("image_bytes")
         if image_bytes:
-            st.image(image_bytes, caption=str(analyze_state.get("image_name", "")), width=480)
+            st.image(image_bytes, caption=str(analyze_state.get("image_name", "")), width=320)
 
         st.markdown("### Analysis Result")
         st.markdown("**Meta**")
@@ -377,28 +437,64 @@ def render_vector_compare_page(base_url: str) -> None:
     st.info("Compare semantic vectors for text-text, image-image, or image-text pairs.")
     st.caption("Image limit: up to 10MB per file. Backend will apply compression for embedding when needed.")
 
+    left_type_store_key = "vector_left_type_store"
+    left_type_widget_key = "vector_left_type_widget"
+    right_type_store_key = "vector_right_type_store"
+    right_type_widget_key = "vector_right_type_widget"
+    left_text_store_key = "vector_left_text_store"
+    left_text_widget_key = "vector_left_text_widget"
+    right_text_store_key = "vector_right_text_store"
+    right_text_widget_key = "vector_right_text_widget"
+    if left_type_store_key not in st.session_state:
+        st.session_state[left_type_store_key] = "text"
+    if left_type_widget_key not in st.session_state:
+        st.session_state[left_type_widget_key] = st.session_state[left_type_store_key]
+    if right_type_store_key not in st.session_state:
+        st.session_state[right_type_store_key] = "text"
+    if right_type_widget_key not in st.session_state:
+        st.session_state[right_type_widget_key] = st.session_state[right_type_store_key]
+    if left_text_store_key not in st.session_state:
+        st.session_state[left_text_store_key] = ""
+    if left_text_widget_key not in st.session_state:
+        st.session_state[left_text_widget_key] = st.session_state[left_text_store_key]
+    if right_text_store_key not in st.session_state:
+        st.session_state[right_text_store_key] = ""
+    if right_text_widget_key not in st.session_state:
+        st.session_state[right_text_widget_key] = st.session_state[right_text_store_key]
+
     left_col, right_col = st.columns(2)
-    left_type = left_col.selectbox("Left Input Type", options=["text", "image"], key="vector_left_type")
-    right_type = right_col.selectbox("Right Input Type", options=["text", "image"], key="vector_right_type")
+    left_type = left_col.selectbox("Left Input Type", options=["text", "image"], key=left_type_widget_key)
+    right_type = right_col.selectbox("Right Input Type", options=["text", "image"], key=right_type_widget_key)
 
     left_text = ""
     right_text = ""
     left_file = None
     right_file = None
 
+    def _vector_compare_file_signature(uploaded: Any) -> dict[str, Any]:
+        if uploaded is None:
+            return {}
+        file_bytes = uploaded.getvalue()
+        return {
+            "name": str(getattr(uploaded, "name", "")),
+            "size": int(getattr(uploaded, "size", 0) or 0),
+            "type": str(getattr(uploaded, "type", "")),
+            "sha256": hashlib.sha256(file_bytes).hexdigest(),
+        }
+
     if left_type == "text":
         left_text = st.text_area(
             "Left Text",
             placeholder="Input text for semantic compare...",
             height=110,
-            key="vector_left_text",
+            key=left_text_widget_key,
         )
     else:
         left_file = st.file_uploader(
             "Left Image",
             type=["png", "jpg", "jpeg", "webp"],
             accept_multiple_files=False,
-            key="vector_left_file",
+            key="vector_left_file_widget",
         )
 
     if right_type == "text":
@@ -406,23 +502,29 @@ def render_vector_compare_page(base_url: str) -> None:
             "Right Text",
             placeholder="Input text for semantic compare...",
             height=110,
-            key="vector_right_text",
+            key=right_text_widget_key,
         )
     else:
         right_file = st.file_uploader(
             "Right Image",
             type=["png", "jpg", "jpeg", "webp"],
             accept_multiple_files=False,
-            key="vector_right_file",
+            key="vector_right_file_widget",
         )
+    st.session_state[left_type_store_key] = left_type
+    st.session_state[right_type_store_key] = right_type
+    if left_type == "text":
+        st.session_state[left_text_store_key] = left_text
+    if right_type == "text":
+        st.session_state[right_text_store_key] = right_text
 
     compare_payload = {
         "leftType": left_type,
         "rightType": right_type,
         "leftText": left_text.strip() if left_type == "text" else "",
         "rightText": right_text.strip() if right_type == "text" else "",
-        "leftFile": _uploaded_file_fingerprint(left_file) if left_file is not None else {},
-        "rightFile": _uploaded_file_fingerprint(right_file) if right_file is not None else {},
+        "leftFile": _vector_compare_file_signature(left_file),
+        "rightFile": _vector_compare_file_signature(right_file),
     }
     submitted = st.button(
         "Run Vector Compare",
@@ -480,27 +582,34 @@ def render_vector_compare_page(base_url: str) -> None:
     if right_type == "text":
         request_data["rightText"] = right_text.strip()
 
-    request_files: dict[str, Any] = {}
+    multipart_parts: dict[str, Any] = {
+        "leftType": (None, left_type),
+        "rightType": (None, right_type),
+    }
     if left_type == "image" and left_file is not None:
-        request_files["leftFile"] = (
+        multipart_parts["leftFile"] = (
             left_file.name,
             left_file.getvalue(),
             left_file.type or "application/octet-stream",
         )
+    elif left_type == "text":
+        multipart_parts["leftText"] = (None, left_text.strip())
     if right_type == "image" and right_file is not None:
-        request_files["rightFile"] = (
+        multipart_parts["rightFile"] = (
             right_file.name,
             right_file.getvalue(),
             right_file.type or "application/octet-stream",
         )
+    elif right_type == "text":
+        multipart_parts["rightText"] = (None, right_text.strip())
 
     if _consume_queued_action("vector_compare", compare_payload):
+        should_rerun = False
         try:
             try:
                 response = requests.post(
                     f"{_normalize_base_url(base_url)}/api/v1/vision/vector-compare",
-                    data=request_data,
-                    files=request_files if request_files else None,
+                    files=multipart_parts,
                     timeout=REQUEST_TIMEOUT_SECONDS,
                 )
             except requests.exceptions.Timeout:
@@ -547,9 +656,11 @@ def render_vector_compare_page(base_url: str) -> None:
             compare_state["right_image_bytes"] = right_file.getvalue() if right_file is not None else None
             compare_state["result"] = result
             compare_state["status_code"] = status_code
+            should_rerun = True
         finally:
             _complete_action("vector_compare")
-            st.rerun()
+            if should_rerun:
+                st.rerun()
 
 
 def _render_vector_compare_result(compare_state: dict[str, Any]) -> None:
@@ -603,15 +714,22 @@ def render_similar_search_page(base_url: str) -> None:
     st.caption("Endpoint: GET /api/v1/vision/similar")
 
     state = _get_result_state("similar")
+    image_id_store_key = "similar_search_image_id_store"
+    image_id_widget_key = "similar_search_image_id_widget"
+    if image_id_store_key not in st.session_state:
+        st.session_state[image_id_store_key] = ""
+    if image_id_widget_key not in st.session_state:
+        st.session_state[image_id_widget_key] = st.session_state[image_id_store_key]
 
     with st.form("similar_search_form"):
-        image_id = st.text_input("Image ID", placeholder="e.g. 1234567890")
+        image_id = st.text_input("Image ID", placeholder="e.g. 1234567890", key=image_id_widget_key)
         draft_payload = {"imageId": image_id.strip()}
         submitted = st.form_submit_button(
             "Run Similar Search",
             type="primary",
             disabled=_is_action_busy("similar_search", draft_payload),
         )
+    st.session_state[image_id_store_key] = image_id
 
     if submitted:
         if not image_id.strip():
@@ -690,58 +808,49 @@ def render_auth_admin_page(base_url: str) -> None:
     st.caption("Endpoints: GET /api/v1/auth/refresh-token, GET /api/v1/auth/clean-token")
     st.warning("Admin operation: keep `X-Admin-Secret` private and do not expose in shared demos.")
 
-    admin_secret = st.text_input("X-Admin-Secret", type="password")
-    refresh_code = st.text_input("Refresh Code (optional)")
+    admin_secret_store_key = "auth_admin_secret_store"
+    admin_secret_widget_key = "auth_admin_secret_widget"
+    refresh_code_store_key = "auth_refresh_code_store"
+    refresh_code_widget_key = "auth_refresh_code_widget"
+    if admin_secret_store_key not in st.session_state:
+        st.session_state[admin_secret_store_key] = ""
+    if admin_secret_widget_key not in st.session_state:
+        st.session_state[admin_secret_widget_key] = st.session_state[admin_secret_store_key]
+    if refresh_code_store_key not in st.session_state:
+        st.session_state[refresh_code_store_key] = ""
+    if refresh_code_widget_key not in st.session_state:
+        st.session_state[refresh_code_widget_key] = st.session_state[refresh_code_store_key]
+
+    admin_secret = st.text_input("X-Admin-Secret", type="password", key=admin_secret_widget_key)
+    refresh_code = st.text_input("Refresh Code (optional)", key=refresh_code_widget_key)
+    st.session_state[admin_secret_store_key] = admin_secret
+    st.session_state[refresh_code_store_key] = refresh_code
 
     col1, col2 = st.columns(2)
-    refresh_payload = {"code": refresh_code.strip(), "hasSecret": bool(admin_secret.strip())}
-    if col1.button(
-        "Refresh Token",
-        type="primary",
-        disabled=_is_action_busy("auth_refresh_token", refresh_payload),
-    ):
+    if col1.button("Refresh Token", type="primary"):
         if not admin_secret.strip():
             st.warning("X-Admin-Secret is required.")
         else:
-            _queue_action("auth_refresh_token", refresh_payload)
-            st.rerun()
+            with st.spinner("Refreshing token..."):
+                params = {"code": refresh_code.strip()} if refresh_code.strip() else None
+                _request_admin_endpoint(
+                    base_url=_normalize_base_url(base_url),
+                    path="/api/v1/auth/refresh-token",
+                    admin_secret=admin_secret.strip(),
+                    params=params,
+                )
 
-    if _consume_queued_action("auth_refresh_token", refresh_payload):
-        try:
-            params = {"code": refresh_code.strip()} if refresh_code.strip() else None
-            _request_admin_endpoint(
-                base_url=_normalize_base_url(base_url),
-                path="/api/v1/auth/refresh-token",
-                admin_secret=admin_secret.strip(),
-                params=params,
-            )
-        finally:
-            _complete_action("auth_refresh_token")
-            st.rerun()
-
-    clean_payload = {"hasSecret": bool(admin_secret.strip())}
-    if col2.button(
-        "Clean Token",
-        type="secondary",
-        disabled=_is_action_busy("auth_clean_token", clean_payload),
-    ):
+    if col2.button("Clean Token", type="secondary"):
         if not admin_secret.strip():
             st.warning("X-Admin-Secret is required.")
         else:
-            _queue_action("auth_clean_token", clean_payload)
-            st.rerun()
-
-    if _consume_queued_action("auth_clean_token", clean_payload):
-        try:
-            _request_admin_endpoint(
-                base_url=_normalize_base_url(base_url),
-                path="/api/v1/auth/clean-token",
-                admin_secret=admin_secret.strip(),
-                params=None,
-            )
-        finally:
-            _complete_action("auth_clean_token")
-            st.rerun()
+            with st.spinner("Cleaning token..."):
+                _request_admin_endpoint(
+                    base_url=_normalize_base_url(base_url),
+                    path="/api/v1/auth/clean-token",
+                    admin_secret=admin_secret.strip(),
+                    params=None,
+                )
 
 
 def render_image_batch_process_page(base_url: str) -> None:
@@ -755,41 +864,91 @@ def render_image_batch_process_page(base_url: str) -> None:
 
     if "batch_task_ids" not in st.session_state:
         st.session_state.batch_task_ids = []
+    task_cache_key = "batch_task_cache"
+    active_task_ids_key = "batch_active_task_ids"
+    if task_cache_key not in st.session_state or not isinstance(st.session_state[task_cache_key], dict):
+        st.session_state[task_cache_key] = {}
+    if active_task_ids_key not in st.session_state or not isinstance(st.session_state[active_task_ids_key], list):
+        st.session_state[active_task_ids_key] = []
+    active_statuses = {"PENDING", "RUNNING"}
 
-    token = st.text_input("X-Access-Token", type="password", help="Required header for protected APIs")
-    key_prefix = st.text_input("OSS Key Prefix", value="", placeholder="Input manually, e.g. images/ui-upload/")
+    env_cfg = _load_env_config()
+    token_store_key = "batch_token_store"
+    token_widget_key = "batch_token_widget"
+    key_prefix_store_key = "batch_key_prefix_store"
+    key_prefix_widget_key = "batch_key_prefix_widget"
+    bucket_store_key = "batch_bucket_store"
+    bucket_widget_key = "batch_bucket_widget"
+    endpoint_store_key = "batch_endpoint_store"
+    endpoint_widget_key = "batch_endpoint_widget"
+    encrypt_key_store_key = "batch_encrypt_key_store"
+    encrypt_key_widget_key = "batch_encrypt_key_widget"
+    encrypt_iv_store_key = "batch_encrypt_iv_store"
+    encrypt_iv_widget_key = "batch_encrypt_iv_widget"
+    auto_refresh_store_key = "batch_task_auto_refresh_store"
+    auto_refresh_widget_key = "batch_task_auto_refresh_widget"
+    if token_store_key not in st.session_state:
+        st.session_state[token_store_key] = ""
+    if token_widget_key not in st.session_state:
+        st.session_state[token_widget_key] = st.session_state[token_store_key]
+    if key_prefix_store_key not in st.session_state:
+        st.session_state[key_prefix_store_key] = ""
+    if key_prefix_widget_key not in st.session_state:
+        st.session_state[key_prefix_widget_key] = st.session_state[key_prefix_store_key]
+    if bucket_store_key not in st.session_state:
+        st.session_state[bucket_store_key] = env_cfg.get("ALIYUN_OSS_BUCKET_NAME", "")
+    if bucket_widget_key not in st.session_state:
+        st.session_state[bucket_widget_key] = st.session_state[bucket_store_key]
+    if endpoint_store_key not in st.session_state:
+        st.session_state[endpoint_store_key] = env_cfg.get("OSS_ENDPOINT", "")
+    if endpoint_widget_key not in st.session_state:
+        st.session_state[endpoint_widget_key] = st.session_state[endpoint_store_key]
+    if encrypt_key_store_key not in st.session_state:
+        st.session_state[encrypt_key_store_key] = env_cfg.get("APP_ENCRYPT_KEY", "")
+    if encrypt_key_widget_key not in st.session_state:
+        st.session_state[encrypt_key_widget_key] = st.session_state[encrypt_key_store_key]
+    if encrypt_iv_store_key not in st.session_state:
+        st.session_state[encrypt_iv_store_key] = env_cfg.get("APP_ENCRYPT_IV", "")
+    if encrypt_iv_widget_key not in st.session_state:
+        st.session_state[encrypt_iv_widget_key] = st.session_state[encrypt_iv_store_key]
+    if auto_refresh_store_key not in st.session_state:
+        st.session_state[auto_refresh_store_key] = False
+    if auto_refresh_widget_key not in st.session_state:
+        st.session_state[auto_refresh_widget_key] = bool(st.session_state[auto_refresh_store_key])
+
+    token = st.text_input("X-Access-Token", type="password", help="Required header for protected APIs", key=token_widget_key)
+    key_prefix = st.text_input(
+        "OSS Key Prefix",
+        placeholder="Input manually, e.g. images/ui-upload/",
+        key=key_prefix_widget_key,
+    )
     files = st.file_uploader(
         "Select local files for integrated upload",
         type=["png", "jpg", "jpeg", "webp"],
         accept_multiple_files=True,
+        key="batch_files_widget",
     )
 
-    env_cfg = _load_env_config()
-    bucket_name = st.text_input("OSS Bucket", value=env_cfg.get("ALIYUN_OSS_BUCKET_NAME", ""))
-    oss_endpoint = st.text_input("OSS Endpoint", value=env_cfg.get("OSS_ENDPOINT", ""))
+    bucket_name = st.text_input("OSS Bucket", key=bucket_widget_key)
+    oss_endpoint = st.text_input("OSS Endpoint", key=endpoint_widget_key)
     encrypt_key = st.text_input(
         "APP_ENCRYPT_KEY (base64)",
-        value=env_cfg.get("APP_ENCRYPT_KEY", ""),
         type="password",
+        key=encrypt_key_widget_key,
     )
     encrypt_iv = st.text_input(
         "APP_ENCRYPT_IV (base64)",
-        value=env_cfg.get("APP_ENCRYPT_IV", ""),
         type="password",
+        key=encrypt_iv_widget_key,
     )
+    st.session_state[token_store_key] = token
+    st.session_state[key_prefix_store_key] = key_prefix
+    st.session_state[bucket_store_key] = bucket_name
+    st.session_state[endpoint_store_key] = oss_endpoint
+    st.session_state[encrypt_key_store_key] = encrypt_key
+    st.session_state[encrypt_iv_store_key] = encrypt_iv
 
-    draft_file_signatures = [_uploaded_file_fingerprint(file) for file in files] if files else []
-    batch_submit_payload = {
-        "keyPrefix": key_prefix.strip(),
-        "bucket": bucket_name.strip(),
-        "endpoint": oss_endpoint.strip(),
-        "files": draft_file_signatures,
-    }
-    if st.button(
-        "Upload To OSS And Submit Task",
-        type="primary",
-        disabled=_is_action_busy("batch_submit_task", batch_submit_payload),
-    ):
+    if st.button("Upload To OSS And Submit Task", type="primary"):
         if not token.strip():
             st.warning("X-Access-Token is required.")
             return
@@ -817,10 +976,6 @@ def render_image_batch_process_page(base_url: str) -> None:
         if not encrypt_key.strip() or not encrypt_iv.strip():
             st.warning("APP_ENCRYPT_KEY and APP_ENCRYPT_IV are required for STS decryption.")
             return
-        _queue_action("batch_submit_task", batch_submit_payload)
-        st.rerun()
-
-    if _consume_queued_action("batch_submit_task", batch_submit_payload):
         try:
             with st.spinner("Step 1/3: Fetching and decrypting STS token..."):
                 sts = _fetch_and_decrypt_sts(
@@ -860,49 +1015,125 @@ def render_image_batch_process_page(base_url: str) -> None:
             if isinstance(task_id, str) and task_id:
                 if task_id not in st.session_state.batch_task_ids:
                     st.session_state.batch_task_ids.append(task_id)
+                task_cache = st.session_state.get(task_cache_key)
+                if not isinstance(task_cache, dict):
+                    task_cache = {}
+                if isinstance(task, dict):
+                    task_cache[task_id] = task
+                st.session_state[task_cache_key] = task_cache
+                active_task_ids = st.session_state.get(active_task_ids_key)
+                if not isinstance(active_task_ids, list):
+                    active_task_ids = []
+                initial_status = str(task.get("status", "PENDING")) if isinstance(task, dict) else "PENDING"
+                if initial_status in active_statuses:
+                    if task_id not in active_task_ids:
+                        active_task_ids.append(task_id)
+                else:
+                    active_task_ids = [item for item in active_task_ids if item != task_id]
+                st.session_state[active_task_ids_key] = active_task_ids
                 st.success(f"Task submitted: {task_id}")
             else:
                 st.warning("Task submitted, but taskId was not found in response.")
-        finally:
-            _complete_action("batch_submit_task")
-            st.rerun()
+        except Exception as exc:
+            st.error(f"Batch submit failed: {exc}")
 
-    st.markdown("### Task Dashboard")
-    task_ids: list[str] = st.session_state.batch_task_ids
-    if not task_ids:
-        st.caption("No submitted tasks yet.")
-        return
-
-    control_col1, control_col2 = st.columns([1, 2])
-    control_col1.button("Refresh Task Status")
-    auto_refresh = control_col2.toggle("Auto refresh every 3 seconds", value=False, key="batch_task_auto_refresh")
-
-    if not token.strip():
-        st.warning("Input X-Access-Token to load task status and retry failed images.")
-        return
-
-    base = _normalize_base_url(base_url)
+    dashboard_placeholder = st.empty()
+    active_tasks_placeholder = None
+    auto_refresh = False
     has_active_task = False
-    for task_id in list(reversed(task_ids)):
-        task_payload = _get_batch_task_status(base_url=base, access_token=token.strip(), task_id=task_id)
-        if task_payload is None:
-            continue
+    with dashboard_placeholder.container():
+        st.markdown("### Task Dashboard")
+        task_ids: list[str] = st.session_state.batch_task_ids
+        if not task_ids:
+            st.caption("No submitted tasks yet.")
+            return
 
-        task_data = task_payload.get("data")
-        if not isinstance(task_data, dict):
-            st.error(f"Invalid task data shape for task {task_id}")
-            continue
-        task_status = str(task_data.get("status", ""))
-        if task_status in {"PENDING", "RUNNING"}:
-            has_active_task = True
+        control_col1, control_col2 = st.columns([1, 2])
+        refresh_all = control_col1.button("Refresh Task Status")
+        auto_refresh = control_col2.toggle("Auto refresh every 3 seconds", key=auto_refresh_widget_key)
+        st.session_state[auto_refresh_store_key] = bool(auto_refresh)
 
-        _render_single_batch_task(
-            task_data=task_data,
-            base_url=base,
-            access_token=token.strip(),
-        )
+        if not token.strip():
+            st.warning("Input X-Access-Token to load task status and retry failed images.")
+            return
+
+        base = _normalize_base_url(base_url)
+        task_cache = st.session_state.get(task_cache_key)
+        if not isinstance(task_cache, dict):
+            task_cache = {}
+        active_task_ids = st.session_state.get(active_task_ids_key)
+        if not isinstance(active_task_ids, list):
+            active_task_ids = []
+        normalized_task_ids = [str(task_id) for task_id in task_ids]
+        active_task_set = {task_id for task_id in active_task_ids if task_id in normalized_task_ids}
+        ordered_task_ids = list(reversed(normalized_task_ids))
+
+        query_task_ids: list[str]
+        if refresh_all:
+            query_task_ids = list(ordered_task_ids)
+        else:
+            query_task_ids = [task_id for task_id in ordered_task_ids if task_id in active_task_set]
+            for task_id in ordered_task_ids:
+                if task_id not in task_cache and task_id not in query_task_ids:
+                    query_task_ids.append(task_id)
+
+        for task_id in query_task_ids:
+            task_payload = _get_batch_task_status(base_url=base, access_token=token.strip(), task_id=task_id)
+            if task_payload is None:
+                continue
+            task_data = task_payload.get("data")
+            if not isinstance(task_data, dict):
+                st.error(f"Invalid task data shape for task {task_id}")
+                continue
+            task_cache[task_id] = task_data
+            task_status = str(task_data.get("status", ""))
+            if task_status in active_statuses:
+                active_task_set.add(task_id)
+            else:
+                active_task_set.discard(task_id)
+
+        st.session_state[task_cache_key] = task_cache
+        st.session_state[active_task_ids_key] = [task_id for task_id in normalized_task_ids if task_id in active_task_set]
+
+        active_display_ids = [task_id for task_id in ordered_task_ids if task_id in active_task_set]
+        completed_display_ids = [task_id for task_id in ordered_task_ids if task_id not in active_task_set]
+        has_active_task = bool(active_display_ids)
+
+        active_tasks_placeholder = st.empty()
+        with active_tasks_placeholder.container():
+            st.markdown("**Active Tasks**")
+            if active_display_ids:
+                for task_id in active_display_ids:
+                    task_data = task_cache.get(task_id)
+                    if not isinstance(task_data, dict):
+                        st.caption(f"Task `{task_id}` is active. Waiting for status update...")
+                        continue
+                    _render_single_batch_task(
+                        task_data=task_data,
+                        base_url=base,
+                        access_token=token.strip(),
+                    )
+            else:
+                st.caption("No active tasks.")
+
+        st.markdown("**Completed / History**")
+        if completed_display_ids:
+            for task_id in completed_display_ids:
+                task_data = task_cache.get(task_id)
+                if not isinstance(task_data, dict):
+                    st.caption(f"Task `{task_id}` has no cached status yet. Click `Refresh Task Status`.")
+                    continue
+                _render_single_batch_task(
+                    task_data=task_data,
+                    base_url=base,
+                    access_token=token.strip(),
+                )
+        else:
+            st.caption("No completed tasks yet.")
 
     if auto_refresh and has_active_task:
+        if active_tasks_placeholder is not None:
+            active_tasks_placeholder.empty()
         time.sleep(3)
         st.rerun()
 
@@ -970,6 +1201,7 @@ def _render_single_batch_task(*, task_data: dict[str, Any], base_url: str, acces
                             task_id=task_id,
                         )
                     if retried_all is not None:
+                        _mark_batch_task_active(task_id)
                         st.success("Retry-all submitted.")
                 finally:
                     _complete_action("batch_retry_all")
@@ -1016,12 +1248,23 @@ def _render_single_batch_task(*, task_data: dict[str, Any], base_url: str, acces
                                 item_id=item_id,
                             )
                         if retried is not None:
+                            _mark_batch_task_active(task_id)
                             st.success(f"Retry submitted for {file_name}")
                     finally:
                         _complete_action("batch_retry_item")
                         st.rerun()
             else:
                 cols[4].write("-")
+
+
+def _mark_batch_task_active(task_id: str) -> None:
+    active_task_ids_key = "batch_active_task_ids"
+    active_ids = st.session_state.get(active_task_ids_key)
+    if not isinstance(active_ids, list):
+        active_ids = []
+    if task_id not in active_ids:
+        active_ids.append(task_id)
+    st.session_state[active_task_ids_key] = active_ids
 
 
 def _request_admin_endpoint(
