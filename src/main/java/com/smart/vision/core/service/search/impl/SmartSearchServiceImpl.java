@@ -39,6 +39,7 @@ import static com.smart.vision.core.constant.EmbeddingConstant.QUALITY_MIN_RESUL
 import static com.smart.vision.core.constant.EmbeddingConstant.QUALITY_RATIO_CUTOFF;
 import static com.smart.vision.core.constant.EmbeddingConstant.SIMILARITY_TOP_K;
 import static com.smart.vision.core.model.enums.PresignedValidityEnum.SHORT_TERM_VALIDITY;
+import static com.smart.vision.core.util.ScoreUtil.mapScoreForSimilar;
 
 /**
  * Smart search service implementation
@@ -90,7 +91,9 @@ public class SmartSearchServiceImpl implements SmartSearchService {
             throw new RuntimeException("The image has not been vectorized yet");
         }
         List<ImageSearchResultDTO> similarDocs = imageRepository.searchSimilar(embedding, SIMILARITY_TOP_K, docId);
-        return imageDocConvertor.convert2SearchResultDTO(similarFilter(similarDocs, SIMILARITY_TOP_K));
+        List<ImageSearchResultDTO> filtered = similarFilter(similarDocs, SIMILARITY_TOP_K);
+        applySimilarDisplayScore(filtered);
+        return imageDocConvertor.convert2SearchResultDTO(filtered);
     }
 
     public List<ImageSearchResultDTO> similarFilter(List<ImageSearchResultDTO> results, int maxResults) {
@@ -166,7 +169,9 @@ public class SmartSearchServiceImpl implements SmartSearchService {
             RetrievalStrategy strategy = strategyFactory.getStrategy(StrategyTypeEnum.IMAGE_TO_IMAGE.getCode());
             List<ImageSearchResultDTO> imageSearchResultDTOS = strategy.search(null, vector);
             int maxResults = limit > 0 ? limit : imageSearchResultDTOS.size();
-            return imageDocConvertor.convert2SearchResultDTO(similarFilter(imageSearchResultDTOS, maxResults));
+            List<ImageSearchResultDTO> filtered = similarFilter(imageSearchResultDTOS, maxResults);
+            applySimilarDisplayScore(filtered);
+            return imageDocConvertor.convert2SearchResultDTO(filtered);
         } catch (Exception e) {
             log.error("Failed to search by image", e);
             return Lists.newArrayList();
@@ -262,5 +267,14 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         return strategyType == StrategyTypeEnum.HYBRID;
 //                || strategyType == StrategyTypeEnum.VECTOR_ONLY
 //                || strategyType == StrategyTypeEnum.IMAGE_TO_IMAGE;
+    }
+
+    private void applySimilarDisplayScore(List<ImageSearchResultDTO> results) {
+        if (CollectionUtils.isEmpty(results)) {
+            return;
+        }
+        for (ImageSearchResultDTO result : results) {
+            result.setScore(mapScoreForSimilar(result.getRawScore()));
+        }
     }
 }
