@@ -459,6 +459,13 @@ components:
           type: array
           items: {}
 
+    GraphTripleDTO:
+      type: object
+      properties:
+        s: { type: string }
+        p: { type: string }
+        o: { type: string }
+
     SearchResultDTO:
       type: object
       properties:
@@ -476,6 +483,10 @@ components:
         tags:
           type: array
           items: { type: string }
+        relations:
+          type: array
+          items:
+            $ref: '#/components/schemas/GraphTripleDTO'
 
     BatchProcessDTO:
       type: object

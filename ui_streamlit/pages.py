@@ -23,6 +23,8 @@ RESULT_STATE_KEYS = {
 LAYOUT_OPTIONS = ["Large (2 per row)", "Compact (3 per row)"]
 OCR_PREVIEW_MAX_CHARS = 100
 HIGHLIGHT_PREVIEW_MAX_CHARS = 80
+SPO_PREVIEW_MAX_ITEMS = 3
+SPO_PREVIEW_MAX_CHARS = 140
 
 
 def render_text_search_page(base_url: str) -> None:
@@ -1474,17 +1476,54 @@ def _render_search_results(results: list[Any], *, layout_key: str) -> None:
             tags_text = ", ".join(str(tag) for tag in tags[:8]) if isinstance(tags, list) and tags else "-"
             highlight = _clip_text(_safe_str(item.get("highlight")), HIGHLIGHT_PREVIEW_MAX_CHARS)
             ocr_text = _clip_text(_safe_str(item.get("ocrText")), OCR_PREVIEW_MAX_CHARS)
+            relations_text = _clip_text(
+                _format_relations_preview(item.get("relations"), max_items=SPO_PREVIEW_MAX_ITEMS),
+                SPO_PREVIEW_MAX_CHARS,
+            )
 
             card_html = ["<div class='result-card'>", _render_large_preview(image_url, filename), "<div class='result-meta'>"]
             card_html.append(_meta_row("id", doc_id))
             card_html.append(_meta_row("score", score))
             card_html.append(_meta_row("tags", tags_text))
+            if relations_text:
+                card_html.append(_meta_row_single_line("spo", relations_text))
             if highlight:
                 card_html.append(_meta_row("highlight", highlight))
             if ocr_text:
                 card_html.append(_meta_row("ocrText", ocr_text))
             card_html.append("</div></div>")
             st.markdown("".join(card_html), unsafe_allow_html=True)
+
+
+def _format_relations_preview(relations: Any, *, max_items: int) -> str:
+    rows = _normalize_relations(relations)
+    if not rows:
+        return ""
+
+    triples = [_format_relation_line(row, delimiter="-") for row in rows[:max_items]]
+    return "; ".join(triples)
+
+
+def _normalize_relations(relations: Any) -> list[dict[str, str]]:
+    if not isinstance(relations, list):
+        return []
+
+    rows: list[dict[str, str]] = []
+    for triple in relations:
+        if not isinstance(triple, dict):
+            continue
+        s = _safe_str(triple.get("s"))
+        p = _safe_str(triple.get("p"))
+        o = _safe_str(triple.get("o"))
+        if not (s or p or o):
+            continue
+        rows.append({"s": s, "p": p, "o": o})
+    return rows
+
+
+def _format_relation_line(row: dict[str, str], *, delimiter: str) -> str:
+    parts = [part for part in [row.get("s", ""), row.get("p", ""), row.get("o", "")] if part]
+    return delimiter.join(parts)
 
 
 def _safe_str(value: Any) -> str:
@@ -1673,6 +1712,14 @@ def _inject_result_text_styles() -> None:
           word-break: break-word;
           overflow-wrap: anywhere;
         }
+        .result-val-one-line {
+          color: #e7eef7;
+          font-weight: 400;
+          display: block;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -1684,6 +1731,16 @@ def _meta_row(key: str, value: str) -> str:
         "<div class='result-row'>"
         f"<span class='result-key'>{html.escape(key)}:</span>"
         f"<span class='result-val'>{html.escape(value)}</span>"
+        "</div>"
+    )
+
+
+def _meta_row_single_line(key: str, value: str) -> str:
+    safe_value = html.escape(value)
+    return (
+        "<div class='result-row'>"
+        f"<span class='result-key'>{html.escape(key)}:</span>"
+        f"<span class='result-val-one-line' title='{safe_value}'>{safe_value}</span>"
         "</div>"
     )
 

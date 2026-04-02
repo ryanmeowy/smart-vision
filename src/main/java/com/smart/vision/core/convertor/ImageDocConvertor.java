@@ -36,6 +36,7 @@ public class ImageDocConvertor {
                     .filename(doc.getFileName())
                     .sortValues(result.getSortValues())
                     .tags(doc.getTags())
+                    .relations(doc.getRelations())
                     .build();
             resultDTOList.add(resultDTO);
         }

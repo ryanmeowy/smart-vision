@@ -55,4 +55,9 @@ public class SearchResultDTO implements Serializable {
      * AI tags
      */
     private List<String> tags;
+
+    /**
+     * Graph triples (subject, predicate, object)
+     */
+    private List<GraphTripleDTO> relations;
 }
