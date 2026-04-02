@@ -29,7 +29,6 @@ public class BeanConfig {
 
     /**
      * Register Aliyun OSS client
-     * Scope: Singleton
      */
     @Bean(destroyMethod = "shutdown")
     public OSS ossClient() {
@@ -45,7 +44,6 @@ public class BeanConfig {
 
     /**
      * Register OCR client
-     * Scope: Singleton
      */
     @Bean
     public Client ocrClient() throws Exception {

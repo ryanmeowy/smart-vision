@@ -25,8 +25,6 @@ public class GraphTriplesSearchMatcher implements GraphTriplesMatcher {
     }
 
     private static Query buildGraphClause(List<GraphTripleDTO> triples) {
-        // Keep logic consistent with the previous GraphQueryProcessor:
-        // constantScore(filter(nested(...)), boost=2.0f)
         BoolQuery.Builder graphBool = new BoolQuery.Builder();
         for (GraphTripleDTO t : triples) {
             graphBool.should(g -> g.nested(n -> n

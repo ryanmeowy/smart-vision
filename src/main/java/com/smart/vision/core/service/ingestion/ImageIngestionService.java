@@ -1,6 +1,7 @@
 package com.smart.vision.core.service.ingestion;
 
 import com.smart.vision.core.model.dto.BatchProcessDTO;
+import com.smart.vision.core.model.dto.BatchTaskStatusDTO;
 import com.smart.vision.core.model.dto.BatchUploadResultDTO;
 
 import java.util.List;
@@ -22,4 +23,24 @@ public interface ImageIngestionService {
      * @return BatchUploadResultDTO containing processing statistics and results
      */
     BatchUploadResultDTO processBatchItems(List<BatchProcessDTO> items);
+
+    /**
+     * Submit async batch task.
+     */
+    BatchTaskStatusDTO submitBatchTask(List<BatchProcessDTO> items);
+
+    /**
+     * Query async batch task status.
+     */
+    BatchTaskStatusDTO getBatchTaskStatus(String taskId);
+
+    /**
+     * Retry one failed image item in a batch task.
+     */
+    BatchTaskStatusDTO retryBatchTaskItem(String taskId, String itemId);
+
+    /**
+     * Retry all failed image items in a batch task.
+     */
+    BatchTaskStatusDTO retryAllFailedBatchTaskItems(String taskId);
 }

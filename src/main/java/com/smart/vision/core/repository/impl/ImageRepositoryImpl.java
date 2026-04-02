@@ -56,6 +56,30 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
     }
 
     @Override
+    public List<ImageSearchResultDTO> vectorSearch(List<Float> vector, Integer topK) {
+        try {
+            SearchRequest request = searchRequestFactory.buildVectorOnly(vector, topK);
+            SearchResponse<ImageDocument> response = esClient.search(request, ImageDocument.class);
+            return converter.convert2Doc(response);
+        } catch (Exception e) {
+            log.error("Execution of vector-only search failed", e);
+            return Collections.emptyList();
+        }
+    }
+
+    @Override
+    public List<ImageSearchResultDTO> textSearch(String keyword, Integer limit, Boolean enableOcr) {
+        try {
+            SearchRequest request = searchRequestFactory.buildTextOnly(keyword, limit, enableOcr);
+            SearchResponse<ImageDocument> response = esClient.search(request, ImageDocument.class);
+            return converter.convert2Doc(response);
+        } catch (Exception e) {
+            log.error("Execution of text-only search failed", e);
+            return Collections.emptyList();
+        }
+    }
+
+    @Override
     public ImageDocument findDuplicate(List<Float> vector, double threshold) {
         try {
             SearchRequest request = searchRequestFactory.buildDuplicate(vector, threshold);

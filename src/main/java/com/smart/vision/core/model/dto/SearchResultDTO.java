@@ -55,4 +55,14 @@ public class SearchResultDTO implements Serializable {
      * AI tags
      */
     private List<String> tags;
+
+    /**
+     * Graph triples (subject, predicate, object)
+     */
+    private List<GraphTripleDTO> relations;
+
+    /**
+     * Vector hit status (tri-state): VECTOR_ONLY_LIKE / VECTOR_AND_TEXT / TEXT_ONLY.
+     */
+    private String vectorHitStatus;
 }

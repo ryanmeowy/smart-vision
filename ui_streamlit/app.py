@@ -3,10 +3,12 @@ from pathlib import Path
 
 from pages import render_hot_words_page
 from pages import render_auth_admin_page
+from pages import render_image_analyze_page
 from pages import render_image_batch_process_page
 from pages import render_image_search_page
 from pages import render_similar_search_page
 from pages import render_text_search_page
+from pages import render_vector_compare_page
 
 st.set_page_config(
     page_title="Smart Vision Frontend Validation",
@@ -101,6 +103,8 @@ def render_sidebar() -> str:
                 "Hot Words",
                 "Batch Process",
                 "Auth Admin",
+                "Image Analyze",
+                "Vector Compare",
             ],
         )
     return page
@@ -122,6 +126,12 @@ def main() -> None:
         return
     if current_page == "Search By Image":
         render_image_search_page(st.session_state.base_url)
+        return
+    if current_page == "Image Analyze":
+        render_image_analyze_page(st.session_state.base_url)
+        return
+    if current_page == "Vector Compare":
+        render_vector_compare_page(st.session_state.base_url)
         return
     if current_page == "Similar Search":
         render_similar_search_page(st.session_state.base_url)

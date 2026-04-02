@@ -31,6 +31,25 @@ public interface ImageRepositoryCustom {
     List<ImageSearchResultDTO> searchSimilar(List<Float> vector, Integer topK, String excludeDocId);
 
     /**
+     * Vector-only retrieval without document exclusion.
+     *
+     * @param vector query embedding
+     * @param topK number of candidates
+     * @return list of matching documents
+     */
+    List<ImageSearchResultDTO> vectorSearch(List<Float> vector, Integer topK);
+
+    /**
+     * Text-only retrieval (BM25 style) over OCR/tags/file name.
+     *
+     * @param keyword search keyword
+     * @param limit max number of returned results
+     * @param enableOcr whether OCR field should participate in matching
+     * @return list of matching documents
+     */
+    List<ImageSearchResultDTO> textSearch(String keyword, Integer limit, Boolean enableOcr);
+
+    /**
      * Check if there is an extremely similar image (used for deduplication)
      * @param vector Vector to be checked
      * @param threshold Similarity threshold

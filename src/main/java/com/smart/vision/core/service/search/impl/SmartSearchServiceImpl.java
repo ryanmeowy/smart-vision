@@ -6,6 +6,7 @@ import com.smart.vision.core.convertor.ImageDocConvertor;
 import com.smart.vision.core.manager.HotSearchManager;
 import com.smart.vision.core.manager.OssManager;
 import com.smart.vision.core.model.dto.ImageSearchResultDTO;
+import com.smart.vision.core.model.dto.GraphTripleDTO;
 import com.smart.vision.core.model.dto.SearchQueryDTO;
 import com.smart.vision.core.model.dto.SearchResultDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
@@ -39,6 +40,7 @@ import static com.smart.vision.core.constant.EmbeddingConstant.QUALITY_MIN_RESUL
 import static com.smart.vision.core.constant.EmbeddingConstant.QUALITY_RATIO_CUTOFF;
 import static com.smart.vision.core.constant.EmbeddingConstant.SIMILARITY_TOP_K;
 import static com.smart.vision.core.model.enums.PresignedValidityEnum.SHORT_TERM_VALIDITY;
+import static com.smart.vision.core.util.ScoreUtil.mapScoreForSimilar;
 
 /**
  * Smart search service implementation
@@ -67,20 +69,20 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         if (StringUtils.hasText(query.getKeyword())) {
             hotSearchManager.incrementScore(query.getKeyword());
         }
-        List<Float> queryVector = getVectorFromCache(query.getKeyword());
-        if (CollectionUtils.isEmpty(queryVector)) {
-            log.info("vector cache missed, processing new text, keyword: {}", query.getKeyword());
-            queryVector = embeddingService.embedText(query.getKeyword());
-            cacheVector(query.getKeyword(), queryVector);
-        }
-        log.info("vector cache hit, processing new text, keyword: {}", query.getKeyword());
         RetrievalStrategy strategy = strategyFactory.getStrategy(query.getSearchType());
+        StrategyTypeEnum effectiveStrategy = strategy.getType();
+        List<Float> queryVector = requiresTextEmbedding(effectiveStrategy) ? getOrCreateQueryVector(query.getKeyword()) : null;
         List<ImageSearchResultDTO> docs = strategy.search(query, queryVector);
         int maxResults = query.getLimit() != null && query.getLimit() > 0 ? query.getLimit() : docs.size();
-        List<ImageSearchResultDTO> filteredDocs = similarFilter(docs, maxResults);
+        List<ImageSearchResultDTO> filteredDocs = shouldApplySimilarityFilter(effectiveStrategy)
+                ? similarFilter(docs, maxResults)
+                : docs.stream().limit(maxResults).collect(Collectors.toList());
         log.info("Search completed, number of results before filter: {}, after filter: {}", docs.size(), filteredDocs.size());
         boolean enableOcr = query.getEnableOcr() == null || query.getEnableOcr();
-        return imageDocConvertor.convert2SearchResultDTO(manualRerank(filteredDocs, query.getKeyword(), enableOcr));
+        List<ImageSearchResultDTO> reranked = manualRerank(filteredDocs, query.getKeyword(), enableOcr);
+        List<SearchResultDTO> dtoList = imageDocConvertor.convert2SearchResultDTO(reranked);
+        applyVectorHitStatusForSearch(dtoList, reranked, query.getKeyword(), enableOcr, effectiveStrategy);
+        return dtoList;
     }
 
     public List<SearchResultDTO> searchByVector(String docId) {
@@ -93,7 +95,11 @@ public class SmartSearchServiceImpl implements SmartSearchService {
             throw new RuntimeException("The image has not been vectorized yet");
         }
         List<ImageSearchResultDTO> similarDocs = imageRepository.searchSimilar(embedding, SIMILARITY_TOP_K, docId);
-        return imageDocConvertor.convert2SearchResultDTO(similarFilter(similarDocs, SIMILARITY_TOP_K));
+        List<ImageSearchResultDTO> filtered = similarFilter(similarDocs, SIMILARITY_TOP_K);
+        applySimilarDisplayScore(filtered);
+        List<SearchResultDTO> dtoList = imageDocConvertor.convert2SearchResultDTO(filtered);
+        applyFixedVectorStatus(dtoList, "VECTOR_ONLY_LIKE");
+        return dtoList;
     }
 
     public List<ImageSearchResultDTO> similarFilter(List<ImageSearchResultDTO> results, int maxResults) {
@@ -106,7 +112,6 @@ public class SmartSearchServiceImpl implements SmartSearchService {
             ImageSearchResultDTO current = results.get(i);
             double currScore = decisionScore(current);
 
-            // Hard floor first: never keep low-quality tail just for minimum count.
             if (currScore < qualityAbsoluteMinScore) {
                 break;
             }
@@ -170,7 +175,11 @@ public class SmartSearchServiceImpl implements SmartSearchService {
             RetrievalStrategy strategy = strategyFactory.getStrategy(StrategyTypeEnum.IMAGE_TO_IMAGE.getCode());
             List<ImageSearchResultDTO> imageSearchResultDTOS = strategy.search(null, vector);
             int maxResults = limit > 0 ? limit : imageSearchResultDTOS.size();
-            return imageDocConvertor.convert2SearchResultDTO(similarFilter(imageSearchResultDTOS, maxResults));
+            List<ImageSearchResultDTO> filtered = similarFilter(imageSearchResultDTOS, maxResults);
+            applySimilarDisplayScore(filtered);
+            List<SearchResultDTO> dtoList = imageDocConvertor.convert2SearchResultDTO(filtered);
+            applyFixedVectorStatus(dtoList, "VECTOR_ONLY_LIKE");
+            return dtoList;
         } catch (Exception e) {
             log.error("Failed to search by image", e);
             return Lists.newArrayList();
@@ -244,5 +253,112 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         }
         String profile = System.getenv(PROFILE_KEY_NAME);
         return "local".equalsIgnoreCase(profile);
+    }
+
+    private List<Float> getOrCreateQueryVector(String keyword) {
+        List<Float> queryVector = getVectorFromCache(keyword);
+        if (CollectionUtils.isEmpty(queryVector)) {
+            log.info("vector cache missed, processing new text, keyword: {}", keyword);
+            queryVector = embeddingService.embedText(keyword);
+            cacheVector(keyword, queryVector);
+            return queryVector;
+        }
+        log.info("vector cache hit, processing new text, keyword: {}", keyword);
+        return queryVector;
+    }
+
+    private boolean requiresTextEmbedding(StrategyTypeEnum strategyType) {
+        return strategyType == StrategyTypeEnum.HYBRID || strategyType == StrategyTypeEnum.VECTOR_ONLY;
+    }
+
+    private boolean shouldApplySimilarityFilter(StrategyTypeEnum strategyType) {
+        return strategyType == StrategyTypeEnum.HYBRID;
+//                || strategyType == StrategyTypeEnum.VECTOR_ONLY
+//                || strategyType == StrategyTypeEnum.IMAGE_TO_IMAGE;
+    }
+
+    private void applySimilarDisplayScore(List<ImageSearchResultDTO> results) {
+        if (CollectionUtils.isEmpty(results)) {
+            return;
+        }
+        for (ImageSearchResultDTO result : results) {
+            result.setScore(mapScoreForSimilar(result.getRawScore()));
+        }
+    }
+
+    private void applyVectorHitStatusForSearch(List<SearchResultDTO> dtoList,
+                                               List<ImageSearchResultDTO> sourceDocs,
+                                               String keyword,
+                                               boolean enableOcr,
+                                               StrategyTypeEnum strategyType) {
+        if (CollectionUtils.isEmpty(dtoList) || CollectionUtils.isEmpty(sourceDocs)) {
+            return;
+        }
+        String normalizedKeyword = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
+        int bound = Math.min(dtoList.size(), sourceDocs.size());
+
+        for (int i = 0; i < bound; i++) {
+            SearchResultDTO dto = dtoList.get(i);
+            ImageSearchResultDTO source = sourceDocs.get(i);
+            ImageDocument doc = source == null ? null : source.getDocument();
+            dto.setVectorHitStatus(computeVectorHitStatus(doc, normalizedKeyword, enableOcr, strategyType));
+        }
+    }
+
+    private void applyFixedVectorStatus(List<SearchResultDTO> dtoList, String status) {
+        if (CollectionUtils.isEmpty(dtoList)) {
+            return;
+        }
+        for (SearchResultDTO dto : dtoList) {
+            dto.setVectorHitStatus(status);
+        }
+    }
+
+    private String computeVectorHitStatus(ImageDocument doc,
+                                          String normalizedKeyword,
+                                          boolean enableOcr,
+                                          StrategyTypeEnum strategyType) {
+        if (strategyType == StrategyTypeEnum.TEXT_ONLY) {
+            return "TEXT_ONLY";
+        }
+        if (strategyType == StrategyTypeEnum.VECTOR_ONLY || strategyType == StrategyTypeEnum.IMAGE_TO_IMAGE) {
+            return "VECTOR_ONLY_LIKE";
+        }
+        if (strategyType == StrategyTypeEnum.HYBRID) {
+            boolean textHit = hasTextHit(doc, normalizedKeyword, enableOcr);
+            return textHit ? "VECTOR_AND_TEXT" : "VECTOR_ONLY_LIKE";
+        }
+        return "TEXT_ONLY";
+    }
+
+    private boolean hasTextHit(ImageDocument doc, String normalizedKeyword, boolean enableOcr) {
+        if (doc == null || !StringUtils.hasText(normalizedKeyword)) {
+            return false;
+        }
+        if (enableOcr && containsIgnoreCase(doc.getOcrContent(), normalizedKeyword)) {
+            return true;
+        }
+        if (!CollectionUtils.isEmpty(doc.getTags())) {
+            boolean tagHit = doc.getTags().stream().anyMatch(tag -> containsIgnoreCase(tag, normalizedKeyword));
+            if (tagHit) {
+                return true;
+            }
+        }
+        if (containsIgnoreCase(doc.getFileName(), normalizedKeyword)) {
+            return true;
+        }
+        if (!CollectionUtils.isEmpty(doc.getRelations())) {
+            for (GraphTripleDTO triple : doc.getRelations()) {
+                if (triple == null) {
+                    continue;
+                }
+                if (containsIgnoreCase(triple.getS(), normalizedKeyword)
+                        || containsIgnoreCase(triple.getP(), normalizedKeyword)
+                        || containsIgnoreCase(triple.getO(), normalizedKeyword)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }

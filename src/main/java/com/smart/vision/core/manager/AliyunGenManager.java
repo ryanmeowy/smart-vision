@@ -112,6 +112,31 @@ public class AliyunGenManager {
         return emitter;
     }
 
+    public String generateSummary(String imageUrl) throws NoApiKeyException, UploadFileException {
+        MultiModalMessage userMessage = MultiModalMessage.builder()
+                .role(Role.USER.getValue())
+                .content(Arrays.asList(Map.of("image", imageUrl), Map.of("text", PromptEnum.DEFAULT.getPrompt())))
+                .build();
+        MultiModalConversationParam param = MultiModalConversationParam.builder()
+                .model(IMAGE_GEN_MODEL_NAME)
+                .message(userMessage)
+                .apiKey(apiKey)
+                .build();
+        MultiModalConversation conv = new MultiModalConversation();
+        MultiModalConversationResult callResult = conv.call(param);
+        String rawText = Optional.ofNullable(callResult)
+                .map(MultiModalConversationResult::getOutput)
+                .map(MultiModalConversationOutput::getChoices)
+                .filter(CollectionUtil::isNotEmpty)
+                .map(List::getFirst)
+                .map(MultiModalConversationOutput.Choice::getMessage)
+                .map(MultiModalMessage::getContent)
+                .map(Object::toString)
+                .orElse(Strings.EMPTY);
+        Matcher matcher = TEXT_PATTERN.matcher(rawText);
+        return matcher.find() ? matcher.group(1) : rawText;
+    }
+
     @Retryable(retryFor = Exception.class, backoff = @Backoff(delay = 1000, multiplier = 2))
     public String genFileName(String imageUrl) throws NoApiKeyException, UploadFileException {
         MultiModalMessage userMessage = MultiModalMessage.builder()

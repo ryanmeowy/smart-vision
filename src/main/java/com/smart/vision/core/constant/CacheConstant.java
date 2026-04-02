@@ -12,6 +12,10 @@ public class CacheConstant {
 
     public static final String IMAGE_MD5_CACHE_PREFIX = "search:img:md5:";
 
+    public static final String COMPARE_TEXT_CACHE_PREFIX = "compare:text:";
+
+    public static final String COMPARE_IMAGE_CACHE_PREFIX = "compare:image:";
+
     public static final String ID_GEN_KEY = "id:gen";
 
 }

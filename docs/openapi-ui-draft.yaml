@@ -132,11 +132,86 @@ paths:
               schema:
                 $ref: '#/components/schemas/SearchResultEnvelope'
 
+  /api/v1/vision/analyze/stream:
+    post:
+      tags: [Vision]
+      summary: Stream image analysis result
+      operationId: visionAnalyzeByImageStream
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                mode:
+                  type: string
+                  default: general
+                enableOcr:
+                  type: boolean
+                  default: true
+                enableGraph:
+                  type: boolean
+                  default: true
+      responses:
+        '200':
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /api/v1/vision/vector-compare:
+    post:
+      tags: [Vision]
+      summary: Compare two multimodal inputs by vector similarity
+      operationId: visionVectorCompare
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [leftType, rightType]
+              properties:
+                leftType:
+                  type: string
+                  enum: [text, image]
+                leftText:
+                  type: string
+                  maxLength: 500
+                leftFile:
+                  type: string
+                  format: binary
+                rightType:
+                  type: string
+                  enum: [text, image]
+                rightText:
+                  type: string
+                  maxLength: 500
+                rightFile:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VectorCompareEnvelope'
+
   /api/v1/image/batch-process:
     post:
       tags: [Image]
+      deprecated: true
       summary: Batch process uploaded images
       description: |
+        Deprecated. Please use `/api/v1/image/batch-tasks` for async task submission.
+
         Integrated UI flow:
         1) client gets encrypted STS from `/api/v1/auth/sts`
         2) client uploads files to OSS directly
@@ -161,6 +236,103 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BatchUploadResultEnvelope'
+        '401':
+          description: Access token invalid or expired
+
+  /api/v1/image/batch-tasks:
+    post:
+      tags: [Image]
+      summary: Submit async batch task
+      operationId: createImageBatchTask
+      security:
+        - AccessTokenHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              minItems: 1
+              maxItems: 20
+              items:
+                $ref: '#/components/schemas/BatchProcessDTO'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchTaskStatusEnvelope'
+        '401':
+          description: Access token invalid or expired
+
+  /api/v1/image/batch-tasks/{taskId}:
+    get:
+      tags: [Image]
+      summary: Query async batch task status
+      operationId: getImageBatchTask
+      security:
+        - AccessTokenHeader: []
+      parameters:
+        - in: path
+          name: taskId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchTaskStatusEnvelope'
+        '401':
+          description: Access token invalid or expired
+
+  /api/v1/image/batch-tasks/{taskId}/items/{itemId}/retry:
+    post:
+      tags: [Image]
+      summary: Retry one failed image item in async batch task
+      operationId: retryImageBatchTaskItem
+      security:
+        - AccessTokenHeader: []
+      parameters:
+        - in: path
+          name: taskId
+          required: true
+          schema: { type: string }
+        - in: path
+          name: itemId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchTaskStatusEnvelope'
+        '401':
+          description: Access token invalid or expired
+
+  /api/v1/image/batch-tasks/{taskId}/retry-failed:
+    post:
+      tags: [Image]
+      summary: Retry all failed image items in async batch task
+      operationId: retryAllFailedImageBatchTaskItems
+      security:
+        - AccessTokenHeader: []
+      parameters:
+        - in: path
+          name: taskId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchTaskStatusEnvelope'
         '401':
           description: Access token invalid or expired
 
@@ -287,6 +459,13 @@ components:
           type: array
           items: {}
 
+    GraphTripleDTO:
+      type: object
+      properties:
+        s: { type: string }
+        p: { type: string }
+        o: { type: string }
+
     SearchResultDTO:
       type: object
       properties:
@@ -304,6 +483,13 @@ components:
         tags:
           type: array
           items: { type: string }
+        relations:
+          type: array
+          items:
+            $ref: '#/components/schemas/GraphTripleDTO'
+        vectorHitStatus:
+          type: string
+          enum: [VECTOR_ONLY_LIKE, VECTOR_AND_TEXT, TEXT_ONLY]
 
     BatchProcessDTO:
       type: object
@@ -335,6 +521,68 @@ components:
           items:
             $ref: '#/components/schemas/BatchFailureItem'
 
+    BatchTaskItemStatusDTO:
+      type: object
+      properties:
+        itemId: { type: string }
+        key: { type: string }
+        fileName: { type: string }
+        fileHash: { type: string }
+        status: { type: string, example: PENDING }
+        errorMessage: { type: string }
+        retryCount: { type: integer }
+        updatedAt: { type: integer, format: int64 }
+
+    BatchTaskStatusDTO:
+      type: object
+      properties:
+        taskId: { type: string }
+        status: { type: string, example: RUNNING }
+        total: { type: integer }
+        successCount: { type: integer }
+        failureCount: { type: integer }
+        runningCount: { type: integer }
+        pendingCount: { type: integer }
+        createdAt: { type: integer, format: int64 }
+        updatedAt: { type: integer, format: int64 }
+        completedAt: { type: integer, format: int64, nullable: true }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BatchTaskItemStatusDTO'
+
+    VectorCompareResultDTO:
+      type: object
+      properties:
+        leftType: { type: string, enum: [text, image] }
+        rightType: { type: string, enum: [text, image] }
+        cosineSimilarity:
+          type: number
+          format: double
+          description: Cosine similarity in range [-1, 1].
+        scorePercent:
+          type: number
+          format: double
+          description: Normalized score in range [0, 100].
+        matchLevel:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+        leftDimension: { type: integer }
+        rightDimension: { type: integer }
+        leftNorm:
+          type: number
+          format: double
+        rightNorm:
+          type: number
+          format: double
+        leftCacheHit:
+          type: boolean
+        rightCacheHit:
+          type: boolean
+        elapsedMs:
+          type: integer
+          format: int64
+
     SearchResultEnvelope:
       type: object
       properties:
@@ -353,6 +601,24 @@ components:
         message: { type: string, example: Success }
         data:
           $ref: '#/components/schemas/BatchUploadResultDTO'
+        timestamp: { type: integer, format: int64 }
+
+    BatchTaskStatusEnvelope:
+      type: object
+      properties:
+        code: { type: integer, example: 200 }
+        message: { type: string, example: Success }
+        data:
+          $ref: '#/components/schemas/BatchTaskStatusDTO'
+        timestamp: { type: integer, format: int64 }
+
+    VectorCompareEnvelope:
+      type: object
+      properties:
+        code: { type: integer, example: 200 }
+        message: { type: string, example: Success }
+        data:
+          $ref: '#/components/schemas/VectorCompareResultDTO'
         timestamp: { type: integer, format: int64 }
 
     StringEnvelope:

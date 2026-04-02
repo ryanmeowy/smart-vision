@@ -37,6 +37,10 @@ app:
     image-input-mode: auto
   search:
     quality-absolute-min-score: 0.72
+  compare:
+    max-text-length: 500
+    high-threshold: 0.8
+    medium-threshold: 0.6
   debug:
     strategy-header-enabled: false
 
