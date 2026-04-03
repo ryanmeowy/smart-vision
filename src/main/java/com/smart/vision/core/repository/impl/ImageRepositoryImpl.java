@@ -13,7 +13,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
 
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -39,7 +38,7 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
             return converter.convert2Doc(response);
         } catch (Exception e) {
             log.error("Hybrid search execution failed", e);
-            return Collections.emptyList();
+            throw new IllegalStateException("Search backend unavailable");
         }
     }
 
@@ -51,7 +50,7 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
             return converter.convert2Doc(response);
         } catch (Exception e) {
             log.error("Execution of finding similar failed", e);
-            return Collections.emptyList();
+            throw new IllegalStateException("Search backend unavailable");
         }
     }
 
@@ -63,7 +62,7 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
             return converter.convert2Doc(response);
         } catch (Exception e) {
             log.error("Execution of vector-only search failed", e);
-            return Collections.emptyList();
+            throw new IllegalStateException("Search backend unavailable");
         }
     }
 
@@ -75,7 +74,7 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
             return converter.convert2Doc(response);
         } catch (Exception e) {
             log.error("Execution of text-only search failed", e);
-            return Collections.emptyList();
+            throw new IllegalStateException("Search backend unavailable");
         }
     }
 
@@ -84,10 +83,14 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
         try {
             SearchRequest request = searchRequestFactory.buildDuplicate(vector, threshold);
             SearchResponse<ImageDocument> response = esClient.search(request, ImageDocument.class);
+            if (response.hits() == null || response.hits().hits() == null || response.hits().hits().isEmpty()) {
+                log.warn("Duplicate check returned empty hits");
+                return null;
+            }
             return response.hits().hits().getFirst().source();
         } catch (Exception e) {
             log.error("Duplicate check failed", e);
-            return null;
+            throw new IllegalStateException("Search backend unavailable");
         }
     }
 }
