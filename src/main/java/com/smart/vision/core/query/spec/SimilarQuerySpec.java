@@ -38,12 +38,10 @@ public class SimilarQuerySpec implements QuerySpec {
         builder.size(topK);
         builder.sort(defaultSort());
 
-        // root query: mustNot self (consistent with existing QueryContextConvertor+processors flow)
         Query filterQuery = idMatcher.match(excludeDocId)
                 .orElseThrow(() -> new IllegalArgumentException("excludeDocId cannot be empty"));
         builder.query(filterQuery);
 
-        // knn query: same filter to ensure exclude is applied at KNN stage too
         KnnSearch knn = new KnnSearch.Builder()
                 .field("imageEmbedding")
                 .queryVector(vector)

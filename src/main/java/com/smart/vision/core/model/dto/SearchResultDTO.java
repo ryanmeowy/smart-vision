@@ -65,4 +65,9 @@ public class SearchResultDTO implements Serializable {
      * Vector hit status (tri-state): VECTOR_ONLY_LIKE / VECTOR_AND_TEXT / TEXT_ONLY.
      */
     private String vectorHitStatus;
+
+    /**
+     * Structured explain info for interview/demo oriented observability.
+     */
+    private SearchExplainDTO explain;
 }

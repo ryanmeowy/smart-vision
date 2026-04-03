@@ -4,17 +4,31 @@ package com.smart.vision.core.manager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 
 import static com.smart.vision.core.constant.CacheConstant.HOT_WORDS_CACHE_PREFIX;
 import static com.smart.vision.core.constant.CommonConstant.PROFILE_KEY_NAME;
 import static com.smart.vision.core.constant.SearchConstant.FALLBACK_WORDS;
+import static com.smart.vision.core.constant.SearchConstant.HOT_WORDS_BUCKET_TTL_DAYS;
+import static com.smart.vision.core.constant.SearchConstant.HOT_WORDS_DAILY_FETCH_LIMIT;
+import static com.smart.vision.core.constant.SearchConstant.HOT_WORDS_DECAY_BASE;
+import static com.smart.vision.core.constant.SearchConstant.HOT_WORDS_TREND_DAYS;
 import static com.smart.vision.core.constant.SearchConstant.MAX_HOT_WORDS;
+import static com.smart.vision.core.constant.SearchConstant.MAX_INPUT_LENGTH;
 import static com.smart.vision.core.constant.SearchConstant.MOCK_BLOCKED_WORDS;
 
 
@@ -32,6 +46,8 @@ import static com.smart.vision.core.constant.SearchConstant.MOCK_BLOCKED_WORDS;
 @RequiredArgsConstructor
 public class HotSearchManager {
 
+    private static final DateTimeFormatter DAY_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
+
     private final StringRedisTemplate stringRedisTemplate;
     
     /**
@@ -42,19 +58,17 @@ public class HotSearchManager {
         if (keyword == null) {
             return;
         }
-        
-        // Normalization: remove spaces, convert to lowercase (prevent "Red" and "red" from being counted separately)
-        String normalizedWord = keyword.trim().toLowerCase();
 
-        // mock blocked words, this can be replaced with a database query
-        if (MOCK_BLOCKED_WORDS.contains(normalizedWord) || normalizedWord.length() > 20) {
+        String normalizedWord = keyword.trim().toLowerCase(Locale.ROOT);
+
+        if (MOCK_BLOCKED_WORDS.contains(normalizedWord) || normalizedWord.length() > MAX_INPUT_LENGTH) {
             return;
         }
 
         try {
-            String cacheKey = String.format("%s:%s", HOT_WORDS_CACHE_PREFIX, System.getenv(PROFILE_KEY_NAME));
-            // score +1
+            String cacheKey = buildDailyKey(currentDate());
             stringRedisTemplate.opsForZSet().incrementScore(cacheKey, normalizedWord, 1.0);
+            stringRedisTemplate.expire(cacheKey, HOT_WORDS_BUCKET_TTL_DAYS, TimeUnit.DAYS);
         } catch (Exception e) {
             log.warn("Failed to count hot words: {}", e.getMessage());
         }
@@ -64,15 +78,60 @@ public class HotSearchManager {
      * Get Top N hot words
      */
     public List<String> getTopHotWords() {
-        String cacheKey = String.format("%s:%s", HOT_WORDS_CACHE_PREFIX, System.getenv(PROFILE_KEY_NAME));
-        // ZREV RANGE: Retrieve 0 to 9 in descending order by score
-        Set<String> words = stringRedisTemplate.opsForZSet()
-                .reverseRange(cacheKey, 0, MAX_HOT_WORDS - 1);
-
-        if (words == null || words.isEmpty()) {
-            // Fallback data (used during cold start)
+        Map<String, Double> trendScores = aggregateTrendScores();
+        if (trendScores.isEmpty()) {
             return FALLBACK_WORDS;
         }
-        return new ArrayList<>(words);
+
+        List<String> ranked = trendScores.entrySet().stream()
+                .sorted(Map.Entry.<String, Double>comparingByValue(Comparator.reverseOrder())
+                        .thenComparing(Map.Entry.comparingByKey()))
+                .limit(MAX_HOT_WORDS)
+                .map(Map.Entry::getKey)
+                .toList();
+        return mergeWithFallback(ranked);
+    }
+
+    protected LocalDate currentDate() {
+        return LocalDate.now();
+    }
+
+    private Map<String, Double> aggregateTrendScores() {
+        Map<String, Double> aggregate = new HashMap<>();
+        LocalDate today = currentDate();
+        for (int dayOffset = 0; dayOffset < HOT_WORDS_TREND_DAYS; dayOffset++) {
+            LocalDate date = today.minusDays(dayOffset);
+            String key = buildDailyKey(date);
+            double weight = Math.pow(HOT_WORDS_DECAY_BASE, dayOffset);
+            Set<ZSetOperations.TypedTuple<String>> tuples = stringRedisTemplate.opsForZSet()
+                    .reverseRangeWithScores(key, 0, HOT_WORDS_DAILY_FETCH_LIMIT - 1);
+            if (tuples == null || tuples.isEmpty()) {
+                continue;
+            }
+            for (ZSetOperations.TypedTuple<String> tuple : tuples) {
+                if (tuple == null || tuple.getValue() == null || tuple.getScore() == null) {
+                    continue;
+                }
+                aggregate.merge(tuple.getValue(), tuple.getScore() * weight, Double::sum);
+            }
+        }
+        return aggregate;
+    }
+
+    private List<String> mergeWithFallback(List<String> rankedWords) {
+        LinkedHashSet<String> merged = new LinkedHashSet<>(rankedWords);
+        if (merged.size() < MAX_HOT_WORDS) {
+            for (String fallback : FALLBACK_WORDS) {
+                if (merged.size() >= MAX_HOT_WORDS) {
+                    break;
+                }
+                merged.add(fallback);
+            }
+        }
+        return new ArrayList<>(merged);
+    }
+
+    private String buildDailyKey(LocalDate date) {
+        return String.format("%s:%s:d:%s", HOT_WORDS_CACHE_PREFIX, System.getenv(PROFILE_KEY_NAME), DAY_FORMATTER.format(date));
     }
 }

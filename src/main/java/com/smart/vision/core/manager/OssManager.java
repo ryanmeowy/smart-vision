@@ -54,9 +54,6 @@ public class OssManager {
                 objectKey,
                 HttpMethod.GET);
         request.setExpiration(expiration);
-        // [Core] Add OSS image processing parameters (x-oss-process)
-        // Strategy: Limit maximum width to 1024px, compress quality to 90%
-        // This size is sufficient for embedding semantic understanding and typically only takes up a few hundred KB
         request.addQueryParameter("x-oss-process", processParam);
         URL url = ossClient.generatePresignedUrl(request);
         return url.toString();

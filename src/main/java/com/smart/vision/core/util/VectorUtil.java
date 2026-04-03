@@ -24,7 +24,6 @@ public class VectorUtil {
             return Collections.emptyList();
         }
 
-        // 1. Calculate the sum of squares (use double to prevent precision loss)
         double sumSquares = 0.0;
         for (Float val : vector) {
             if (val != null) {
@@ -32,15 +31,12 @@ public class VectorUtil {
             }
         }
 
-        // 2. Calculate the magnitude (L2 Norm)
         double magnitude = Math.sqrt(sumSquares);
 
-        // 3. Defensive check: if the magnitude is 0 (all-zero vector), return the original vector directly to avoid dividing by 0 and getting NaN
         if (magnitude < 1e-10) { // A very small number
             return vector;
         }
 
-        // 4. Normalize: divide each element by the magnitude
         List<Float> normalizedVector = new ArrayList<>(vector.size());
         for (Float val : vector) {
             if (val != null) {

@@ -14,7 +14,4 @@ import org.springframework.stereotype.Repository;
  */
 @Repository
 public interface ImageRepository extends ElasticsearchRepository<ImageDocument, String>, ImageRepositoryCustom {
-    // Basic CRUD operations are provided by the parent interface, no need to write manually
-    // save(doc)
-    // findById(id)
 }

@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -39,11 +40,11 @@ public class AuthApiController {
 
     private boolean constantTimeEquals(String a, String b) {
         if (a == null || b == null) {
-            return true;
+            return false;
         }
         byte[] aBytes = a.getBytes(StandardCharsets.UTF_8);
         byte[] bBytes = b.getBytes(StandardCharsets.UTF_8);
-        return !MessageDigest.isEqual(aBytes, bBytes);
+        return MessageDigest.isEqual(aBytes, bBytes);
     }
 
     /**
@@ -52,7 +53,11 @@ public class AuthApiController {
     @GetMapping("/refresh-token")
     public Result<String> refreshToken(@RequestHeader("X-Admin-Secret") String secret,
                                        @RequestParam(required = false) String code) {
-        if (constantTimeEquals(adminSecret, secret)) {
+        if (!StringUtils.hasText(adminSecret)) {
+            log.error("Admin secret is not configured");
+            return Result.error(500, "Internal error");
+        }
+        if (!constantTimeEquals(adminSecret, secret)) {
             return Result.error(403, "Unauthorized access");
         }
 
@@ -60,7 +65,6 @@ public class AuthApiController {
         if (code != null && !code.isBlank()) {
             newToken = code;
         } else {
-            // 6-digit secure random token
             int tokenInt = secureRandom.nextInt(900_000) + 100_000;
             newToken = String.valueOf(tokenInt);
         }
@@ -75,7 +79,11 @@ public class AuthApiController {
 
     @GetMapping("/clean-token")
     public Result<Void> cleanToken(@RequestHeader("X-Admin-Secret") String secret) {
-        if (constantTimeEquals(adminSecret, secret)) {
+        if (!StringUtils.hasText(adminSecret)) {
+            log.error("Admin secret is not configured");
+            return Result.error(500, "Internal error");
+        }
+        if (!constantTimeEquals(adminSecret, secret)) {
             return Result.error(403, "Unauthorized access");
         }
         try {

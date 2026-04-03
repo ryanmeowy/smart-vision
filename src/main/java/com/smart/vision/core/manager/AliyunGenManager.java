@@ -93,7 +93,6 @@ public class AliyunGenManager {
                 MultiModalConversation conv = new MultiModalConversation();
                 Flowable<MultiModalConversationResult> flowable = conv.streamCall(param);
 
-                // Subscribe to the stream and send to SSE
                 flowable.blockingForEach(result -> {
                     String rawData = result.getOutput().getChoices().getFirst().getMessage().getContent().toString();
                     if (rawData != null && !rawData.isEmpty()) {
