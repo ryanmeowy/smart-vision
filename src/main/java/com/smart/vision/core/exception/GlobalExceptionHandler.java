@@ -20,9 +20,15 @@ import java.util.UUID;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(BusinessException.class)
+    public Result<Void> handleBusinessException(BusinessException e) {
+        return Result.error(e.getCode(), safeMessage(e.getMessage(), ApiError.INTERNAL_ERROR.getMessage()));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public Result<Void> handleIllegalArgument(IllegalArgumentException e) {
-        return Result.error(400, safeMessage(e.getMessage(), "Invalid request parameters."));
+        return Result.error(ApiError.INVALID_REQUEST.getCode(),
+                safeMessage(e.getMessage(), ApiError.INVALID_REQUEST.getMessage()));
     }
 
     @ExceptionHandler({
@@ -31,12 +37,12 @@ public class GlobalExceptionHandler {
             HttpMessageNotReadableException.class
     })
     public Result<Void> handleBadRequest(Exception e) {
-        return Result.error(400, "Invalid request parameters.");
+        return Result.error(ApiError.INVALID_REQUEST.getCode(), ApiError.INVALID_REQUEST.getMessage());
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public Result<Void> handleUploadTooLarge(MaxUploadSizeExceededException e) {
-        return Result.error(400, "The uploaded file is too large, please upload a file within 10MB.");
+        return Result.error(ApiError.UPLOAD_TOO_LARGE.getCode(), ApiError.UPLOAD_TOO_LARGE.getMessage());
     }
 
     @ExceptionHandler(Exception.class)
@@ -44,7 +50,7 @@ public class GlobalExceptionHandler {
         String path = request == null ? "unknown" : request.getRequestURI();
         String errorId = UUID.randomUUID().toString();
         log.error("Unhandled exception, errorId={}, path={}, message={}", errorId, path, e.getMessage(), e);
-        return Result.error(500, "Internal error, please try again later.");
+        return Result.error(ApiError.INTERNAL_ERROR.getCode(), ApiError.INTERNAL_ERROR.getMessage(), errorId);
     }
 
     private String safeMessage(String message, String fallback) {

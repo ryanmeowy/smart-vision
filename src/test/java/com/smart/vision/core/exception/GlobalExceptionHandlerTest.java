@@ -19,6 +19,14 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void handleBusinessException_shouldUseCodeAndMessageFromException() {
+        Result<Void> result = handler.handleBusinessException(new BusinessException(ApiError.CONFLICT));
+
+        assertThat(result.getCode()).isEqualTo(409);
+        assertThat(result.getMessage()).isEqualTo("Resource conflict.");
+    }
+
+    @Test
     void handleUnexpected_shouldReturn500WithoutLeakingInternalMessage() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setRequestURI("/api/v1/vision/search");
@@ -27,5 +35,6 @@ class GlobalExceptionHandlerTest {
 
         assertThat(result.getCode()).isEqualTo(500);
         assertThat(result.getMessage()).isEqualTo("Internal error, please try again later.");
+        assertThat(result.getErrorId()).isNotBlank();
     }
 }

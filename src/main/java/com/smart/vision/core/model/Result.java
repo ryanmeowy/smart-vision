@@ -23,6 +23,11 @@ public class Result<T> implements Serializable {
 
     private long timestamp;
 
+    /**
+     * Correlation id for troubleshooting error responses.
+     */
+    private String errorId;
+
     private Result() {
         this.timestamp = System.currentTimeMillis();
     }
@@ -43,6 +48,12 @@ public class Result<T> implements Serializable {
         Result<T> result = new Result<>();
         result.setCode(code);
         result.setMessage(message);
+        return result;
+    }
+
+    public static <T> Result<T> error(int code, String message, String errorId) {
+        Result<T> result = error(code, message);
+        result.setErrorId(errorId);
         return result;
     }
 

@@ -4,6 +4,8 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import com.smart.vision.core.convertor.SearchResultConvertor;
+import com.smart.vision.core.exception.ApiError;
+import com.smart.vision.core.exception.InfraException;
 import com.smart.vision.core.model.dto.HybridSearchParamDTO;
 import com.smart.vision.core.model.dto.ImageSearchResultDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
@@ -38,7 +40,7 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
             return converter.convert2Doc(response);
         } catch (Exception e) {
             log.error("Hybrid search execution failed", e);
-            throw new IllegalStateException("Search backend unavailable");
+            throw new InfraException(ApiError.SEARCH_BACKEND_UNAVAILABLE);
         }
     }
 
@@ -50,7 +52,7 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
             return converter.convert2Doc(response);
         } catch (Exception e) {
             log.error("Execution of finding similar failed", e);
-            throw new IllegalStateException("Search backend unavailable");
+            throw new InfraException(ApiError.SEARCH_BACKEND_UNAVAILABLE);
         }
     }
 
@@ -62,7 +64,7 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
             return converter.convert2Doc(response);
         } catch (Exception e) {
             log.error("Execution of vector-only search failed", e);
-            throw new IllegalStateException("Search backend unavailable");
+            throw new InfraException(ApiError.SEARCH_BACKEND_UNAVAILABLE);
         }
     }
 
@@ -74,7 +76,7 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
             return converter.convert2Doc(response);
         } catch (Exception e) {
             log.error("Execution of text-only search failed", e);
-            throw new IllegalStateException("Search backend unavailable");
+            throw new InfraException(ApiError.SEARCH_BACKEND_UNAVAILABLE);
         }
     }
 
@@ -90,7 +92,7 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
             return response.hits().hits().getFirst().source();
         } catch (Exception e) {
             log.error("Duplicate check failed", e);
-            throw new IllegalStateException("Search backend unavailable");
+            throw new InfraException(ApiError.SEARCH_BACKEND_UNAVAILABLE);
         }
     }
 }

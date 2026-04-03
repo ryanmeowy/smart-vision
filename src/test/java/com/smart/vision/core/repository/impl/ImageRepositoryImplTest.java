@@ -5,6 +5,7 @@ import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.HitsMetadata;
 import com.smart.vision.core.convertor.SearchResultConvertor;
+import com.smart.vision.core.exception.InfraException;
 import com.smart.vision.core.model.dto.HybridSearchParamDTO;
 import com.smart.vision.core.model.entity.ImageDocument;
 import com.smart.vision.core.query.factory.SearchRequestFactory;
@@ -47,7 +48,7 @@ class ImageRepositoryImplTest {
         when(esClient.search(eq(request), eq(ImageDocument.class))).thenThrow(new RuntimeException("es down"));
 
         assertThatThrownBy(() -> repository.hybridSearch(HybridSearchParamDTO.builder().build()))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(InfraException.class)
                 .hasMessage("Search backend unavailable");
     }
 
@@ -58,7 +59,7 @@ class ImageRepositoryImplTest {
         when(esClient.search(eq(request), eq(ImageDocument.class))).thenThrow(new RuntimeException("es down"));
 
         assertThatThrownBy(() -> repository.textSearch("cat", 10, true))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(InfraException.class)
                 .hasMessage("Search backend unavailable");
     }
 

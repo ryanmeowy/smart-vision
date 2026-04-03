@@ -2,6 +2,8 @@ package com.smart.vision.core.service.search.impl;
 
 import com.smart.vision.core.ai.MultiModalEmbeddingService;
 import com.smart.vision.core.convertor.ImageDocConvertor;
+import com.smart.vision.core.exception.ApiError;
+import com.smart.vision.core.exception.InfraException;
 import com.smart.vision.core.manager.HotSearchManager;
 import com.smart.vision.core.manager.OssManager;
 import com.smart.vision.core.model.dto.ImageSearchResultDTO;
@@ -181,7 +183,7 @@ public class SmartSearchServiceImpl implements SmartSearchService {
             return dtoList;
         } catch (Exception e) {
             log.error("Failed to search by image", e);
-            throw new IllegalStateException("Image search failed, please try again later.");
+            throw new InfraException(ApiError.IMAGE_SEARCH_FAILED);
         }
     }
 
