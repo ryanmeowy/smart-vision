@@ -1726,6 +1726,11 @@ def _render_search_results(results: list[Any], *, layout_key: str, highlight_ter
                 SPO_PREVIEW_MAX_CHARS,
             )
             vector_status = _safe_str(item.get("vectorHitStatus")) or "-"
+            explain = item.get("explain") if isinstance(item.get("explain"), dict) else {}
+            hit_sources = _normalize_hit_sources(explain.get("hitSources"))
+            hit_sources_html = _render_hit_source_badges(hit_sources)
+            matched_by_text = _format_matched_by(explain.get("matchedBy"))
+            strategy_effective = _safe_str(explain.get("strategyEffective")) or "-"
             tags_html = _highlight_text_html(tags_text, highlight_term)
             ocr_html = _highlight_text_html(ocr_text, highlight_term) if ocr_text else ""
             spo_html = _highlight_text_html(relations_text, highlight_term) if relations_text else ""
@@ -1741,6 +1746,12 @@ def _render_search_results(results: list[Any], *, layout_key: str, highlight_ter
             if relations_text:
                 card_html.append(_meta_row_single_line_html("spo", spo_html, relations_text))
             card_html.append(_meta_row("vector", vector_status))
+            if hit_sources_html:
+                card_html.append(_meta_row_html("hitSources", hit_sources_html))
+            if strategy_effective != "-":
+                card_html.append(_meta_row("strategy", strategy_effective))
+            if matched_by_text:
+                card_html.append(_meta_row_single_line("matchedBy", matched_by_text))
             if highlight:
                 card_html.append(_meta_row("highlight", highlight))
             if ocr_text:
@@ -1791,6 +1802,37 @@ def _format_relation_line(row: dict[str, str], *, delimiter: str) -> str:
 
 def _safe_str(value: Any) -> str:
     return value.strip() if isinstance(value, str) else ""
+
+
+def _normalize_hit_sources(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    normalized: list[str] = []
+    for item in value:
+        source = _safe_str(item).upper()
+        if source in {"VECTOR", "OCR", "TAG", "GRAPH"} and source not in normalized:
+            normalized.append(source)
+    return normalized
+
+
+def _render_hit_source_badges(hit_sources: list[str]) -> str:
+    if not hit_sources:
+        return ""
+    return "".join(
+        f"<span class='hit-source-badge hit-source-{source.lower()}'>{html.escape(source)}</span>"
+        for source in hit_sources
+    )
+
+
+def _format_matched_by(value: Any) -> str:
+    if not isinstance(value, dict):
+        return ""
+    pairs: list[str] = []
+    for key in ["vector", "filename", "ocr", "tag", "graph"]:
+        raw = value.get(key)
+        if isinstance(raw, bool):
+            pairs.append(f"{key}={'Y' if raw else 'N'}")
+    return ", ".join(pairs)
 
 
 def _validate_uploaded_image_size(uploaded: Any, label: str) -> bool:
@@ -1989,6 +2031,22 @@ def _inject_result_text_styles() -> None:
           border-radius: 3px;
           padding: 0 4px;
         }
+        .hit-source-badge {
+          display: inline-block;
+          margin-right: 4px;
+          margin-bottom: 3px;
+          padding: 1px 6px;
+          border-radius: 999px;
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.02em;
+          color: #0d1522;
+          background: #9fb4cf;
+        }
+        .hit-source-vector { background: #7dd3fc; }
+        .hit-source-ocr { background: #86efac; }
+        .hit-source-tag { background: #fcd34d; }
+        .hit-source-graph { background: #f9a8d4; }
         </style>
         """,
         unsafe_allow_html=True,
