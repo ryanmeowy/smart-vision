@@ -6,28 +6,20 @@ option java_package = "com.smart.vision.core.grpc";
 option java_outer_classname = "VisionProto";
 
 service VisionService {
-  // 1. 获取文本向量
   rpc EmbedText (TextRequest) returns (EmbeddingResponse);
 
-  // 2. 获取图片向量
   rpc EmbedImage (ImageRequest) returns (EmbeddingResponse);
 
-  // 3. 提取文字 (OCR)
   rpc ExtractText (GenRequest) returns (OcrResponse);
 
-  // 4. 生成文件名
   rpc GenerateFileName (GenRequest) returns (GenFileNameResponse);
 
-  // 5. 生成标签
   rpc GenerateTags (GenRequest) returns (GenTagsResponse);
 
-  // 6. 流式生成
   rpc GenerateCaption (GenRequest) returns (stream StringResponse);
 
-  // 7. 提取图中的三元组信息
   rpc ExtractGraphTriples (GenRequest) returns (GraphTriplesResponse);
 
-  // 8. 解析查询意图
   rpc ParseQueryToGraph (TextRequest) returns (GraphTriplesResponse);
 
 }

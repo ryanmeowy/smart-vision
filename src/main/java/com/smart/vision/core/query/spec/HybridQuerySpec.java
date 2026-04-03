@@ -103,7 +103,6 @@ public class HybridQuerySpec implements QuerySpec {
     }
 
     private static List<SortOptions> defaultSort() {
-        // Same default sort as QueryContextConvertor.defaultSort(): score desc then id asc
         return List.of(
                 new SortOptions.Builder().score(sc -> sc.order(co.elastic.clients.elasticsearch._types.SortOrder.Desc)).build(),
                 new SortOptions.Builder().field(f -> f.field("id").order(co.elastic.clients.elasticsearch._types.SortOrder.Asc)).build()

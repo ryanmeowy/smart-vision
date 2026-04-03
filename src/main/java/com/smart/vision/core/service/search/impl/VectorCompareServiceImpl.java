@@ -213,7 +213,6 @@ public class VectorCompareServiceImpl implements VectorCompareService {
     }
 
     private double normalizePercent(double cosine) {
-        // Map cosine [-1, 1] to display percentage [0, 100].
         double normalized = (cosine + 1d) / 2d;
         double bounded = Math.max(0d, Math.min(1d, normalized));
         return bounded * 100d;

@@ -65,7 +65,6 @@ public class AuthApiController {
         if (code != null && !code.isBlank()) {
             newToken = code;
         } else {
-            // 6-digit secure random token
             int tokenInt = secureRandom.nextInt(900_000) + 100_000;
             newToken = String.valueOf(tokenInt);
         }

@@ -23,7 +23,6 @@ public class Result<T> implements Serializable {
 
     private long timestamp;
 
-    // Private constructor, force use of static methods
     private Result() {
         this.timestamp = System.currentTimeMillis();
     }

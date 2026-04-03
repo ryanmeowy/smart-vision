@@ -43,17 +43,14 @@ public class HotSearchManager {
             return;
         }
         
-        // Normalization: remove spaces, convert to lowercase (prevent "Red" and "red" from being counted separately)
         String normalizedWord = keyword.trim().toLowerCase();
 
-        // mock blocked words, this can be replaced with a database query
         if (MOCK_BLOCKED_WORDS.contains(normalizedWord) || normalizedWord.length() > 20) {
             return;
         }
 
         try {
             String cacheKey = String.format("%s:%s", HOT_WORDS_CACHE_PREFIX, System.getenv(PROFILE_KEY_NAME));
-            // score +1
             stringRedisTemplate.opsForZSet().incrementScore(cacheKey, normalizedWord, 1.0);
         } catch (Exception e) {
             log.warn("Failed to count hot words: {}", e.getMessage());
@@ -65,12 +62,10 @@ public class HotSearchManager {
      */
     public List<String> getTopHotWords() {
         String cacheKey = String.format("%s:%s", HOT_WORDS_CACHE_PREFIX, System.getenv(PROFILE_KEY_NAME));
-        // ZREV RANGE: Retrieve 0 to 9 in descending order by score
         Set<String> words = stringRedisTemplate.opsForZSet()
                 .reverseRange(cacheKey, 0, MAX_HOT_WORDS - 1);
 
         if (words == null || words.isEmpty()) {
-            // Fallback data (used during cold start)
             return FALLBACK_WORDS;
         }
         return new ArrayList<>(words);

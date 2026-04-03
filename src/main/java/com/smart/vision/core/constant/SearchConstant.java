@@ -18,7 +18,6 @@ public class SearchConstant {
 
     public static final Integer IMAGE_TO_IMAGE_TOP_K = 20;
 
-    //The default maximum batch size.
     public static final Integer DEFAULT_NUM_BATCH_ITEMS = 20;
 
     public static final Integer DEFAULT_RESULT_LIMIT = 20;
