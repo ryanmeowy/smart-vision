@@ -14,6 +14,7 @@ import requests
 import streamlit as st
 
 REQUEST_TIMEOUT_SECONDS = 20
+ACTION_STALE_TIMEOUT_SECONDS = 45
 SUCCESS_CODE = 200
 MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024
 RESULT_STATE_KEYS = {
@@ -117,11 +118,14 @@ def render_text_search_page(base_url: str) -> None:
     if _consume_queued_action("text_search", draft_payload):
         try:
             with st.spinner("Searching..."):
-                data, headers, status_code = _request_json(
+                response_payload = _request_json(
                     method="POST",
                     url=f"{_normalize_base_url(base_url)}/api/v1/vision/search",
                     json=draft_payload,
                 )
+            if response_payload is None:
+                return
+            data, headers, status_code = response_payload
 
             state["results"] = data
             state["headers"] = headers
@@ -131,7 +135,7 @@ def render_text_search_page(base_url: str) -> None:
             state["has_searched"] = True
         finally:
             _complete_action("text_search")
-        st.rerun()
+            st.rerun()
 
     if state["has_searched"]:
         _render_response_meta(state["status_code"], state["headers"])
@@ -183,12 +187,15 @@ def render_image_search_page(base_url: str) -> None:
     if _consume_queued_action("image_search", draft_payload):
         try:
             with st.spinner("Searching by image..."):
-                data, headers, status_code = _request_json(
+                response_payload = _request_json(
                     method="POST",
                     url=f"{_normalize_base_url(base_url)}/api/v1/vision/search-by-image",
                     params={"limit": int(limit)},
                     files={"file": (uploaded.name, uploaded.getvalue(), uploaded.type or "application/octet-stream")},
                 )
+            if response_payload is None:
+                return
+            data, headers, status_code = response_payload
 
             state["results"] = data
             state["headers"] = headers
@@ -199,7 +206,7 @@ def render_image_search_page(base_url: str) -> None:
             state["has_searched"] = True
         finally:
             _complete_action("image_search")
-        st.rerun()
+            st.rerun()
 
     if state["has_searched"]:
         _render_response_meta(state["status_code"], state["headers"])
@@ -604,7 +611,6 @@ def render_vector_compare_page(base_url: str) -> None:
         multipart_parts["rightText"] = (None, right_text.strip())
 
     if _consume_queued_action("vector_compare", compare_payload):
-        should_rerun = False
         try:
             try:
                 response = requests.post(
@@ -656,11 +662,9 @@ def render_vector_compare_page(base_url: str) -> None:
             compare_state["right_image_bytes"] = right_file.getvalue() if right_file is not None else None
             compare_state["result"] = result
             compare_state["status_code"] = status_code
-            should_rerun = True
         finally:
             _complete_action("vector_compare")
-            if should_rerun:
-                st.rerun()
+            st.rerun()
 
 
 def _render_vector_compare_result(compare_state: dict[str, Any]) -> None:
@@ -741,11 +745,14 @@ def render_similar_search_page(base_url: str) -> None:
     if _consume_queued_action("similar_search", draft_payload):
         try:
             with st.spinner("Searching similar images..."):
-                data, headers, status_code = _request_json(
+                response_payload = _request_json(
                     method="GET",
                     url=f"{_normalize_base_url(base_url)}/api/v1/vision/similar",
                     params={"id": image_id.strip()},
                 )
+            if response_payload is None:
+                return
+            data, headers, status_code = response_payload
 
             state["results"] = data
             state["headers"] = headers
@@ -754,7 +761,7 @@ def render_similar_search_page(base_url: str) -> None:
             state["has_searched"] = True
         finally:
             _complete_action("similar_search")
-        st.rerun()
+            st.rerun()
 
     if state["has_searched"]:
         _render_response_meta(state["status_code"], state["headers"])
@@ -778,10 +785,13 @@ def render_hot_words_page(base_url: str) -> None:
     if _consume_queued_action("hot_words", payload):
         try:
             with st.spinner("Loading hot words..."):
-                data, _, status_code = _request_json(
+                response_payload = _request_json(
                     method="GET",
                     url=f"{_normalize_base_url(base_url)}/api/v1/vision/hot-words",
                 )
+            if response_payload is None:
+                return
+            data, _, status_code = response_payload
             words = data if isinstance(data, list) else []
             st.session_state["hot_words_state"] = {
                 "has_loaded": True,
@@ -1559,7 +1569,7 @@ def _request_json(
     params: dict[str, Any] | None = None,
     json: dict[str, Any] | None = None,
     files: dict[str, Any] | None = None,
-) -> tuple[list[Any], dict[str, str], int]:
+) -> tuple[list[Any], dict[str, str], int] | None:
     try:
         response = requests.request(
             method=method,
@@ -1571,10 +1581,10 @@ def _request_json(
         )
     except requests.exceptions.Timeout:
         st.error("Request timed out. Please check backend status and retry.")
-        st.stop()
+        return None
     except requests.exceptions.RequestException as exc:
         st.error(f"Request failed: {exc}")
-        st.stop()
+        return None
 
     status_code = response.status_code
     headers = {
@@ -1586,17 +1596,17 @@ def _request_json(
 
     if status_code >= 400:
         st.error(f"HTTP {status_code}: {response.text[:600]}")
-        st.stop()
+        return None
 
     try:
         envelope = response.json()
     except ValueError:
         st.error("Backend returned non-JSON response.")
-        st.stop()
+        return None
 
     if not isinstance(envelope, dict):
         st.error("Unexpected response shape: top-level JSON is not an object.")
-        st.stop()
+        return None
 
     biz_code = envelope.get("code")
     message = envelope.get("message", "")
@@ -1604,14 +1614,14 @@ def _request_json(
 
     if biz_code != SUCCESS_CODE:
         st.error(f"Business error {biz_code}: {message or 'Unknown error'}")
-        st.stop()
+        return None
 
     if data is None:
         data = []
 
     if not isinstance(data, list):
         st.error("Unexpected response shape: data is not a list.")
-        st.stop()
+        return None
 
     return data, headers, status_code
 
@@ -1872,10 +1882,20 @@ def _get_action_registry() -> dict[str, Any]:
 
 
 def _is_action_busy(action_key: str, payload: Any) -> bool:
-    record = _get_action_registry().get(action_key)
+    registry = _get_action_registry()
+    record = registry.get(action_key)
     if not isinstance(record, dict):
         return False
     status = str(record.get("status", "idle"))
+    now = time.time()
+    queued_at = float(record.get("queuedAt", 0) or 0)
+    running_at = float(record.get("runningAt", 0) or 0)
+    if status == "queued" and queued_at > 0 and now - queued_at > ACTION_STALE_TIMEOUT_SECONDS:
+        registry.pop(action_key, None)
+        return False
+    if status == "running" and running_at > 0 and now - running_at > ACTION_STALE_TIMEOUT_SECONDS:
+        registry.pop(action_key, None)
+        return False
     signature = str(record.get("signature", ""))
     return status in {"queued", "running"} and signature == _idempotent_signature(payload)
 
