@@ -38,7 +38,6 @@ class AuthApiControllerTest {
     void setUp() {
         controller = new AuthApiController(redisTemplate, ossService);
         ReflectionTestUtils.setField(controller, "adminSecret", "top-secret");
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
     }
 
     @Test
@@ -51,6 +50,7 @@ class AuthApiControllerTest {
 
     @Test
     void refreshToken_shouldStoreGivenCodeWhenSecretIsValid() {
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         Result<String> result = controller.refreshToken("top-secret", "654321");
 
         assertThat(result.getCode()).isEqualTo(200);
