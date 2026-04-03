@@ -89,7 +89,7 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         return dtoList;
     }
 
-    public List<SearchResultDTO> searchByVector(String docId) {
+    public List<SearchResultDTO> searchSimilarById(String docId) {
         ImageDocument sourceDoc = imageRepository.findById(docId)
                 .orElseThrow(() -> new RuntimeException("Image does not exist or has been deleted"));
 
