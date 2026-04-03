@@ -36,7 +36,7 @@ public interface SmartSearchService {
      * @param docId unique identifier of the document to search by vector
      * @return list of search results with image metadata, scores, and highlighted content
      */
-    List<SearchResultDTO> searchByVector(String docId);
+    List<SearchResultDTO> searchSimilarById(String docId);
 
     List<SearchResultDTO> searchByImage(MultipartFile file, int limit);
 }

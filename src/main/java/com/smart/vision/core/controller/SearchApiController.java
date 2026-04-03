@@ -79,7 +79,7 @@ public class SearchApiController {
 
     @GetMapping("/similar")
     public Result<List<SearchResultDTO>> searchSimilar(@RequestParam String id) {
-        return Result.success(searchService.searchByVector(id));
+        return Result.success(searchService.searchSimilarById(id));
     }
 
     @GetMapping("/hot-words")

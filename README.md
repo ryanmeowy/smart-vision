@@ -161,40 +161,6 @@ streamlit run app.py
 
 ---
 
-## 检索可解释性（TC-04）
-
-`/api/v1/vision/search`、`/api/v1/vision/search-by-image` 返回的每条 `SearchResultDTO` 中新增 `explain` 字段，用于展示命中来源与策略信息：
-
-```json
-{
-  "id": "123",
-  "filename": "cat-photo.jpg",
-  "vectorHitStatus": "VECTOR_AND_TEXT",
-  "explain": {
-    "strategyEffective": "0",
-    "hitSources": ["VECTOR", "OCR", "TAG", "GRAPH"],
-    "matchedBy": {
-      "vector": true,
-      "filename": true,
-      "ocr": true,
-      "tag": true,
-      "graph": true
-    }
-  }
-}
-```
-
-字段说明：
-
-- `vectorHitStatus`：粗粒度命中状态（`VECTOR_ONLY_LIKE` / `VECTOR_AND_TEXT` / `TEXT_ONLY`）。
-- `explain.strategyEffective`：本次结果对应的生效策略编码（`0/1/2/3`）。
-- `explain.hitSources`：用于 UI 徽章展示的命中来源集合（`VECTOR/OCR/TAG/GRAPH`）。
-- `explain.matchedBy`：字段级命中布尔位（`vector/filename/ocr/tag/graph`）。
-
-说明：`X-Strategy-*` 响应头用于请求级策略调试；`explain` 用于结果级命中解释。
-
----
-
 ## 配置说明
 
 ### application.yaml
