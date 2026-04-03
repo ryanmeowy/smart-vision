@@ -1,6 +1,5 @@
 package com.smart.vision.core.service.search.impl;
 
-import com.google.common.collect.Lists;
 import com.smart.vision.core.ai.MultiModalEmbeddingService;
 import com.smart.vision.core.convertor.ImageDocConvertor;
 import com.smart.vision.core.manager.HotSearchManager;
@@ -182,7 +181,7 @@ public class SmartSearchServiceImpl implements SmartSearchService {
             return dtoList;
         } catch (Exception e) {
             log.error("Failed to search by image", e);
-            return Lists.newArrayList();
+            throw new IllegalStateException("Image search failed, please try again later.");
         }
     }
 
