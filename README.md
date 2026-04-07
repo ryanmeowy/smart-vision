@@ -14,6 +14,7 @@
 
 - **多模态搜索**：支持文本搜图、以图搜图、相似图搜索
 - **混合检索**：融合向量相似度 (HNSW) 与 OCR 文本匹配 (BM25)
+- **重排增强**：多路召回 + RRF 融合 + Cross-Encoder 精排
 - **云边协同**：Cloud Mode (阿里云 DashScope) / Local Mode (本地 Python 服务)
 - **智能标签**：AI 自动生成图片标签与知识图谱
 - **高性能**：Redis 向量缓存，毫秒级响应
@@ -236,15 +237,16 @@ src/main/java/com/smart/vision/core
 │   │   ├── adapter/(cloud,local)
 │   │   ├── client
 │   │   ├── domain/model
-│   │   ├── interfaces/rest
 │   │   └── port
 │   └── oss
 │       ├── domain/model
 │       └── task
 └── search                         # 搜索子域
     ├── application(/impl,/support)
-    ├── domain/(model,strategy,util)
-    ├── infrastructure/persistence/es
+    ├── domain/(model,port,strategy,util)
+    ├── infrastructure
+    │   ├── acl                    # search -> integration 防腐层
+    │   └── persistence/es
     │   ├── bootstrap
     │   ├── document
     │   ├── query/(factory,spec)

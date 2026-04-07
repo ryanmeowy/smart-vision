@@ -3,7 +3,7 @@ package com.smart.vision.core.search.infrastructure.persistence.es.query;
 import cn.hutool.core.collection.CollectionUtil;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
-import com.smart.vision.core.search.domain.model.GraphTriple;
+import com.smart.vision.core.common.model.GraphTriple;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Component;

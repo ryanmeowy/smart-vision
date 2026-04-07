@@ -1,12 +1,12 @@
 package com.smart.vision.core.search.application.impl;
 
-import com.smart.vision.core.integration.ai.port.MultiModalEmbeddingService;
 import com.smart.vision.core.search.interfaces.assembler.ImageDocConvertor;
 import com.smart.vision.core.common.exception.InfraException;
 import com.smart.vision.core.search.application.support.HotSearchManager;
-import com.smart.vision.core.integration.oss.OssManager;
-import com.smart.vision.core.search.domain.model.GraphTriple;
+import com.smart.vision.core.common.model.GraphTriple;
 import com.smart.vision.core.search.domain.model.ImageSearchResultDTO;
+import com.smart.vision.core.search.domain.port.SearchEmbeddingPort;
+import com.smart.vision.core.search.domain.port.SearchObjectStoragePort;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchExplainDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchQueryDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchResultDTO;
@@ -43,7 +43,7 @@ import static org.mockito.Mockito.when;
 class SmartSearchServiceImplTest {
 
     @Mock
-    private MultiModalEmbeddingService embeddingService;
+    private SearchEmbeddingPort embeddingPort;
     @Mock
     private ImageRepository imageRepository;
     @Mock
@@ -55,7 +55,7 @@ class SmartSearchServiceImplTest {
     @Mock
     private RedisTemplate<String, List<Float>> redisTemplate;
     @Mock
-    private OssManager ossManager;
+    private SearchObjectStoragePort objectStoragePort;
     @Mock
     private MultipartFile multipartFile;
     @Mock
@@ -66,13 +66,13 @@ class SmartSearchServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new SmartSearchServiceImpl(
-                embeddingService,
+                embeddingPort,
                 imageRepository,
                 imageDocConvertor,
                 hotSearchManager,
                 strategyFactory,
                 redisTemplate,
-                ossManager
+                objectStoragePort
         );
         ReflectionTestUtils.setField(service, "qualityAbsoluteMinScore", 0.72d);
     }
@@ -144,7 +144,7 @@ class SmartSearchServiceImplTest {
         when(multipartFile.getContentType()).thenReturn("image/jpeg");
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.get(anyString())).thenReturn(null);
-        when(embeddingService.embedImage(any(byte[].class), anyString())).thenReturn(List.of(0.3f, 0.4f));
+        when(embeddingPort.embedImage(any(byte[].class), anyString())).thenReturn(List.of(0.3f, 0.4f));
 
         RetrievalStrategy strategy = mock(RetrievalStrategy.class);
         when(strategyFactory.getStrategy(StrategyTypeEnum.IMAGE_TO_IMAGE.getCode())).thenReturn(strategy);

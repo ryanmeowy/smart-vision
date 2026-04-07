@@ -1,6 +1,6 @@
 package com.smart.vision.core.integration.ai.port;
 
-import com.smart.vision.core.search.domain.model.GraphTriple;
+import com.smart.vision.core.common.model.GraphTriple;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;

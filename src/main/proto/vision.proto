@@ -22,6 +22,8 @@ service VisionService {
 
   rpc ParseQueryToGraph (TextRequest) returns (GraphTriplesResponse);
 
+  rpc Rerank (RerankRequest) returns (RerankResponse);
+
 }
 
 message TextRequest {
@@ -71,4 +73,19 @@ message GraphTriple {
   string s = 1;
   string p = 2;
   string o = 3;
+}
+
+message RerankRequest {
+  string query = 1;
+  repeated string documents = 2;
+  int32 top_n = 3;
+}
+
+message RerankResult {
+  int32 index = 1;
+  float relevance_score = 2;
+}
+
+message RerankResponse {
+  repeated RerankResult results = 1;
 }

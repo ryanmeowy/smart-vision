@@ -18,7 +18,7 @@ import com.alibaba.dashscope.exception.UploadFileException;
 import com.aliyun.core.utils.StringUtils;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import com.smart.vision.core.search.domain.model.GraphTriple;
+import com.smart.vision.core.common.model.GraphTriple;
 import com.smart.vision.core.integration.ai.domain.model.PromptEnum;
 import io.reactivex.Flowable;
 import lombok.RequiredArgsConstructor;

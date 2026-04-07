@@ -1,13 +1,12 @@
 package com.smart.vision.core.search.interfaces.assembler;
 
 import com.google.common.collect.Lists;
-import com.smart.vision.core.integration.oss.OssManager;
+import com.smart.vision.core.search.domain.port.SearchObjectStoragePort;
 import com.smart.vision.core.search.domain.model.ImageSearchResultDTO;
-import com.smart.vision.core.search.domain.model.GraphTriple;
+import com.smart.vision.core.common.model.GraphTriple;
 import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchResultDTO;
 import com.smart.vision.core.search.infrastructure.persistence.es.document.ImageDocument;
-import com.smart.vision.core.integration.oss.domain.model.PresignedValidityEnum;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -25,13 +24,13 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class ImageDocConvertor {
 
-    private final OssManager ossManager;
+    private final SearchObjectStoragePort objectStoragePort;
 
     public List<SearchResultDTO> convert2SearchResultDTO(List<ImageSearchResultDTO> resultList) {
         List<SearchResultDTO> resultDTOList = Lists.newArrayList();
         for (ImageSearchResultDTO result : resultList) {
             ImageDocument doc = result.getDocument();
-            String presignedUrl = ossManager.getPresignedUrl(doc.getImagePath(), PresignedValidityEnum.LONG_TERM_VALIDITY.getValidity());
+            String presignedUrl = objectStoragePort.buildDisplayImageUrl(doc.getImagePath());
             SearchResultDTO resultDTO = SearchResultDTO.builder()
                     .score(result.getScore())
                     .url(presignedUrl)

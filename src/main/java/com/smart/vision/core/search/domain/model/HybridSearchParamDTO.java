@@ -1,5 +1,6 @@
 package com.smart.vision.core.search.domain.model;
 
+import com.smart.vision.core.common.model.GraphTriple;
 import lombok.Builder;
 import lombok.Data;
 

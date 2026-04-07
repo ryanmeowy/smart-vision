@@ -2,7 +2,7 @@ package com.smart.vision.core.search.infrastructure.persistence.es.query.spec;
 
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
-import com.smart.vision.core.search.domain.model.GraphTriple;
+import com.smart.vision.core.common.model.GraphTriple;
 import com.smart.vision.core.search.domain.model.HybridSearchParamDTO;
 import com.smart.vision.core.search.infrastructure.persistence.es.query.GraphTriplesMatcher;
 import com.smart.vision.core.search.infrastructure.persistence.es.query.HybridSearchKeywordMatcher;

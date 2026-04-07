@@ -1,10 +1,10 @@
 package com.smart.vision.core.search.interfaces.rest;
 
-import com.smart.vision.core.integration.ai.port.ContentGenerationService;
-import com.smart.vision.core.integration.ai.port.ImageOcrService;
-import com.smart.vision.core.integration.oss.OssManager;
 import com.smart.vision.core.search.application.support.HotSearchManager;
 import com.smart.vision.core.common.api.Result;
+import com.smart.vision.core.search.domain.port.SearchContentPort;
+import com.smart.vision.core.search.domain.port.SearchObjectStoragePort;
+import com.smart.vision.core.search.domain.port.SearchOcrPort;
 import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchQueryDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchResultDTO;
@@ -37,8 +37,6 @@ import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.stream.Stream;
 
-import static com.smart.vision.core.common.constant.AliyunConstant.X_OSS_PROCESS_EMBEDDING;
-import static com.smart.vision.core.integration.oss.domain.model.PresignedValidityEnum.MEDIUM_TERM_VALIDITY;
 import static com.smart.vision.core.common.constant.SearchConstant.IMAGE_MAX_SIZE;
 import static com.smart.vision.core.common.constant.SearchConstant.MAX_INPUT_LENGTH;
 
@@ -59,9 +57,9 @@ public class SearchApiController {
 
     private final SmartSearchService searchService;
     private final HotSearchManager hotSearchManager;
-    private final ContentGenerationService contentGenerationService;
-    private final ImageOcrService imageOcrService;
-    private final OssManager ossManager;
+    private final SearchContentPort searchContentPort;
+    private final SearchOcrPort searchOcrPort;
+    private final SearchObjectStoragePort objectStoragePort;
     private final Executor imageGenTaskExecutor;
     private final VectorCompareService vectorCompareService;
 
@@ -171,28 +169,24 @@ public class SearchApiController {
                     "enableGraph", enableGraph
             ));
 
-            String objectKey = ossManager.uploadFile(file);
+            String objectKey = objectStoragePort.uploadFile(file);
             if (!StringUtils.hasText(objectKey)) {
                 sendEvent(emitter, "error", Map.of("message", "Upload image failed, please try again."));
                 sendDone(emitter, false);
                 return;
             }
-            String imageUrl = ossManager.getAiPresignedUrl(
-                    objectKey,
-                    MEDIUM_TERM_VALIDITY.getValidity(),
-                    X_OSS_PROCESS_EMBEDDING
-            );
+            String imageUrl = objectStoragePort.buildAiImageInput(objectKey, SearchObjectStoragePort.AiInputValidity.MEDIUM);
 
-            String summary = safeTrim(contentGenerationService.generateSummary(imageUrl));
+            String summary = safeTrim(searchContentPort.generateSummary(imageUrl));
             streamTextChunks(emitter, "summary", summary, 48);
             sendEvent(emitter, "summary_end", Map.of("text", summary));
 
-            List<String> tags = contentGenerationService.generateTags(imageUrl);
+            List<String> tags = searchContentPort.generateTags(imageUrl);
             sendEvent(emitter, "tags", Map.of("items", tags == null ? List.of() : tags));
 
             String ocrText = "";
             if (enableOcr) {
-                ocrText = safeTrim(imageOcrService.extractText(imageUrl));
+                ocrText = safeTrim(searchOcrPort.extractText(imageUrl));
                 streamTextChunks(emitter, "ocr", ocrText, 80);
                 sendEvent(emitter, "ocr_end", Map.of("text", ocrText));
             } else {
@@ -201,7 +195,7 @@ public class SearchApiController {
 
             List<GraphTripleDTO> graph = List.of();
             if (enableGraph) {
-                graph = Optional.ofNullable(contentGenerationService.generateGraph(imageUrl))
+                graph = Optional.ofNullable(searchContentPort.generateGraph(imageUrl))
                         .orElse(List.of())
                         .stream()
                         .map(t -> new GraphTripleDTO(t.getS(), t.getP(), t.getO()))

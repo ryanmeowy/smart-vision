@@ -1,13 +1,13 @@
 package com.smart.vision.core.search.application.impl;
 
-import com.smart.vision.core.integration.ai.port.MultiModalEmbeddingService;
 import com.smart.vision.core.search.interfaces.assembler.ImageDocConvertor;
 import com.smart.vision.core.common.exception.ApiError;
 import com.smart.vision.core.common.exception.InfraException;
 import com.smart.vision.core.search.application.support.HotSearchManager;
-import com.smart.vision.core.integration.oss.OssManager;
 import com.smart.vision.core.search.domain.model.ImageSearchResultDTO;
-import com.smart.vision.core.search.domain.model.GraphTriple;
+import com.smart.vision.core.common.model.GraphTriple;
+import com.smart.vision.core.search.domain.port.SearchEmbeddingPort;
+import com.smart.vision.core.search.domain.port.SearchObjectStoragePort;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchQueryDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchExplainDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchResultDTO;
@@ -35,14 +35,12 @@ import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static com.smart.vision.core.common.constant.AliyunConstant.X_OSS_PROCESS_EMBEDDING;
 import static com.smart.vision.core.common.constant.CacheConstant.IMAGE_MD5_CACHE_PREFIX;
 import static com.smart.vision.core.common.constant.CacheConstant.VECTOR_CACHE_PREFIX;
 import static com.smart.vision.core.common.constant.CommonConstant.PROFILE_KEY_NAME;
 import static com.smart.vision.core.common.constant.EmbeddingConstant.QUALITY_MIN_RESULTS;
 import static com.smart.vision.core.common.constant.EmbeddingConstant.QUALITY_RATIO_CUTOFF;
 import static com.smart.vision.core.common.constant.EmbeddingConstant.SIMILARITY_TOP_K;
-import static com.smart.vision.core.integration.oss.domain.model.PresignedValidityEnum.SHORT_TERM_VALIDITY;
 import static com.smart.vision.core.search.domain.util.ScoreUtil.mapScoreForSimilar;
 
 /**
@@ -60,13 +58,13 @@ public class SmartSearchServiceImpl implements SmartSearchService {
     @Value("${app.search.quality-absolute-min-score:0.72}")
     private double qualityAbsoluteMinScore;
 
-    private final MultiModalEmbeddingService embeddingService;
+    private final SearchEmbeddingPort embeddingPort;
     private final ImageRepository imageRepository;
     private final ImageDocConvertor imageDocConvertor;
     private final HotSearchManager hotSearchManager;
     private final StrategyFactory strategyFactory;
     private final RedisTemplate<String, List<Float>> redisTemplate;
-    private final OssManager ossManager;
+    private final SearchObjectStoragePort objectStoragePort;
 
     public List<SearchResultDTO> search(SearchQueryDTO query) {
         if (StringUtils.hasText(query.getKeyword())) {
@@ -170,11 +168,11 @@ public class SmartSearchServiceImpl implements SmartSearchService {
             } else {
                 log.info("Cache missed, processing new image, MD5: {}", md5);
                 if (shouldUseBytesInput()) {
-                    vector = embeddingService.embedImage(file.getBytes(), file.getContentType());
+                    vector = embeddingPort.embedImage(file.getBytes(), file.getContentType());
                 } else {
-                    String objectKey = ossManager.uploadFile(file);
-                    String tempAiUrl = ossManager.getAiPresignedUrl(objectKey, SHORT_TERM_VALIDITY.getValidity(), X_OSS_PROCESS_EMBEDDING);
-                    vector = embeddingService.embedImage(tempAiUrl);
+                    String objectKey = objectStoragePort.uploadFile(file);
+                    String tempAiUrl = objectStoragePort.buildAiImageInput(objectKey, SearchObjectStoragePort.AiInputValidity.SHORT);
+                    vector = embeddingPort.embedImage(tempAiUrl);
                 }
 
                 redisTemplate.opsForValue().set(cacheKey, vector, 24, TimeUnit.HOURS);
@@ -269,7 +267,7 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         List<Float> queryVector = getVectorFromCache(keyword);
         if (CollectionUtils.isEmpty(queryVector)) {
             log.info("vector cache missed, processing new text, keyword: {}", keyword);
-            queryVector = embeddingService.embedText(keyword);
+            queryVector = embeddingPort.embedText(keyword);
             cacheVector(keyword, queryVector);
             return queryVector;
         }

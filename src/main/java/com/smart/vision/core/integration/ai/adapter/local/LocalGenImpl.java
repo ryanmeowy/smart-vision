@@ -2,10 +2,10 @@
 package com.smart.vision.core.integration.ai.adapter.local;
 
 import com.google.common.collect.Lists;
+import com.smart.vision.core.common.model.GraphTriple;
 import com.smart.vision.core.integration.ai.port.ContentGenerationService;
 import com.smart.vision.core.grpc.VisionProto;
 import com.smart.vision.core.grpc.VisionServiceGrpc;
-import com.smart.vision.core.search.domain.model.GraphTriple;
 import com.smart.vision.core.integration.ai.domain.model.PromptEnum;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
