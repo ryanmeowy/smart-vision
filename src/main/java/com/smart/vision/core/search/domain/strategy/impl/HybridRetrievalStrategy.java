@@ -1,12 +1,12 @@
 package com.smart.vision.core.search.domain.strategy.impl;
 
 import cn.hutool.core.collection.CollectionUtil;
-import com.smart.vision.core.integration.ai.port.ContentGenerationService;
-import com.smart.vision.core.integration.ai.port.CrossEncoderRerankService;
-import com.smart.vision.core.integration.ai.port.CrossEncoderRerankService.RerankResult;
 import com.smart.vision.core.search.domain.model.HybridSearchParamDTO;
 import com.smart.vision.core.search.domain.model.ImageSearchResultDTO;
 import com.smart.vision.core.search.domain.model.StrategyTypeEnum;
+import com.smart.vision.core.search.domain.port.QueryGraphParserPort;
+import com.smart.vision.core.search.domain.port.SearchRerankPort;
+import com.smart.vision.core.search.domain.port.SearchRerankPort.RerankItem;
 import com.smart.vision.core.search.domain.ranking.RrfFusionService;
 import com.smart.vision.core.search.domain.strategy.RetrievalStrategy;
 import com.smart.vision.core.search.infrastructure.persistence.es.repository.ImageRepository;
@@ -39,9 +39,9 @@ import static com.smart.vision.core.common.constant.SearchConstant.DEFAULT_RESUL
 public class HybridRetrievalStrategy implements RetrievalStrategy {
 
     private final ImageRepository imageRepository;
-    private final ContentGenerationService generationService;
+    private final QueryGraphParserPort queryGraphParserPort;
     private final RrfFusionService rrfFusionService;
-    private final CrossEncoderRerankService crossEncoderRerankService;
+    private final SearchRerankPort searchRerankPort;
 
     @Value("${app.search.rrf.enabled:true}")
     private boolean rrfEnabled;
@@ -72,7 +72,7 @@ public class HybridRetrievalStrategy implements RetrievalStrategy {
                 .limit(recallSize)
                 .keyword(query.getKeyword())
                 .enableOcr(enableOcr)
-                .graphTriples(generationService.praseTriplesFromKeyword(query.getKeyword()))
+                .graphTriples(queryGraphParserPort.parseFromKeyword(query.getKeyword()))
                 .build();
         List<ImageSearchResultDTO> hybridHits = imageRepository.hybridSearch(paramDTO);
 
@@ -128,13 +128,13 @@ public class HybridRetrievalStrategy implements RetrievalStrategy {
                 .map(item -> buildRerankText(item, enableOcr))
                 .collect(Collectors.toList());
 
-        List<RerankResult> rerankResults = crossEncoderRerankService.rerank(keyword, docs, docs.size());
+        List<RerankItem> rerankResults = searchRerankPort.rerank(keyword, docs, docs.size());
         if (CollectionUtil.isEmpty(rerankResults)) {
             return window.stream().limit(limit).collect(Collectors.toList());
         }
 
         Map<Integer, Double> scoreByIndex = new HashMap<>();
-        for (RerankResult rerankResult : rerankResults) {
+        for (RerankItem rerankResult : rerankResults) {
             if (rerankResult == null) {
                 continue;
             }

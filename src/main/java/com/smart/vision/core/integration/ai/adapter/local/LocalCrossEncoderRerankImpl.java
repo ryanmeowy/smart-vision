@@ -1,24 +1,39 @@
 package com.smart.vision.core.integration.ai.adapter.local;
 
 import cn.hutool.core.collection.CollectionUtil;
+import com.smart.vision.core.grpc.VisionProto;
+import com.smart.vision.core.grpc.VisionServiceGrpc;
 import com.smart.vision.core.integration.ai.port.CrossEncoderRerankService;
-import org.springframework.context.annotation.Profile;
-import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
-
+import io.grpc.StatusRuntimeException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import lombok.extern.slf4j.Slf4j;
+import net.devh.boot.grpc.client.inject.GrpcClient;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 /**
- * Local fallback rerank implementation when cloud cross-encoder is unavailable.
+ * Local cross-encoder rerank implementation backed by gRPC Python inference service.
+ * Falls back to lexical rerank when gRPC rerank is unavailable.
  */
+@Slf4j
 @Service
 @Profile("local")
 public class LocalCrossEncoderRerankImpl implements CrossEncoderRerankService {
+
+    @SuppressWarnings("unused")
+    @GrpcClient("vision-python-service")
+    private VisionServiceGrpc.VisionServiceBlockingStub visionStub;
+
+    @Value("${grpc.deadline.rerank-ms:5000}")
+    private long rerankDeadlineMs;
 
     @Override
     public List<RerankResult> rerank(String query, List<String> documents, Integer topN) {
@@ -26,6 +41,51 @@ public class LocalCrossEncoderRerankImpl implements CrossEncoderRerankService {
             return List.of();
         }
         int safeTopN = topN == null || topN <= 0 ? documents.size() : Math.min(topN, documents.size());
+
+        List<RerankResult> grpcResults = rerankByGrpc(query, documents, safeTopN);
+        if (!CollectionUtil.isEmpty(grpcResults)) {
+            return grpcResults;
+        }
+        return fallbackLexicalRerank(query, documents, safeTopN);
+    }
+
+    private List<RerankResult> rerankByGrpc(String query, List<String> documents, int topN) {
+        if (visionStub == null) {
+            return List.of();
+        }
+        long startNs = System.nanoTime();
+        try {
+            VisionProto.RerankRequest request = VisionProto.RerankRequest.newBuilder()
+                    .setQuery(query)
+                    .addAllDocuments(documents)
+                    .setTopN(topN)
+                    .build();
+            VisionProto.RerankResponse response = visionStub
+                    .withDeadlineAfter(rerankDeadlineMs, TimeUnit.MILLISECONDS)
+                    .rerank(request);
+            long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNs);
+            log.debug("gRPC rerank success: deadlineMs={}, elapsedMs={}", rerankDeadlineMs, elapsedMs);
+
+            if (response == null || CollectionUtil.isEmpty(response.getResultsList())) {
+                return List.of();
+            }
+            return response.getResultsList().stream()
+                    .map(item -> new RerankResult(item.getIndex(), Math.max(0d, item.getRelevanceScore())))
+                    .sorted(Comparator.comparingDouble(RerankResult::score).reversed()
+                            .thenComparingInt(RerankResult::index))
+                    .limit(topN)
+                    .toList();
+        } catch (StatusRuntimeException e) {
+            long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNs);
+            log.warn("gRPC rerank failed: statusCode={}, deadlineMs={}, elapsedMs={}",
+                    e.getStatus().getCode(), rerankDeadlineMs, elapsedMs);
+        } catch (Exception e) {
+            log.warn("gRPC rerank failed: {}", e.getMessage());
+        }
+        return List.of();
+    }
+
+    private List<RerankResult> fallbackLexicalRerank(String query, List<String> documents, int topN) {
         String normalizedQuery = normalize(query);
         Set<String> queryTokens = tokenize(normalizedQuery);
 
@@ -39,7 +99,7 @@ public class LocalCrossEncoderRerankImpl implements CrossEncoderRerankService {
         return scored.stream()
                 .sorted(Comparator.comparingDouble(RerankResult::score).reversed()
                         .thenComparingInt(RerankResult::index))
-                .limit(safeTopN)
+                .limit(topN)
                 .toList();
     }
 
