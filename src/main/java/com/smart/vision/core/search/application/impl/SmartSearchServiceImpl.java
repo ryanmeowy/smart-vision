@@ -82,7 +82,9 @@ public class SmartSearchServiceImpl implements SmartSearchService {
                 : docs.stream().limit(maxResults).collect(Collectors.toList());
         log.info("Search completed, number of results before filter: {}, after filter: {}", docs.size(), filteredDocs.size());
         boolean enableOcr = query.getEnableOcr() == null || query.getEnableOcr();
-        List<ImageSearchResultDTO> reranked = manualRerank(filteredDocs, query.getKeyword(), enableOcr);
+        List<ImageSearchResultDTO> reranked = shouldApplyManualRerank(effectiveStrategy)
+                ? manualRerank(filteredDocs, query.getKeyword(), enableOcr)
+                : filteredDocs;
         List<SearchResultDTO> dtoList = imageDocConvertor.convert2SearchResultDTO(reranked);
         applyVectorHitStatusForSearch(dtoList, reranked, query.getKeyword(), enableOcr, effectiveStrategy);
         applyExplainForSearch(dtoList, reranked, query.getKeyword(), enableOcr, effectiveStrategy);
@@ -280,9 +282,11 @@ public class SmartSearchServiceImpl implements SmartSearchService {
     }
 
     private boolean shouldApplySimilarityFilter(StrategyTypeEnum strategyType) {
-        return strategyType == StrategyTypeEnum.HYBRID;
-//                || strategyType == StrategyTypeEnum.VECTOR_ONLY
-//                || strategyType == StrategyTypeEnum.IMAGE_TO_IMAGE;
+        return false;
+    }
+
+    private boolean shouldApplyManualRerank(StrategyTypeEnum strategyType) {
+        return strategyType != StrategyTypeEnum.HYBRID;
     }
 
     private void applySimilarDisplayScore(List<ImageSearchResultDTO> results) {
