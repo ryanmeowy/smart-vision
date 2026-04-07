@@ -3,10 +3,10 @@ package com.smart.vision.core.ingestion.application.impl;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smart.vision.core.ingestion.application.ImageIngestionService;
+import com.smart.vision.core.ingestion.application.assembler.BatchTaskAssembler;
 import com.smart.vision.core.ingestion.domain.model.BatchTask;
 import com.smart.vision.core.ingestion.domain.model.BatchTaskItem;
 import com.smart.vision.core.ingestion.domain.model.BatchTaskItemStatus;
-import com.smart.vision.core.ingestion.domain.model.BatchTaskStatus;
 import com.smart.vision.core.ingestion.domain.model.BulkSaveResult;
 import com.smart.vision.core.ingestion.domain.model.ImageHashAcquireOutcome;
 import com.smart.vision.core.ingestion.domain.model.ImageHashAcquireOutcomeType;
@@ -75,6 +75,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
     private final ImageOcrService imageOcrService;
     private final ContentGenerationService contentGenerationService;
     private final ImageHashStateRepository imageHashStateRepository;
+    private final BatchTaskAssembler batchTaskAssembler;
     private final StringRedisTemplate redisTemplate;
     private final IdGen idGen;
     private final ObjectMapper objectMapper;
@@ -168,7 +169,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         BatchTask task = BatchTask.createPending(UUID.randomUUID().toString(), taskItems, now);
         saveTask(task);
         ingestionTaskExecutor.execute(() -> processTask(task.getTaskId()));
-        return toTaskDto(task);
+        return batchTaskAssembler.toTaskDto(task);
     }
 
     @Override
@@ -177,7 +178,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         if (task == null) {
             throw new RuntimeException("Task not found");
         }
-        return toTaskDto(task);
+        return batchTaskAssembler.toTaskDto(task);
     }
 
     @Override
@@ -191,7 +192,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         saveTask(task);
 
         ingestionTaskExecutor.execute(() -> processTask(task.getTaskId()));
-        return toTaskDto(task);
+        return batchTaskAssembler.toTaskDto(task);
     }
 
     @Override
@@ -205,7 +206,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         saveTask(task);
 
         ingestionTaskExecutor.execute(() -> processTask(task.getTaskId()));
-        return toTaskDto(task);
+        return batchTaskAssembler.toTaskDto(task);
     }
 
     /**
@@ -325,7 +326,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         synchronized (task) {
             task.markItemRunning(itemId, System.currentTimeMillis());
             BatchTaskItem item = task.findItemOrThrow(itemId);
-            request = toBatchProcessDTO(item);
+            request = batchTaskAssembler.toBatchProcessDTO(item);
             fileName = item.getFileName();
             saveTask(task);
         }
@@ -369,14 +370,6 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         }
     }
 
-    private BatchProcessDTO toBatchProcessDTO(BatchTaskItem itemStatus) {
-        BatchProcessDTO item = new BatchProcessDTO();
-        item.setKey(itemStatus.getKey());
-        item.setFileName(itemStatus.getFileName());
-        item.setFileHash(itemStatus.getFileHash());
-        return item;
-    }
-
     private boolean acquireTaskLock(String taskId, String lockValue) {
         Boolean locked = redisTemplate.opsForValue().setIfAbsent(
                 BATCH_TASK_LOCK_PREFIX + taskId,
@@ -398,7 +391,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
     private void saveTask(BatchTask task) {
         redisTemplate.opsForValue().set(
                 BATCH_TASK_CACHE_PREFIX + task.getTaskId(),
-                serializeTask(toTaskDto(task)),
+                serializeTask(batchTaskAssembler.toTaskDto(task)),
                 BATCH_TASK_TTL_HOURS,
                 TimeUnit.HOURS
         );
@@ -411,7 +404,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         }
         try {
             BatchTaskStatusDTO dto = objectMapper.readValue(raw, BatchTaskStatusDTO.class);
-            return toTaskDomain(dto);
+            return batchTaskAssembler.toTaskDomain(dto);
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Failed to parse task payload", e);
         }
@@ -422,88 +415,6 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
             return objectMapper.writeValueAsString(task);
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Failed to serialize task payload", e);
-        }
-    }
-
-    private BatchTaskStatusDTO toTaskDto(BatchTask task) {
-        BatchTaskStatusDTO dto = new BatchTaskStatusDTO();
-        dto.setTaskId(task.getTaskId());
-        dto.setStatus(task.getStatus() == null ? BatchTaskStatus.PENDING.name() : task.getStatus().name());
-        dto.setTotal(task.getTotal());
-        dto.setSuccessCount(task.getSuccessCount());
-        dto.setFailureCount(task.getFailureCount());
-        dto.setRunningCount(task.getRunningCount());
-        dto.setPendingCount(task.getPendingCount());
-        dto.setCreatedAt(task.getCreatedAt());
-        dto.setUpdatedAt(task.getUpdatedAt());
-        dto.setCompletedAt(task.getCompletedAt());
-        List<BatchTaskItem> items = task.getItems() == null ? List.of() : task.getItems();
-        dto.setItems(items.stream().map(this::toTaskItemDto).toList());
-        return dto;
-    }
-
-    private BatchTaskStatusDTO.ItemStatus toTaskItemDto(BatchTaskItem item) {
-        BatchTaskStatusDTO.ItemStatus dto = new BatchTaskStatusDTO.ItemStatus();
-        dto.setItemId(item.getItemId());
-        dto.setKey(item.getKey());
-        dto.setFileName(item.getFileName());
-        dto.setFileHash(item.getFileHash());
-        dto.setStatus(item.getStatus().name());
-        dto.setErrorMessage(item.getErrorMessage());
-        dto.setRetryCount(item.getRetryCount());
-        dto.setUpdatedAt(item.getUpdatedAt());
-        return dto;
-    }
-
-    private BatchTask toTaskDomain(BatchTaskStatusDTO dto) {
-        BatchTask task = new BatchTask();
-        task.setTaskId(dto.getTaskId());
-        task.setStatus(parseTaskStatus(dto.getStatus()));
-        task.setTotal(dto.getTotal());
-        task.setSuccessCount(dto.getSuccessCount());
-        task.setFailureCount(dto.getFailureCount());
-        task.setRunningCount(dto.getRunningCount());
-        task.setPendingCount(dto.getPendingCount());
-        task.setCreatedAt(dto.getCreatedAt());
-        task.setUpdatedAt(dto.getUpdatedAt());
-        task.setCompletedAt(dto.getCompletedAt());
-        List<BatchTaskStatusDTO.ItemStatus> items = dto.getItems() == null ? List.of() : dto.getItems();
-        task.setItems(items.stream().map(this::toTaskItemDomain).toList());
-        return task;
-    }
-
-    private BatchTaskItem toTaskItemDomain(BatchTaskStatusDTO.ItemStatus dto) {
-        BatchTaskItem item = new BatchTaskItem();
-        item.setItemId(dto.getItemId());
-        item.setKey(dto.getKey());
-        item.setFileName(dto.getFileName());
-        item.setFileHash(dto.getFileHash());
-        item.setStatus(parseTaskItemStatus(dto.getStatus()));
-        item.setErrorMessage(dto.getErrorMessage());
-        item.setRetryCount(dto.getRetryCount());
-        item.setUpdatedAt(dto.getUpdatedAt());
-        return item;
-    }
-
-    private BatchTaskStatus parseTaskStatus(String value) {
-        if (!StringUtils.hasText(value)) {
-            return BatchTaskStatus.PENDING;
-        }
-        try {
-            return BatchTaskStatus.valueOf(value);
-        } catch (IllegalArgumentException e) {
-            return BatchTaskStatus.PENDING;
-        }
-    }
-
-    private BatchTaskItemStatus parseTaskItemStatus(String value) {
-        if (!StringUtils.hasText(value)) {
-            return BatchTaskItemStatus.PENDING;
-        }
-        try {
-            return BatchTaskItemStatus.valueOf(value);
-        } catch (IllegalArgumentException e) {
-            return BatchTaskItemStatus.PENDING;
         }
     }
 

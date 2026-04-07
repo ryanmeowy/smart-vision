@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smart.vision.core.integration.ai.port.ContentGenerationService;
 import com.smart.vision.core.integration.ai.port.ImageOcrService;
 import com.smart.vision.core.integration.ai.port.MultiModalEmbeddingService;
+import com.smart.vision.core.ingestion.application.assembler.BatchTaskAssembler;
 import com.smart.vision.core.ingestion.domain.port.ImageHashStateRepository;
 import com.smart.vision.core.ingestion.infrastructure.persistence.es.EsBatchTemplate;
 import com.smart.vision.core.ingestion.infrastructure.id.IdGen;
@@ -69,6 +70,7 @@ class ImageIngestionServiceImplRetryFlowTest {
                 imageOcrService,
                 contentGenerationService,
                 imageHashStateRepository,
+                new BatchTaskAssembler(),
                 redisTemplate,
                 idGen,
                 objectMapper
