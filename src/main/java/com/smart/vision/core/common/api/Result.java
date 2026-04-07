@@ -1,5 +1,5 @@
 
-package com.smart.vision.core.model;
+package com.smart.vision.core.common.api;
 
 import lombok.Data;
 

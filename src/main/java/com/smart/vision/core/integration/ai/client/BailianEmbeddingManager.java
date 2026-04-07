@@ -1,4 +1,4 @@
-package com.smart.vision.core.manager;
+package com.smart.vision.core.integration.ai.client;
 
 import com.alibaba.dashscope.embeddings.MultiModalEmbedding;
 import com.alibaba.dashscope.embeddings.MultiModalEmbeddingItemBase;

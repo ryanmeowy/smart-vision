@@ -1,7 +1,7 @@
 package com.smart.vision.core.search.infrastructure.persistence.es.query;
 
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
-import com.smart.vision.core.model.dto.GraphTripleDTO;
+import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
 
 import java.util.List;
 import java.util.Optional;

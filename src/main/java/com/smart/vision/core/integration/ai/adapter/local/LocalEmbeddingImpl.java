@@ -1,6 +1,6 @@
-package com.smart.vision.core.ai.impl;
+package com.smart.vision.core.integration.ai.adapter.local;
 
-import com.smart.vision.core.ai.MultiModalEmbeddingService;
+import com.smart.vision.core.integration.ai.port.MultiModalEmbeddingService;
 import com.smart.vision.core.grpc.VisionProto;
 import com.smart.vision.core.grpc.VisionServiceGrpc;
 import com.google.protobuf.ByteString;

@@ -1,7 +1,7 @@
 
-package com.smart.vision.core.ai.impl;
+package com.smart.vision.core.integration.ai.adapter.local;
 
-import com.smart.vision.core.ai.ImageOcrService;
+import com.smart.vision.core.integration.ai.port.ImageOcrService;
 import com.smart.vision.core.grpc.VisionProto;
 import com.smart.vision.core.grpc.VisionServiceGrpc;
 import com.smart.vision.core.model.enums.PromptEnum;

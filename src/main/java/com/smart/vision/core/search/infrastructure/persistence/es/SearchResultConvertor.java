@@ -5,7 +5,7 @@ import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.elasticsearch.core.search.HitsMetadata;
 import com.smart.vision.core.model.dto.ImageSearchResultDTO;
-import com.smart.vision.core.model.entity.ImageDocument;
+import com.smart.vision.core.search.infrastructure.persistence.es.document.ImageDocument;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;

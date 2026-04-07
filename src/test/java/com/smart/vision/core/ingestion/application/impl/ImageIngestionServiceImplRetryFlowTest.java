@@ -1,13 +1,13 @@
 package com.smart.vision.core.ingestion.application.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.smart.vision.core.ai.ContentGenerationService;
-import com.smart.vision.core.ai.ImageOcrService;
-import com.smart.vision.core.ai.MultiModalEmbeddingService;
+import com.smart.vision.core.integration.ai.port.ContentGenerationService;
+import com.smart.vision.core.integration.ai.port.ImageOcrService;
+import com.smart.vision.core.integration.ai.port.MultiModalEmbeddingService;
 import com.smart.vision.core.ingestion.infrastructure.persistence.es.EsBatchTemplate;
 import com.smart.vision.core.ingestion.infrastructure.id.IdGen;
-import com.smart.vision.core.manager.OssManager;
-import com.smart.vision.core.model.dto.BatchTaskStatusDTO;
+import com.smart.vision.core.integration.oss.OssManager;
+import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchTaskStatusDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

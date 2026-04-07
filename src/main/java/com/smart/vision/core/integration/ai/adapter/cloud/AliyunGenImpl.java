@@ -1,11 +1,11 @@
-package com.smart.vision.core.ai.impl;
+package com.smart.vision.core.integration.ai.adapter.cloud;
 
 import com.alibaba.dashscope.exception.InputRequiredException;
 import com.alibaba.dashscope.exception.NoApiKeyException;
 import com.alibaba.dashscope.exception.UploadFileException;
-import com.smart.vision.core.ai.ContentGenerationService;
-import com.smart.vision.core.manager.AliyunGenManager;
-import com.smart.vision.core.model.dto.GraphTripleDTO;
+import com.smart.vision.core.integration.ai.port.ContentGenerationService;
+import com.smart.vision.core.integration.ai.client.AliyunGenManager;
+import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
 import com.smart.vision.core.model.enums.AliyunErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

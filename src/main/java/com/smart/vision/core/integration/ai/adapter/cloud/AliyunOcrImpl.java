@@ -1,9 +1,9 @@
 
-package com.smart.vision.core.ai.impl;
+package com.smart.vision.core.integration.ai.adapter.cloud;
 
 import com.alibaba.dashscope.exception.NoApiKeyException;
-import com.smart.vision.core.ai.ImageOcrService;
-import com.smart.vision.core.manager.AliyunOcrManager;
+import com.smart.vision.core.integration.ai.port.ImageOcrService;
+import com.smart.vision.core.integration.ai.client.AliyunOcrManager;
 import com.smart.vision.core.model.enums.AliyunErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

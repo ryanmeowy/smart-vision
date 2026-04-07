@@ -1,6 +1,6 @@
 package com.smart.vision.core.model.dto;
 
-import com.smart.vision.core.model.entity.ImageDocument;
+import com.smart.vision.core.search.infrastructure.persistence.es.document.ImageDocument;
 import lombok.Builder;
 import lombok.Data;
 

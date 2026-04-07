@@ -1,9 +1,9 @@
-package com.smart.vision.core.ai.impl;
+package com.smart.vision.core.integration.ai.adapter.cloud;
 
 import com.alibaba.dashscope.exception.ApiException;
 import com.alibaba.dashscope.exception.NoApiKeyException;
-import com.smart.vision.core.ai.MultiModalEmbeddingService;
-import com.smart.vision.core.manager.BailianEmbeddingManager;
+import com.smart.vision.core.integration.ai.port.MultiModalEmbeddingService;
+import com.smart.vision.core.integration.ai.client.BailianEmbeddingManager;
 import com.smart.vision.core.model.enums.AliyunErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

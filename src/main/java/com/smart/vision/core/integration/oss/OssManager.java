@@ -1,4 +1,4 @@
-package com.smart.vision.core.manager;
+package com.smart.vision.core.integration.oss;
 
 import com.aliyun.oss.HttpMethod;
 import com.aliyun.oss.OSS;

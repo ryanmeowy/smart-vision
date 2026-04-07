@@ -1,7 +1,7 @@
 package com.smart.vision.core.search.domain.strategy.impl;
 
 import com.smart.vision.core.model.dto.ImageSearchResultDTO;
-import com.smart.vision.core.model.dto.SearchQueryDTO;
+import com.smart.vision.core.search.interfaces.rest.dto.SearchQueryDTO;
 import com.smart.vision.core.model.enums.StrategyTypeEnum;
 import com.smart.vision.core.repository.ImageRepository;
 import com.smart.vision.core.search.domain.strategy.RetrievalStrategy;

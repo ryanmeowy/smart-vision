@@ -7,7 +7,7 @@ import co.elastic.clients.elasticsearch.core.search.HitsMetadata;
 import com.smart.vision.core.search.infrastructure.persistence.es.SearchResultConvertor;
 import com.smart.vision.core.exception.InfraException;
 import com.smart.vision.core.model.dto.HybridSearchParamDTO;
-import com.smart.vision.core.model.entity.ImageDocument;
+import com.smart.vision.core.search.infrastructure.persistence.es.document.ImageDocument;
 import com.smart.vision.core.search.infrastructure.persistence.es.query.factory.SearchRequestFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

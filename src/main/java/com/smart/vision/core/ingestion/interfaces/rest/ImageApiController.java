@@ -1,10 +1,10 @@
 package com.smart.vision.core.ingestion.interfaces.rest;
 
 import com.smart.vision.core.common.security.RequireAuth;
-import com.smart.vision.core.model.Result;
-import com.smart.vision.core.model.dto.BatchProcessDTO;
-import com.smart.vision.core.model.dto.BatchTaskStatusDTO;
-import com.smart.vision.core.model.dto.BatchUploadResultDTO;
+import com.smart.vision.core.common.api.Result;
+import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchProcessDTO;
+import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchTaskStatusDTO;
+import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchUploadResultDTO;
 import com.smart.vision.core.ingestion.application.ImageIngestionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

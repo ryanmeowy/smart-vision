@@ -8,7 +8,7 @@ import com.smart.vision.core.exception.ApiError;
 import com.smart.vision.core.exception.InfraException;
 import com.smart.vision.core.model.dto.HybridSearchParamDTO;
 import com.smart.vision.core.model.dto.ImageSearchResultDTO;
-import com.smart.vision.core.model.entity.ImageDocument;
+import com.smart.vision.core.search.infrastructure.persistence.es.document.ImageDocument;
 import com.smart.vision.core.repository.ImageRepositoryCustom;
 import com.smart.vision.core.search.infrastructure.persistence.es.query.factory.SearchRequestFactory;
 import lombok.RequiredArgsConstructor;

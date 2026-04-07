@@ -1,8 +1,8 @@
 package com.smart.vision.core.controller;
 
-import com.smart.vision.core.ai.ContentGenerationService;
-import com.smart.vision.core.manager.OssManager;
-import com.smart.vision.core.model.entity.ImageDocument;
+import com.smart.vision.core.integration.ai.port.ContentGenerationService;
+import com.smart.vision.core.integration.oss.OssManager;
+import com.smart.vision.core.search.infrastructure.persistence.es.document.ImageDocument;
 import com.smart.vision.core.repository.ImageRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;

@@ -1,7 +1,7 @@
 package com.smart.vision.core.search.domain.strategy;
 
 import com.smart.vision.core.model.dto.ImageSearchResultDTO;
-import com.smart.vision.core.model.dto.SearchQueryDTO;
+import com.smart.vision.core.search.interfaces.rest.dto.SearchQueryDTO;
 import com.smart.vision.core.model.enums.StrategyTypeEnum;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.AfterEach;

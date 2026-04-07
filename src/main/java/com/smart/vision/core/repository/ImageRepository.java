@@ -1,6 +1,6 @@
 package com.smart.vision.core.repository;
 
-import com.smart.vision.core.model.entity.ImageDocument;
+import com.smart.vision.core.search.infrastructure.persistence.es.document.ImageDocument;
 import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
 import org.springframework.stereotype.Repository;
 

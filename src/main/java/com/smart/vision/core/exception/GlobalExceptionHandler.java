@@ -1,6 +1,6 @@
 package com.smart.vision.core.exception;
 
-import com.smart.vision.core.model.Result;
+import com.smart.vision.core.common.api.Result;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.converter.HttpMessageNotReadableException;

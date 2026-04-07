@@ -3,7 +3,7 @@ package com.smart.vision.core.repository;
 
 import com.smart.vision.core.model.dto.HybridSearchParamDTO;
 import com.smart.vision.core.model.dto.ImageSearchResultDTO;
-import com.smart.vision.core.model.entity.ImageDocument;
+import com.smart.vision.core.search.infrastructure.persistence.es.document.ImageDocument;
 
 import java.util.List;
 

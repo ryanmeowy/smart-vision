@@ -1,17 +1,17 @@
 package com.smart.vision.core.search.application.impl;
 
-import com.smart.vision.core.ai.MultiModalEmbeddingService;
+import com.smart.vision.core.integration.ai.port.MultiModalEmbeddingService;
 import com.smart.vision.core.search.interfaces.assembler.ImageDocConvertor;
 import com.smart.vision.core.exception.ApiError;
 import com.smart.vision.core.exception.InfraException;
 import com.smart.vision.core.manager.HotSearchManager;
-import com.smart.vision.core.manager.OssManager;
+import com.smart.vision.core.integration.oss.OssManager;
 import com.smart.vision.core.model.dto.ImageSearchResultDTO;
-import com.smart.vision.core.model.dto.GraphTripleDTO;
-import com.smart.vision.core.model.dto.SearchQueryDTO;
-import com.smart.vision.core.model.dto.SearchExplainDTO;
-import com.smart.vision.core.model.dto.SearchResultDTO;
-import com.smart.vision.core.model.entity.ImageDocument;
+import com.smart.vision.core.search.domain.model.GraphTriple;
+import com.smart.vision.core.search.interfaces.rest.dto.SearchQueryDTO;
+import com.smart.vision.core.search.interfaces.rest.dto.SearchExplainDTO;
+import com.smart.vision.core.search.interfaces.rest.dto.SearchResultDTO;
+import com.smart.vision.core.search.infrastructure.persistence.es.document.ImageDocument;
 import com.smart.vision.core.model.enums.StrategyTypeEnum;
 import com.smart.vision.core.repository.ImageRepository;
 import com.smart.vision.core.search.application.SmartSearchService;
@@ -435,7 +435,7 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         if (doc == null || CollectionUtils.isEmpty(doc.getRelations())) {
             return false;
         }
-        for (GraphTripleDTO triple : doc.getRelations()) {
+        for (GraphTriple triple : doc.getRelations()) {
             if (triple == null) {
                 continue;
             }

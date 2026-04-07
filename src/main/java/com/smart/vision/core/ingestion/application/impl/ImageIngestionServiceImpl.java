@@ -2,18 +2,19 @@ package com.smart.vision.core.ingestion.application.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.smart.vision.core.ai.ContentGenerationService;
-import com.smart.vision.core.ai.ImageOcrService;
-import com.smart.vision.core.ai.MultiModalEmbeddingService;
+import com.smart.vision.core.integration.ai.port.ContentGenerationService;
+import com.smart.vision.core.integration.ai.port.ImageOcrService;
+import com.smart.vision.core.integration.ai.port.MultiModalEmbeddingService;
 import com.smart.vision.core.ingestion.infrastructure.persistence.es.EsBatchTemplate;
 import com.smart.vision.core.ingestion.infrastructure.id.IdGen;
-import com.smart.vision.core.manager.OssManager;
+import com.smart.vision.core.integration.oss.OssManager;
 import com.smart.vision.core.model.BulkSaveResult;
-import com.smart.vision.core.model.dto.BatchProcessDTO;
-import com.smart.vision.core.model.dto.BatchTaskStatusDTO;
-import com.smart.vision.core.model.dto.BatchUploadResultDTO;
-import com.smart.vision.core.model.dto.GraphTripleDTO;
-import com.smart.vision.core.model.entity.ImageDocument;
+import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchProcessDTO;
+import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchTaskStatusDTO;
+import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchUploadResultDTO;
+import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
+import com.smart.vision.core.search.domain.model.GraphTriple;
+import com.smart.vision.core.search.infrastructure.persistence.es.document.ImageDocument;
 import com.smart.vision.core.ingestion.application.ImageIngestionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -292,7 +293,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
             doc.setCreateTime(System.currentTimeMillis());
             doc.setTags(tags);
             doc.setFileHash(item.getFileHash());
-            doc.setRelations(graphTriples);
+            doc.setRelations(toDomainTriples(graphTriples));
             return doc;
         } catch (Exception e) {
             markHashStatus(item.getFileHash(), HASH_STATUS_FAILED, HASH_FAILED_TTL_MINUTES, TimeUnit.MINUTES);
@@ -534,5 +535,15 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Failed to serialize task payload", e);
         }
+    }
+
+    private List<GraphTriple> toDomainTriples(List<GraphTripleDTO> triples) {
+        if (triples == null || triples.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return triples.stream()
+                .filter(Objects::nonNull)
+                .map(t -> new GraphTriple(t.getS(), t.getP(), t.getO()))
+                .toList();
     }
 }

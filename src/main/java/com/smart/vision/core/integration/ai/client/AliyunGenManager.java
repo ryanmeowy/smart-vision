@@ -1,4 +1,4 @@
-package com.smart.vision.core.manager;
+package com.smart.vision.core.integration.ai.client;
 
 import cn.hutool.core.collection.CollectionUtil;
 import com.alibaba.dashscope.aigc.generation.Generation;
@@ -18,7 +18,7 @@ import com.alibaba.dashscope.exception.UploadFileException;
 import com.aliyun.core.utils.StringUtils;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import com.smart.vision.core.model.dto.GraphTripleDTO;
+import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
 import com.smart.vision.core.model.enums.PromptEnum;
 import io.reactivex.Flowable;
 import lombok.RequiredArgsConstructor;

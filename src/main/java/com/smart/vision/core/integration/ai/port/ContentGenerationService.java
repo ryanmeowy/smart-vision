@@ -1,6 +1,6 @@
-package com.smart.vision.core.ai;
+package com.smart.vision.core.integration.ai.port;
 
-import com.smart.vision.core.model.dto.GraphTripleDTO;
+import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;

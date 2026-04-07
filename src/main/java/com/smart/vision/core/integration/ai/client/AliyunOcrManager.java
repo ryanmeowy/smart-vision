@@ -1,4 +1,4 @@
-package com.smart.vision.core.manager;
+package com.smart.vision.core.integration.ai.client;
 
 import cn.hutool.core.collection.CollectionUtil;
 import com.alibaba.dashscope.aigc.multimodalconversation.MultiModalConversation;

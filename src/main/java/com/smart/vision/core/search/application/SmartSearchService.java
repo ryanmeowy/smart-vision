@@ -1,7 +1,7 @@
 package com.smart.vision.core.search.application;
 
-import com.smart.vision.core.model.dto.SearchQueryDTO;
-import com.smart.vision.core.model.dto.SearchResultDTO;
+import com.smart.vision.core.search.interfaces.rest.dto.SearchQueryDTO;
+import com.smart.vision.core.search.interfaces.rest.dto.SearchResultDTO;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;

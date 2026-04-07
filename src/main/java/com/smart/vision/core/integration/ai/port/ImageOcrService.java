@@ -1,5 +1,5 @@
 
-package com.smart.vision.core.ai;
+package com.smart.vision.core.integration.ai.port;
 
 /**
  * OCR Recognition Service Interface

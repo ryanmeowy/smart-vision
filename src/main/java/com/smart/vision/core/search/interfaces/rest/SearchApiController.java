@@ -1,13 +1,13 @@
 package com.smart.vision.core.search.interfaces.rest;
 
-import com.smart.vision.core.ai.ContentGenerationService;
-import com.smart.vision.core.ai.ImageOcrService;
-import com.smart.vision.core.manager.OssManager;
+import com.smart.vision.core.integration.ai.port.ContentGenerationService;
+import com.smart.vision.core.integration.ai.port.ImageOcrService;
+import com.smart.vision.core.integration.oss.OssManager;
 import com.smart.vision.core.manager.HotSearchManager;
-import com.smart.vision.core.model.Result;
-import com.smart.vision.core.model.dto.GraphTripleDTO;
-import com.smart.vision.core.model.dto.SearchQueryDTO;
-import com.smart.vision.core.model.dto.SearchResultDTO;
+import com.smart.vision.core.common.api.Result;
+import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
+import com.smart.vision.core.search.interfaces.rest.dto.SearchQueryDTO;
+import com.smart.vision.core.search.interfaces.rest.dto.SearchResultDTO;
 import com.smart.vision.core.model.dto.VectorCompareResultDTO;
 import com.smart.vision.core.search.application.SmartSearchService;
 import com.smart.vision.core.search.application.VectorCompareService;

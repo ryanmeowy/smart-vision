@@ -1,4 +1,4 @@
-package com.smart.vision.core.model.dto;
+package com.smart.vision.core.search.interfaces.rest.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

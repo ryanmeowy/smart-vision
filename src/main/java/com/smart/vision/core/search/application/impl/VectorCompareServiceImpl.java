@@ -1,7 +1,7 @@
 package com.smart.vision.core.search.application.impl;
 
-import com.smart.vision.core.ai.MultiModalEmbeddingService;
-import com.smart.vision.core.manager.OssManager;
+import com.smart.vision.core.integration.ai.port.MultiModalEmbeddingService;
+import com.smart.vision.core.integration.oss.OssManager;
 import com.smart.vision.core.model.dto.VectorCompareResultDTO;
 import com.smart.vision.core.search.application.VectorCompareService;
 import com.smart.vision.core.util.VectorUtil;

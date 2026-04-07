@@ -1,5 +1,6 @@
 package com.smart.vision.core.model.dto;
 
+import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
 import lombok.Builder;
 import lombok.Data;
 

@@ -1,16 +1,16 @@
 package com.smart.vision.core.search.application.impl;
 
-import com.smart.vision.core.ai.MultiModalEmbeddingService;
+import com.smart.vision.core.integration.ai.port.MultiModalEmbeddingService;
 import com.smart.vision.core.search.interfaces.assembler.ImageDocConvertor;
 import com.smart.vision.core.exception.InfraException;
 import com.smart.vision.core.manager.HotSearchManager;
-import com.smart.vision.core.manager.OssManager;
-import com.smart.vision.core.model.dto.GraphTripleDTO;
+import com.smart.vision.core.integration.oss.OssManager;
+import com.smart.vision.core.search.domain.model.GraphTriple;
 import com.smart.vision.core.model.dto.ImageSearchResultDTO;
-import com.smart.vision.core.model.dto.SearchExplainDTO;
-import com.smart.vision.core.model.dto.SearchQueryDTO;
-import com.smart.vision.core.model.dto.SearchResultDTO;
-import com.smart.vision.core.model.entity.ImageDocument;
+import com.smart.vision.core.search.interfaces.rest.dto.SearchExplainDTO;
+import com.smart.vision.core.search.interfaces.rest.dto.SearchQueryDTO;
+import com.smart.vision.core.search.interfaces.rest.dto.SearchResultDTO;
+import com.smart.vision.core.search.infrastructure.persistence.es.document.ImageDocument;
 import com.smart.vision.core.model.enums.StrategyTypeEnum;
 import com.smart.vision.core.repository.ImageRepository;
 import com.smart.vision.core.search.domain.strategy.RetrievalStrategy;
@@ -105,7 +105,7 @@ class SmartSearchServiceImplTest {
         doc.setFileName("cat-photo.jpg");
         doc.setOcrContent("a cute cat on sofa");
         doc.setTags(List.of("cat", "home"));
-        doc.setRelations(List.of(new GraphTripleDTO("cat", "on", "sofa")));
+        doc.setRelations(List.of(new GraphTriple("cat", "on", "sofa")));
         ImageSearchResultDTO source = ImageSearchResultDTO.builder()
                 .document(doc)
                 .rawScore(0.95)

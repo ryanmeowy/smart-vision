@@ -1,8 +1,8 @@
 package com.smart.vision.core.ingestion.application;
 
-import com.smart.vision.core.model.dto.BatchProcessDTO;
-import com.smart.vision.core.model.dto.BatchTaskStatusDTO;
-import com.smart.vision.core.model.dto.BatchUploadResultDTO;
+import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchProcessDTO;
+import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchTaskStatusDTO;
+import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchUploadResultDTO;
 
 import java.util.List;
 

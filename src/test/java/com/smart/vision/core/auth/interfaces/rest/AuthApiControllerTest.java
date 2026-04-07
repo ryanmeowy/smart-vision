@@ -1,6 +1,6 @@
 package com.smart.vision.core.auth.interfaces.rest;
 
-import com.smart.vision.core.model.Result;
+import com.smart.vision.core.common.api.Result;
 import com.smart.vision.core.auth.application.OssService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

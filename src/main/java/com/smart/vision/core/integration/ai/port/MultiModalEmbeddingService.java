@@ -1,4 +1,4 @@
-package com.smart.vision.core.ai;
+package com.smart.vision.core.integration.ai.port;
 
 import java.util.List;
 
