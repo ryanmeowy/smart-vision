@@ -1,7 +1,7 @@
 package com.smart.vision.core.search.infrastructure.acl;
 
+import com.smart.vision.core.common.model.GraphTriple;
 import com.smart.vision.core.integration.ai.port.ContentGenerationService;
-import com.smart.vision.core.search.domain.model.GraphTriple;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;

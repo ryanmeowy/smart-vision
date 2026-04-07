@@ -7,7 +7,7 @@ import com.smart.vision.core.common.exception.InfraException;
 import com.smart.vision.core.search.application.support.HotSearchManager;
 import com.smart.vision.core.integration.oss.OssManager;
 import com.smart.vision.core.search.domain.model.ImageSearchResultDTO;
-import com.smart.vision.core.search.domain.model.GraphTriple;
+import com.smart.vision.core.common.model.GraphTriple;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchQueryDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchExplainDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchResultDTO;

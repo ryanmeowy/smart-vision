@@ -3,7 +3,7 @@ package com.smart.vision.core.search.interfaces.assembler;
 import com.google.common.collect.Lists;
 import com.smart.vision.core.integration.oss.OssManager;
 import com.smart.vision.core.search.domain.model.ImageSearchResultDTO;
-import com.smart.vision.core.search.domain.model.GraphTriple;
+import com.smart.vision.core.common.model.GraphTriple;
 import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchResultDTO;
 import com.smart.vision.core.search.infrastructure.persistence.es.document.ImageDocument;

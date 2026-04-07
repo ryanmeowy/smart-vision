@@ -1,11 +1,11 @@
-package com.smart.vision.core.search.domain.model;
+package com.smart.vision.core.common.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Domain model for graph triples stored in search documents.
+ * Shared-kernel graph triple value object.
  */
 @Data
 @NoArgsConstructor

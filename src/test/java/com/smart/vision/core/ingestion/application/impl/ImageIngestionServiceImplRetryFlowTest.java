@@ -1,14 +1,14 @@
 package com.smart.vision.core.ingestion.application.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.smart.vision.core.integration.ai.port.ContentGenerationService;
-import com.smart.vision.core.integration.ai.port.ImageOcrService;
-import com.smart.vision.core.integration.ai.port.MultiModalEmbeddingService;
 import com.smart.vision.core.ingestion.application.assembler.BatchTaskAssembler;
 import com.smart.vision.core.ingestion.domain.port.ImageHashStateRepository;
+import com.smart.vision.core.ingestion.domain.port.IngestionContentPort;
+import com.smart.vision.core.ingestion.domain.port.IngestionEmbeddingPort;
+import com.smart.vision.core.ingestion.domain.port.IngestionObjectStoragePort;
+import com.smart.vision.core.ingestion.domain.port.IngestionOcrPort;
 import com.smart.vision.core.ingestion.infrastructure.persistence.es.EsBatchTemplate;
 import com.smart.vision.core.ingestion.infrastructure.id.IdGen;
-import com.smart.vision.core.integration.oss.OssManager;
 import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchTaskStatusDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,13 +37,13 @@ class ImageIngestionServiceImplRetryFlowTest {
     @Mock
     private EsBatchTemplate esBatchTemplate;
     @Mock
-    private OssManager ossManager;
+    private IngestionObjectStoragePort objectStoragePort;
     @Mock
-    private MultiModalEmbeddingService embeddingService;
+    private IngestionEmbeddingPort embeddingPort;
     @Mock
-    private ImageOcrService imageOcrService;
+    private IngestionOcrPort ocrPort;
     @Mock
-    private ContentGenerationService contentGenerationService;
+    private IngestionContentPort contentPort;
     @Mock
     private ImageHashStateRepository imageHashStateRepository;
     @Mock
@@ -65,10 +65,10 @@ class ImageIngestionServiceImplRetryFlowTest {
                 esBatchTemplate,
                 directExecutor,
                 directExecutor,
-                ossManager,
-                embeddingService,
-                imageOcrService,
-                contentGenerationService,
+                objectStoragePort,
+                embeddingPort,
+                ocrPort,
+                contentPort,
                 imageHashStateRepository,
                 new BatchTaskAssembler(),
                 redisTemplate,

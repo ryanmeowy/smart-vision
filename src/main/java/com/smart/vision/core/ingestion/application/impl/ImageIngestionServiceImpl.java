@@ -12,18 +12,18 @@ import com.smart.vision.core.ingestion.domain.model.ImageHashAcquireOutcome;
 import com.smart.vision.core.ingestion.domain.model.ImageHashAcquireOutcomeType;
 import com.smart.vision.core.ingestion.domain.model.ImageHashStatePolicy;
 import com.smart.vision.core.ingestion.domain.model.ImageHashStatus;
+import com.smart.vision.core.common.model.GraphTriple;
 import com.smart.vision.core.ingestion.domain.port.ImageHashStateRepository;
+import com.smart.vision.core.ingestion.domain.port.IngestionContentPort;
+import com.smart.vision.core.ingestion.domain.port.IngestionEmbeddingPort;
+import com.smart.vision.core.ingestion.domain.port.IngestionObjectStoragePort;
+import com.smart.vision.core.ingestion.domain.port.IngestionOcrPort;
 import com.smart.vision.core.ingestion.infrastructure.id.IdGen;
+import com.smart.vision.core.ingestion.infrastructure.persistence.es.document.IngestionImageDocument;
 import com.smart.vision.core.ingestion.infrastructure.persistence.es.EsBatchTemplate;
 import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchProcessDTO;
 import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchTaskStatusDTO;
 import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchUploadResultDTO;
-import com.smart.vision.core.integration.ai.port.ContentGenerationService;
-import com.smart.vision.core.integration.ai.port.ImageOcrService;
-import com.smart.vision.core.integration.ai.port.MultiModalEmbeddingService;
-import com.smart.vision.core.integration.oss.OssManager;
-import com.smart.vision.core.search.domain.model.GraphTriple;
-import com.smart.vision.core.search.infrastructure.persistence.es.document.ImageDocument;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -42,9 +42,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
-import static com.smart.vision.core.common.constant.AliyunConstant.X_OSS_PROCESS_EMBEDDING;
 import static com.smart.vision.core.common.constant.CommonConstant.DEFAULT_IMAGE_NAME;
-import static com.smart.vision.core.integration.oss.domain.model.PresignedValidityEnum.SHORT_TERM_VALIDITY;
 
 /**
  * image ingestion service cloud implementation
@@ -70,10 +68,10 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
     private final Executor embedTaskExecutor;
     @Qualifier("ingestionTaskExecutor")
     private final Executor ingestionTaskExecutor;
-    private final OssManager ossManager;
-    private final MultiModalEmbeddingService embeddingService;
-    private final ImageOcrService imageOcrService;
-    private final ContentGenerationService contentGenerationService;
+    private final IngestionObjectStoragePort objectStoragePort;
+    private final IngestionEmbeddingPort embeddingPort;
+    private final IngestionOcrPort ocrPort;
+    private final IngestionContentPort contentPort;
     private final ImageHashStateRepository imageHashStateRepository;
     private final BatchTaskAssembler batchTaskAssembler;
     private final StringRedisTemplate redisTemplate;
@@ -88,13 +86,13 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
                 .filter(x -> seenHashes.add(x.getFileHash()))
                 .toList();
 
-        List<ImageDocument> successDocs = Collections.synchronizedList(new ArrayList<>());
+        List<IngestionImageDocument> successDocs = Collections.synchronizedList(new ArrayList<>());
         List<BatchUploadResultDTO.BatchFailureItem> failures = Collections.synchronizedList(new ArrayList<>());
 
         List<CompletableFuture<Void>> futures = uniqueItems.stream()
                 .map(item -> CompletableFuture.runAsync(() -> {
                     try {
-                        ImageDocument doc = processSingleItem(item);
+                        IngestionImageDocument doc = processSingleItem(item);
                         successDocs.add(doc);
                     } catch (Exception e) {
                         log.warn("image processing failed [{}]: {}", item.getFileName(), e.getMessage());
@@ -116,7 +114,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
                 savedCount = bulkResult.getSuccessCount();
 
                 Set<String> failedIdSet = bulkResult.getFailedIds();
-                for (ImageDocument doc : successDocs) {
+                for (IngestionImageDocument doc : successDocs) {
                     if (failedIdSet.contains(String.valueOf(doc.getId()))) {
                         markHashStatus(doc.getFileHash(), ImageHashStatus.FAILED, HASH_FAILED_TTL_MINUTES, TimeUnit.MINUTES);
                         failures.add(BatchUploadResultDTO.BatchFailureItem.builder()
@@ -130,7 +128,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
                 }
             } catch (Exception e) {
                 log.error("ES writes failed", e);
-                for (ImageDocument doc : successDocs) {
+                for (IngestionImageDocument doc : successDocs) {
                     markHashStatus(doc.getFileHash(), ImageHashStatus.FAILED, HASH_FAILED_TTL_MINUTES, TimeUnit.MINUTES);
                     failures.add(BatchUploadResultDTO.BatchFailureItem.builder()
                             .objectKey(doc.getImagePath())
@@ -214,18 +212,18 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
      *
      * @param item the batch process request containing OSS key and file metadata
      */
-    protected ImageDocument processSingleItem(BatchProcessDTO item) {
+    protected IngestionImageDocument processSingleItem(BatchProcessDTO item) {
         if (!acquireHashProcessingLock(item.getFileHash(), item.getFileName())) {
             throw new RuntimeException("Image is processing, retry later.");
         }
         try {
-            String tempUrl = ossManager.getAiPresignedUrl(item.getKey(), SHORT_TERM_VALIDITY.getValidity(), X_OSS_PROCESS_EMBEDDING);
-            List<Float> vector = embeddingService.embedImage(tempUrl);
-            String ocrText = imageOcrService.extractText(tempUrl);
-            List<String> tags = contentGenerationService.generateTags(tempUrl);
-            List<GraphTriple> graphTriples = contentGenerationService.generateGraph(tempUrl);
+            String tempUrl = objectStoragePort.buildAiImageInput(item.getKey());
+            List<Float> vector = embeddingPort.embedImage(tempUrl);
+            String ocrText = ocrPort.extractText(tempUrl);
+            List<String> tags = contentPort.generateTags(tempUrl);
+            List<GraphTriple> graphTriples = contentPort.generateGraph(tempUrl);
 
-            ImageDocument doc = new ImageDocument();
+            IngestionImageDocument doc = new IngestionImageDocument();
             doc.setId(idGen.nextId());
             doc.setImagePath(item.getKey());
             doc.setRawFilename(item.getFileName());
@@ -235,7 +233,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
             doc.setCreateTime(System.currentTimeMillis());
             doc.setTags(tags);
             doc.setFileHash(item.getFileHash());
-            doc.setRelations(toDomainTriples(graphTriples));
+            doc.setRelations(normalizeTriples(graphTriples));
             return doc;
         } catch (Exception e) {
             markHashStatus(item.getFileHash(), ImageHashStatus.FAILED, HASH_FAILED_TTL_MINUTES, TimeUnit.MINUTES);
@@ -244,7 +242,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
     }
 
     protected String genFileName(String imageUrl) {
-        String name = StringUtils.hasText(imageUrl) ? contentGenerationService.generateFileName(imageUrl) : DEFAULT_IMAGE_NAME;
+        String name = StringUtils.hasText(imageUrl) ? contentPort.generateFileName(imageUrl) : DEFAULT_IMAGE_NAME;
         return String.format("%s-%s", name, System.currentTimeMillis());
     }
 
@@ -332,7 +330,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         }
 
         try {
-            ImageDocument doc = processSingleItem(request);
+            IngestionImageDocument doc = processSingleItem(request);
             boolean saved = saveSingleDoc(doc);
             synchronized (task) {
                 if (saved) {
@@ -351,7 +349,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         }
     }
 
-    private boolean saveSingleDoc(ImageDocument doc) {
+    private boolean saveSingleDoc(IngestionImageDocument doc) {
         try {
             BulkSaveResult bulkSaveResult = esBatchTemplate.bulkSave(List.of(doc));
             boolean failed = bulkSaveResult.getFailedIds() != null
@@ -418,13 +416,12 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         }
     }
 
-    private List<GraphTriple> toDomainTriples(List<GraphTriple> triples) {
+    private List<GraphTriple> normalizeTriples(List<GraphTriple> triples) {
         if (triples == null || triples.isEmpty()) {
             return Collections.emptyList();
         }
         return triples.stream()
                 .filter(Objects::nonNull)
-                .map(t -> new GraphTriple(t.getS(), t.getP(), t.getO()))
                 .toList();
     }
 }
