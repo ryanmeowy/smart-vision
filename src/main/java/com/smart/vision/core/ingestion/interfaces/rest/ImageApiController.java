@@ -7,8 +7,10 @@ import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchTaskStatusDTO;
 import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchUploadResultDTO;
 import com.smart.vision.core.ingestion.application.ImageIngestionService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,8 +19,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-
-import static com.smart.vision.core.common.constant.SearchConstant.DEFAULT_NUM_BATCH_ITEMS;
 
 /**
  * REST API controller for image upload functionality
@@ -30,8 +30,10 @@ import static com.smart.vision.core.common.constant.SearchConstant.DEFAULT_NUM_B
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/image")
+@Validated
 @RequiredArgsConstructor
 public class ImageApiController {
+    private static final int MAX_BATCH_ITEMS = 20;
 
     private final ImageIngestionService ingestionService;
 
@@ -45,21 +47,18 @@ public class ImageApiController {
     @Deprecated
     @RequireAuth
     @PostMapping("/batch-process")
-    public Result<BatchUploadResultDTO> batchProcess(@RequestBody @Valid List<@Valid BatchProcessDTO> items) {
-        if (items.size() > DEFAULT_NUM_BATCH_ITEMS) {
-            return Result.error("The number of items processed per request cannot exceed 20");
-        }
-
+    public Result<BatchUploadResultDTO> batchProcess(
+            @RequestBody @Valid @Size(max = MAX_BATCH_ITEMS, message = "The number of items processed per request cannot exceed 20")
+            List<@Valid BatchProcessDTO> items) {
         BatchUploadResultDTO result = ingestionService.processBatchItems(items);
         return Result.success(result);
     }
 
     @RequireAuth
     @PostMapping("/batch-tasks")
-    public Result<BatchTaskStatusDTO> createBatchTask(@RequestBody @Valid List<@Valid BatchProcessDTO> items) {
-        if (items.size() > DEFAULT_NUM_BATCH_ITEMS) {
-            return Result.error("The number of items processed per request cannot exceed 20");
-        }
+    public Result<BatchTaskStatusDTO> createBatchTask(
+            @RequestBody @Valid @Size(max = MAX_BATCH_ITEMS, message = "The number of items processed per request cannot exceed 20")
+            List<@Valid BatchProcessDTO> items) {
         BatchTaskStatusDTO task = ingestionService.submitBatchTask(items);
         return Result.success(task);
     }

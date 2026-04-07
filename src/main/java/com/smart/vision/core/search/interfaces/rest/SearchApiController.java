@@ -1,22 +1,27 @@
 package com.smart.vision.core.search.interfaces.rest;
 
-import com.smart.vision.core.search.application.support.HotSearchManager;
 import com.smart.vision.core.common.api.Result;
+import com.smart.vision.core.common.exception.ApiError;
+import com.smart.vision.core.search.application.SmartSearchService;
+import com.smart.vision.core.search.application.VectorCompareService;
+import com.smart.vision.core.search.application.support.HotSearchManager;
 import com.smart.vision.core.search.domain.port.SearchContentPort;
 import com.smart.vision.core.search.domain.port.SearchObjectStoragePort;
 import com.smart.vision.core.search.domain.port.SearchOcrPort;
+import com.smart.vision.core.search.domain.strategy.StrategySelectionContext;
 import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchQueryDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchResultDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.VectorCompareResultDTO;
-import com.smart.vision.core.search.application.SmartSearchService;
-import com.smart.vision.core.search.application.VectorCompareService;
-import com.smart.vision.core.search.domain.strategy.StrategySelectionContext;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.util.StringUtils;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -26,11 +31,9 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -38,7 +41,6 @@ import java.util.concurrent.Executor;
 import java.util.stream.Stream;
 
 import static com.smart.vision.core.common.constant.SearchConstant.IMAGE_MAX_SIZE;
-import static com.smart.vision.core.common.constant.SearchConstant.MAX_INPUT_LENGTH;
 
 /**
  * rest api controller for vision search functionality;
@@ -49,6 +51,7 @@ import static com.smart.vision.core.common.constant.SearchConstant.MAX_INPUT_LEN
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/vision")
+@Validated
 @RequiredArgsConstructor
 public class SearchApiController {
 
@@ -64,11 +67,8 @@ public class SearchApiController {
     private final VectorCompareService vectorCompareService;
 
     @PostMapping("/search")
-    public Result<List<SearchResultDTO>> search(@RequestBody SearchQueryDTO query, HttpServletResponse response) {
+    public Result<List<SearchResultDTO>> search(@Valid @RequestBody SearchQueryDTO query, HttpServletResponse response) {
         try {
-            if (null == query || null == query.getKeyword() || query.getKeyword().length() > MAX_INPUT_LENGTH) {
-                return Result.success(Collections.emptyList());
-            }
             return Result.success(searchService.search(query));
         } finally {
             attachStrategyDebugHeaders(response);
@@ -77,7 +77,7 @@ public class SearchApiController {
     }
 
     @GetMapping("/similar")
-    public Result<List<SearchResultDTO>> searchSimilar(@RequestParam String id) {
+    public Result<List<SearchResultDTO>> searchSimilar(@RequestParam @NotBlank(message = "id cannot be empty") String id) {
         return Result.success(searchService.searchSimilarById(id));
     }
 
@@ -92,10 +92,10 @@ public class SearchApiController {
                                                        HttpServletResponse response) {
         try {
             if (file.isEmpty()) {
-                return Result.error("Please upload an image");
+                return Result.error(ApiError.INVALID_REQUEST.getCode(), "Please upload an image");
             }
             if (file.getSize() > IMAGE_MAX_SIZE) {
-                return Result.error("The image is too large, please upload an image within 10MB");
+                return Result.error(ApiError.INVALID_REQUEST.getCode(), "The image is too large, please upload an image within 10MB");
             }
 
             return Result.success(searchService.searchByImage(file, limit));

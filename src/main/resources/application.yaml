@@ -55,5 +55,5 @@ app:
 
 logging:
   level:
-    co.elastic.clients: TRACE
-    org.springframework.boot.autoconfigure.elasticsearch: DEBUG
+    co.elastic.clients: WARN
+    org.springframework.boot.autoconfigure.elasticsearch: INFO

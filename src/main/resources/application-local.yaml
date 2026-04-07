@@ -28,3 +28,8 @@ grpc:
     parse-graph-ms: 8000
     stream-caption-ms: 20000
     rerank-ms: 5000
+
+logging:
+  level:
+    co.elastic.clients: DEBUG
+    org.springframework.boot.autoconfigure.elasticsearch: DEBUG

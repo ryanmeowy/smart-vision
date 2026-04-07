@@ -3,7 +3,7 @@
 > 多模态图片搜索引擎 - 基于向量检索与 OCR 融合的智能图片搜索解决方案
 
 [![Java 21](https://img.shields.io/badge/JDK-21-orange.svg)](https://openjdk.org/)
-[![Spring Boot 3.3](https://img.shields.io/badge/Spring%20Boot-3.3-green.svg)](https://spring.io/projects/spring-boot)
+[![Spring Boot 3.5.8](https://img.shields.io/badge/Spring%20Boot-3.3-green.svg)](https://spring.io/projects/spring-boot)
 [![Elasticsearch 8](https://img.shields.io/badge/Elasticsearch-8.11+-blue.svg)](https://www.elastic.co/)
 [![gRPC](https://img.shields.io/badge/gRPC-Protobuf-red.svg)](https://grpc.io/)
 [![License](https://img.shields.io/badge/License-MIT-green)]()

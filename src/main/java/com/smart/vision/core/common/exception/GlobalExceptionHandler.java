@@ -1,15 +1,18 @@
 package com.smart.vision.core.common.exception;
 
 import com.smart.vision.core.common.api.Result;
+import jakarta.validation.ConstraintViolationException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.validation.BindException;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 
 import java.util.UUID;
 
@@ -34,7 +37,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({
             MissingServletRequestParameterException.class,
             MethodArgumentTypeMismatchException.class,
-            HttpMessageNotReadableException.class
+            HttpMessageNotReadableException.class,
+            MethodArgumentNotValidException.class,
+            BindException.class,
+            ConstraintViolationException.class
     })
     public Result<Void> handleBadRequest(Exception e) {
         return Result.error(ApiError.INVALID_REQUEST.getCode(), ApiError.INVALID_REQUEST.getMessage());
