@@ -2,18 +2,18 @@ package com.smart.vision.core.search.application.impl;
 
 import com.smart.vision.core.integration.ai.port.MultiModalEmbeddingService;
 import com.smart.vision.core.search.interfaces.assembler.ImageDocConvertor;
-import com.smart.vision.core.exception.ApiError;
-import com.smart.vision.core.exception.InfraException;
-import com.smart.vision.core.manager.HotSearchManager;
+import com.smart.vision.core.common.exception.ApiError;
+import com.smart.vision.core.common.exception.InfraException;
+import com.smart.vision.core.search.application.support.HotSearchManager;
 import com.smart.vision.core.integration.oss.OssManager;
-import com.smart.vision.core.model.dto.ImageSearchResultDTO;
+import com.smart.vision.core.search.domain.model.ImageSearchResultDTO;
 import com.smart.vision.core.search.domain.model.GraphTriple;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchQueryDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchExplainDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchResultDTO;
 import com.smart.vision.core.search.infrastructure.persistence.es.document.ImageDocument;
-import com.smart.vision.core.model.enums.StrategyTypeEnum;
-import com.smart.vision.core.repository.ImageRepository;
+import com.smart.vision.core.search.domain.model.StrategyTypeEnum;
+import com.smart.vision.core.search.infrastructure.persistence.es.repository.ImageRepository;
 import com.smart.vision.core.search.application.SmartSearchService;
 import com.smart.vision.core.search.domain.strategy.RetrievalStrategy;
 import com.smart.vision.core.search.domain.strategy.StrategyFactory;
@@ -35,15 +35,15 @@ import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static com.smart.vision.core.constant.AliyunConstant.X_OSS_PROCESS_EMBEDDING;
-import static com.smart.vision.core.constant.CacheConstant.IMAGE_MD5_CACHE_PREFIX;
-import static com.smart.vision.core.constant.CacheConstant.VECTOR_CACHE_PREFIX;
-import static com.smart.vision.core.constant.CommonConstant.PROFILE_KEY_NAME;
-import static com.smart.vision.core.constant.EmbeddingConstant.QUALITY_MIN_RESULTS;
-import static com.smart.vision.core.constant.EmbeddingConstant.QUALITY_RATIO_CUTOFF;
-import static com.smart.vision.core.constant.EmbeddingConstant.SIMILARITY_TOP_K;
-import static com.smart.vision.core.model.enums.PresignedValidityEnum.SHORT_TERM_VALIDITY;
-import static com.smart.vision.core.util.ScoreUtil.mapScoreForSimilar;
+import static com.smart.vision.core.common.constant.AliyunConstant.X_OSS_PROCESS_EMBEDDING;
+import static com.smart.vision.core.common.constant.CacheConstant.IMAGE_MD5_CACHE_PREFIX;
+import static com.smart.vision.core.common.constant.CacheConstant.VECTOR_CACHE_PREFIX;
+import static com.smart.vision.core.common.constant.CommonConstant.PROFILE_KEY_NAME;
+import static com.smart.vision.core.common.constant.EmbeddingConstant.QUALITY_MIN_RESULTS;
+import static com.smart.vision.core.common.constant.EmbeddingConstant.QUALITY_RATIO_CUTOFF;
+import static com.smart.vision.core.common.constant.EmbeddingConstant.SIMILARITY_TOP_K;
+import static com.smart.vision.core.integration.oss.domain.model.PresignedValidityEnum.SHORT_TERM_VALIDITY;
+import static com.smart.vision.core.search.domain.util.ScoreUtil.mapScoreForSimilar;
 
 /**
  * Smart search service implementation

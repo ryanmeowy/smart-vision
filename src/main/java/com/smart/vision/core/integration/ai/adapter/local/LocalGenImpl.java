@@ -5,8 +5,8 @@ import com.google.common.collect.Lists;
 import com.smart.vision.core.integration.ai.port.ContentGenerationService;
 import com.smart.vision.core.grpc.VisionProto;
 import com.smart.vision.core.grpc.VisionServiceGrpc;
-import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
-import com.smart.vision.core.model.enums.PromptEnum;
+import com.smart.vision.core.search.domain.model.GraphTriple;
+import com.smart.vision.core.integration.ai.domain.model.PromptEnum;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.client.inject.GrpcClient;
@@ -26,8 +26,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
-import static com.smart.vision.core.constant.CommonConstant.DEFAULT_IMAGE_NAME;
-import static com.smart.vision.core.constant.CommonConstant.SSE_TIMEOUT;
+import static com.smart.vision.core.common.constant.CommonConstant.DEFAULT_IMAGE_NAME;
+import static com.smart.vision.core.common.constant.CommonConstant.SSE_TIMEOUT;
 
 @Slf4j
 @Service
@@ -190,7 +190,7 @@ public class LocalGenImpl implements ContentGenerationService {
      * @return List of graph triples
      */
     @Override
-    public List<GraphTripleDTO> generateGraph(String imageUrl) {
+    public List<GraphTriple> generateGraph(String imageUrl) {
         if (!StringUtils.hasText(imageUrl)) return Lists.newArrayList();
         try {
             VisionProto.GenRequest request = VisionProto.GenRequest.newBuilder()
@@ -200,7 +200,7 @@ public class LocalGenImpl implements ContentGenerationService {
                     .withDeadlineAfter(generateGraphDeadlineMs, TimeUnit.MILLISECONDS)
                     .extractGraphTriples(request);
             List<VisionProto.GraphTriple> graphTriples = Optional.ofNullable(response).map(VisionProto.GraphTriplesResponse::getTripleList).orElseGet(Lists::newArrayList);
-            return graphTriples.stream().map(x -> new GraphTripleDTO(x.getS(), x.getP(), x.getO())).toList();
+            return graphTriples.stream().map(x -> new GraphTriple(x.getS(), x.getP(), x.getO())).toList();
         } catch (StatusRuntimeException e) {
             log.error("gRPC generateGraph failed: statusCode={}, deadlineMs={}", e.getStatus().getCode(), generateGraphDeadlineMs, e);
             throw new RuntimeException("generate graph failed, try again later.");
@@ -211,7 +211,7 @@ public class LocalGenImpl implements ContentGenerationService {
     }
 
     @Override
-    public List<GraphTripleDTO> praseTriplesFromKeyword(String keyword) {
+    public List<GraphTriple> praseTriplesFromKeyword(String keyword) {
         if (!StringUtils.hasText(keyword)) return Lists.newArrayList();
         try {
             VisionProto.TextRequest request = VisionProto.TextRequest.newBuilder().setText(keyword).build();
@@ -219,7 +219,7 @@ public class LocalGenImpl implements ContentGenerationService {
                     .withDeadlineAfter(parseGraphDeadlineMs, TimeUnit.MILLISECONDS)
                     .parseQueryToGraph(request);
             List<VisionProto.GraphTriple> tripleList = response.getTripleList();
-            return tripleList.stream().map(x -> new GraphTripleDTO(x.getS(), x.getP(), x.getO())).toList();
+            return tripleList.stream().map(x -> new GraphTriple(x.getS(), x.getP(), x.getO())).toList();
         } catch (StatusRuntimeException e) {
             log.error("gRPC parseQueryToGraph failed: statusCode={}, deadlineMs={}", e.getStatus().getCode(), parseGraphDeadlineMs, e);
             throw new RuntimeException("parse triples from keyword failed, try again later.");

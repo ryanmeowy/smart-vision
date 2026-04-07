@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-import static com.smart.vision.core.constant.SearchConstant.DEFAULT_NUM_BATCH_ITEMS;
+import static com.smart.vision.core.common.constant.SearchConstant.DEFAULT_NUM_BATCH_ITEMS;
 
 /**
  * REST API controller for image upload functionality

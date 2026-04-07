@@ -2,9 +2,9 @@ package com.smart.vision.core.search.infrastructure.persistence.es.query.factory
 
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
-import com.smart.vision.core.config.VectorConfig;
-import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
-import com.smart.vision.core.model.dto.HybridSearchParamDTO;
+import com.smart.vision.core.common.config.VectorConfig;
+import com.smart.vision.core.search.domain.model.GraphTriple;
+import com.smart.vision.core.search.domain.model.HybridSearchParamDTO;
 import com.smart.vision.core.search.infrastructure.persistence.es.query.GraphTriplesMatcher;
 import com.smart.vision.core.search.infrastructure.persistence.es.query.HybridSearchKeywordMatcher;
 import com.smart.vision.core.search.infrastructure.persistence.es.query.SimilarSearchIdMatcher;
@@ -71,7 +71,7 @@ class SearchRequestFactoryTest {
 
         HybridSearchParamDTO param = HybridSearchParamDTO.builder()
                 .queryVector(List.of(0.1f, 0.2f))
-                .graphTriples(List.of(new GraphTripleDTO("cat", "on", "sofa")))
+                .graphTriples(List.of(new GraphTriple("cat", "on", "sofa")))
                 .keyword("cat")
                 .topK(7)
                 .limit(3)

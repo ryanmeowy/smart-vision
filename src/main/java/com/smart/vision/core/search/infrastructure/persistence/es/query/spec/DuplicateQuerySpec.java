@@ -3,7 +3,7 @@ package com.smart.vision.core.search.infrastructure.persistence.es.query.spec;
 import cn.hutool.core.collection.CollectionUtil;
 import co.elastic.clients.elasticsearch._types.KnnSearch;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
-import com.smart.vision.core.constant.EmbeddingConstant;
+import com.smart.vision.core.common.constant.EmbeddingConstant;
 import java.util.List;
 import java.util.Optional;
 

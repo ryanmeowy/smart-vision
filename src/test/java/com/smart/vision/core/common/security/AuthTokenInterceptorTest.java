@@ -11,7 +11,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.web.method.HandlerMethod;
 
-import static com.smart.vision.core.constant.CacheConstant.TOKEN_CACHE_PREFIX;
+import static com.smart.vision.core.common.constant.CacheConstant.TOKEN_CACHE_PREFIX;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 

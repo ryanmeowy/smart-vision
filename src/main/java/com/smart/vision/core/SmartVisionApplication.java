@@ -1,7 +1,7 @@
 package com.smart.vision.core;
 
-import com.smart.vision.core.config.OCRConfig;
-import com.smart.vision.core.config.OSSConfig;
+import com.smart.vision.core.common.config.OCRConfig;
+import com.smart.vision.core.common.config.OSSConfig;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;

@@ -18,8 +18,8 @@ import com.alibaba.dashscope.exception.UploadFileException;
 import com.aliyun.core.utils.StringUtils;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
-import com.smart.vision.core.model.enums.PromptEnum;
+import com.smart.vision.core.search.domain.model.GraphTriple;
+import com.smart.vision.core.integration.ai.domain.model.PromptEnum;
 import io.reactivex.Flowable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,17 +40,17 @@ import java.util.concurrent.Executor;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.smart.vision.core.constant.AliyunConstant.IMAGE_GEN_MODEL_NAME;
-import static com.smart.vision.core.constant.AliyunConstant.TEXT_MODEL_NAME;
-import static com.smart.vision.core.constant.AliyunConstant.VISION_MODEL_NAME;
-import static com.smart.vision.core.constant.CommonConstant.DEFAULT_IMAGE_NAME;
-import static com.smart.vision.core.constant.CommonConstant.SSE_TIMEOUT;
-import static com.smart.vision.core.constant.ValidationConstant.AI_RESPONSE_REGEX;
-import static com.smart.vision.core.constant.ValidationConstant.MD_JSON_REGEX;
-import static com.smart.vision.core.model.enums.PromptEnum.GRAPH_IMAGE;
-import static com.smart.vision.core.model.enums.PromptEnum.GRAPH_TEXT;
-import static com.smart.vision.core.model.enums.PromptEnum.TAG_GEN;
-import static com.smart.vision.core.model.enums.PromptEnum.getPromptByType;
+import static com.smart.vision.core.common.constant.AliyunConstant.IMAGE_GEN_MODEL_NAME;
+import static com.smart.vision.core.common.constant.AliyunConstant.TEXT_MODEL_NAME;
+import static com.smart.vision.core.common.constant.AliyunConstant.VISION_MODEL_NAME;
+import static com.smart.vision.core.common.constant.CommonConstant.DEFAULT_IMAGE_NAME;
+import static com.smart.vision.core.common.constant.CommonConstant.SSE_TIMEOUT;
+import static com.smart.vision.core.common.constant.ValidationConstant.AI_RESPONSE_REGEX;
+import static com.smart.vision.core.common.constant.ValidationConstant.MD_JSON_REGEX;
+import static com.smart.vision.core.integration.ai.domain.model.PromptEnum.GRAPH_IMAGE;
+import static com.smart.vision.core.integration.ai.domain.model.PromptEnum.GRAPH_TEXT;
+import static com.smart.vision.core.integration.ai.domain.model.PromptEnum.TAG_GEN;
+import static com.smart.vision.core.integration.ai.domain.model.PromptEnum.getPromptByType;
 
 /**
  * AliyunGenManager is a management class for handling operations related to Aliyun generation.
@@ -196,7 +196,7 @@ public class AliyunGenManager {
     }
 
     @Retryable(retryFor = Exception.class, backoff = @Backoff(delay = 1000, multiplier = 2))
-    public List<GraphTripleDTO> generateGraph(String imageUrl) throws NoApiKeyException, UploadFileException {
+    public List<GraphTriple> generateGraph(String imageUrl) throws NoApiKeyException, UploadFileException {
         MultiModalMessage userMessage = MultiModalMessage.builder()
                 .role("user")
                 .content(Arrays.asList(Map.of("image", imageUrl), Map.of("text", GRAPH_IMAGE.getPrompt())))
@@ -217,11 +217,11 @@ public class AliyunGenManager {
                 .map(MultiModalMessage::getContent)
                 .map(Object::toString)
                 .orElse(Strings.EMPTY);
-        return parseMdJson(content, GraphTripleDTO.class);
+        return parseMdJson(content, GraphTriple.class);
     }
 
     @Retryable(retryFor = Exception.class, backoff = @Backoff(delay = 1000, multiplier = 2))
-    public List<GraphTripleDTO> praseTriplesFromKeyword(String keyword) throws NoApiKeyException, InputRequiredException {
+    public List<GraphTriple> praseTriplesFromKeyword(String keyword) throws NoApiKeyException, InputRequiredException {
         Generation gen = new Generation();
         Message systemMsg = Message.builder()
                 .role(Role.SYSTEM.getValue())
@@ -246,7 +246,7 @@ public class AliyunGenManager {
                 .map(GenerationOutput.Choice::getMessage)
                 .map(Message::getContent)
                 .orElse(Strings.EMPTY);
-        return parseMdJson(content, GraphTripleDTO.class);
+        return parseMdJson(content, GraphTriple.class);
     }
 
     private <T> List<T> parseMdJson(String content, Class<T> clazz) {

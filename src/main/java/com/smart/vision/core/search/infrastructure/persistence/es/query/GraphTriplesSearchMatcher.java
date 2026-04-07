@@ -3,7 +3,7 @@ package com.smart.vision.core.search.infrastructure.persistence.es.query;
 import cn.hutool.core.collection.CollectionUtil;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
-import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
+import com.smart.vision.core.search.domain.model.GraphTriple;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
@@ -17,16 +17,16 @@ import org.springframework.stereotype.Component;
 public class GraphTriplesSearchMatcher implements GraphTriplesMatcher {
 
     @Override
-    public Optional<Query> match(List<GraphTripleDTO> triples) {
+    public Optional<Query> match(List<GraphTriple> triples) {
         if (CollectionUtil.isEmpty(triples)) {
             return Optional.empty();
         }
         return Optional.of(buildGraphClause(triples));
     }
 
-    private static Query buildGraphClause(List<GraphTripleDTO> triples) {
+    private static Query buildGraphClause(List<GraphTriple> triples) {
         BoolQuery.Builder graphBool = new BoolQuery.Builder();
-        for (GraphTripleDTO t : triples) {
+        for (GraphTriple t : triples) {
             graphBool.should(g -> g.nested(n -> n
                     .path("relations")
                     .query(nq -> nq.bool(nb -> nb

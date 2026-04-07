@@ -1,6 +1,6 @@
 package com.smart.vision.core.search.application;
 
-import com.smart.vision.core.model.dto.VectorCompareResultDTO;
+import com.smart.vision.core.search.interfaces.rest.dto.VectorCompareResultDTO;
 import org.springframework.web.multipart.MultipartFile;
 
 /**

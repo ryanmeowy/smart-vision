@@ -11,7 +11,7 @@ import com.alibaba.dashscope.exception.ApiException;
 import com.alibaba.dashscope.exception.NoApiKeyException;
 import com.alibaba.dashscope.exception.UploadFileException;
 import com.google.common.collect.Lists;
-import com.smart.vision.core.util.VectorUtil;
+import com.smart.vision.core.common.util.VectorUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.retry.annotation.Backoff;
@@ -23,7 +23,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.smart.vision.core.constant.AliyunConstant.EMBEDDING_MODEL_NAME;
+import static com.smart.vision.core.common.constant.AliyunConstant.EMBEDDING_MODEL_NAME;
 
 /**
  * Bailian embedding manager for handling multimodal embeddings

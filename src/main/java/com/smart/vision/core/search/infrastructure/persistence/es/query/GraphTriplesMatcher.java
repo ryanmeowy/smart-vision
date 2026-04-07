@@ -1,7 +1,7 @@
 package com.smart.vision.core.search.infrastructure.persistence.es.query;
 
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
-import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
+import com.smart.vision.core.search.domain.model.GraphTriple;
 
 import java.util.List;
 import java.util.Optional;
@@ -11,9 +11,9 @@ import java.util.Optional;
  * <p>
  * Keeps graph query construction consistent with other matcher abstractions (e.g. FieldMatcher).
  */
-public interface GraphTriplesMatcher extends QueryFragmentMatcher<List<GraphTripleDTO>> {
+public interface GraphTriplesMatcher extends QueryFragmentMatcher<List<GraphTriple>> {
 
     @Override
-    Optional<Query> match(List<GraphTripleDTO> triples);
+    Optional<Query> match(List<GraphTriple> triples);
 }
 

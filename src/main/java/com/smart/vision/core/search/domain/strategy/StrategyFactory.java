@@ -1,6 +1,6 @@
 package com.smart.vision.core.search.domain.strategy;
 
-import com.smart.vision.core.model.enums.StrategyTypeEnum;
+import com.smart.vision.core.search.domain.model.StrategyTypeEnum;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

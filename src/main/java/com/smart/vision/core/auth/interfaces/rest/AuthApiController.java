@@ -21,7 +21,7 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.concurrent.TimeUnit;
 
-import static com.smart.vision.core.constant.CacheConstant.TOKEN_CACHE_PREFIX;
+import static com.smart.vision.core.common.constant.CacheConstant.TOKEN_CACHE_PREFIX;
 
 @RestController
 @RequestMapping("/api/v1/auth")

@@ -7,19 +7,19 @@ import com.aliyuncs.auth.sts.AssumeRoleResponse;
 import com.aliyuncs.exceptions.ClientException;
 import com.aliyuncs.profile.DefaultProfile;
 import com.google.gson.Gson;
-import com.smart.vision.core.config.OSSConfig;
-import com.smart.vision.core.model.dto.StsTokenDTO;
+import com.smart.vision.core.common.config.OSSConfig;
+import com.smart.vision.core.auth.infrastructure.aliyun.dto.StsTokenDTO;
 import com.smart.vision.core.auth.application.OssService;
-import com.smart.vision.core.util.AesUtil;
+import com.smart.vision.core.common.security.AesUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
-import static com.smart.vision.core.constant.AliyunConstant.DEFAULT_REGION;
-import static com.smart.vision.core.constant.AliyunConstant.DEFAULT_ROLE_SESSION_NAME;
-import static com.smart.vision.core.constant.AliyunConstant.DEFAULT_STS_DURATION_SECONDS;
+import static com.smart.vision.core.common.constant.AliyunConstant.DEFAULT_REGION;
+import static com.smart.vision.core.common.constant.AliyunConstant.DEFAULT_ROLE_SESSION_NAME;
+import static com.smart.vision.core.common.constant.AliyunConstant.DEFAULT_STS_DURATION_SECONDS;
 
 /**
  * OSS Service Implementation of OssService interface that handles Alibaba Cloud OSS operations

@@ -1,4 +1,4 @@
-package com.smart.vision.core.exception;
+package com.smart.vision.core.common.exception;
 
 import com.smart.vision.core.common.api.Result;
 import org.junit.jupiter.api.Test;

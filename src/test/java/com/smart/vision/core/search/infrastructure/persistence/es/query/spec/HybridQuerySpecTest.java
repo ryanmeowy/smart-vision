@@ -2,8 +2,8 @@ package com.smart.vision.core.search.infrastructure.persistence.es.query.spec;
 
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
-import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
-import com.smart.vision.core.model.dto.HybridSearchParamDTO;
+import com.smart.vision.core.search.domain.model.GraphTriple;
+import com.smart.vision.core.search.domain.model.HybridSearchParamDTO;
 import com.smart.vision.core.search.infrastructure.persistence.es.query.GraphTriplesMatcher;
 import com.smart.vision.core.search.infrastructure.persistence.es.query.HybridSearchKeywordMatcher;
 import org.junit.jupiter.api.Test;
@@ -32,7 +32,7 @@ class HybridQuerySpecTest {
         HybridSearchParamDTO param = HybridSearchParamDTO.builder()
                 .queryVector(List.of(0.1f, 0.2f))
                 .keyword("cat")
-                .graphTriples(List.of(new GraphTripleDTO("cat", "on", "sofa")))
+                .graphTriples(List.of(new GraphTriple("cat", "on", "sofa")))
                 .limit(5)
                 .topK(10)
                 .enableOcr(true)

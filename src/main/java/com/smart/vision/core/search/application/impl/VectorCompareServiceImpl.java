@@ -2,9 +2,9 @@ package com.smart.vision.core.search.application.impl;
 
 import com.smart.vision.core.integration.ai.port.MultiModalEmbeddingService;
 import com.smart.vision.core.integration.oss.OssManager;
-import com.smart.vision.core.model.dto.VectorCompareResultDTO;
+import com.smart.vision.core.search.interfaces.rest.dto.VectorCompareResultDTO;
 import com.smart.vision.core.search.application.VectorCompareService;
-import com.smart.vision.core.util.VectorUtil;
+import com.smart.vision.core.common.util.VectorUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,12 +19,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
-import static com.smart.vision.core.constant.AliyunConstant.X_OSS_PROCESS_EMBEDDING;
-import static com.smart.vision.core.constant.CacheConstant.COMPARE_IMAGE_CACHE_PREFIX;
-import static com.smart.vision.core.constant.CacheConstant.COMPARE_TEXT_CACHE_PREFIX;
-import static com.smart.vision.core.constant.CommonConstant.PROFILE_KEY_NAME;
-import static com.smart.vision.core.constant.SearchConstant.IMAGE_MAX_SIZE;
-import static com.smart.vision.core.model.enums.PresignedValidityEnum.SHORT_TERM_VALIDITY;
+import static com.smart.vision.core.common.constant.AliyunConstant.X_OSS_PROCESS_EMBEDDING;
+import static com.smart.vision.core.common.constant.CacheConstant.COMPARE_IMAGE_CACHE_PREFIX;
+import static com.smart.vision.core.common.constant.CacheConstant.COMPARE_TEXT_CACHE_PREFIX;
+import static com.smart.vision.core.common.constant.CommonConstant.PROFILE_KEY_NAME;
+import static com.smart.vision.core.common.constant.SearchConstant.IMAGE_MAX_SIZE;
+import static com.smart.vision.core.integration.oss.domain.model.PresignedValidityEnum.SHORT_TERM_VALIDITY;
 
 @Slf4j
 @Service

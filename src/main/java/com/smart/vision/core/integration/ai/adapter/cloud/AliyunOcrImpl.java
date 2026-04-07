@@ -4,7 +4,7 @@ package com.smart.vision.core.integration.ai.adapter.cloud;
 import com.alibaba.dashscope.exception.NoApiKeyException;
 import com.smart.vision.core.integration.ai.port.ImageOcrService;
 import com.smart.vision.core.integration.ai.client.AliyunOcrManager;
-import com.smart.vision.core.model.enums.AliyunErrorCode;
+import com.smart.vision.core.integration.ai.domain.model.AliyunErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Profile;

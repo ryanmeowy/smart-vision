@@ -5,8 +5,8 @@ import com.alibaba.dashscope.exception.NoApiKeyException;
 import com.alibaba.dashscope.exception.UploadFileException;
 import com.smart.vision.core.integration.ai.port.ContentGenerationService;
 import com.smart.vision.core.integration.ai.client.AliyunGenManager;
-import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
-import com.smart.vision.core.model.enums.AliyunErrorCode;
+import com.smart.vision.core.search.domain.model.GraphTriple;
+import com.smart.vision.core.integration.ai.domain.model.AliyunErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Profile;
@@ -77,7 +77,7 @@ public class AliyunGenImpl implements ContentGenerationService {
      * @return List of graph triples
      */
     @Override
-    public List<GraphTripleDTO> generateGraph(String imageUrl) {
+    public List<GraphTriple> generateGraph(String imageUrl) {
         try {
             return genManager.generateGraph(imageUrl);
         } catch (NoApiKeyException e) {
@@ -91,7 +91,7 @@ public class AliyunGenImpl implements ContentGenerationService {
     }
 
     @Override
-    public List<GraphTripleDTO> praseTriplesFromKeyword(String keyword) {
+    public List<GraphTriple> praseTriplesFromKeyword(String keyword) {
         try {
             return genManager.praseTriplesFromKeyword(keyword);
         } catch (NoApiKeyException e) {

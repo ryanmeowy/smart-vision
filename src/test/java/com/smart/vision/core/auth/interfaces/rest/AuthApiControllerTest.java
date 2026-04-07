@@ -13,7 +13,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.concurrent.TimeUnit;
 
-import static com.smart.vision.core.constant.CacheConstant.TOKEN_CACHE_PREFIX;
+import static com.smart.vision.core.common.constant.CacheConstant.TOKEN_CACHE_PREFIX;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;

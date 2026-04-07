@@ -4,7 +4,7 @@ import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.elasticsearch.core.search.HitsMetadata;
-import com.smart.vision.core.model.dto.ImageSearchResultDTO;
+import com.smart.vision.core.search.domain.model.ImageSearchResultDTO;
 import com.smart.vision.core.search.infrastructure.persistence.es.document.ImageDocument;
 import org.springframework.stereotype.Component;
 
@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.smart.vision.core.util.ScoreUtil.mapScoreToPercentage;
+import static com.smart.vision.core.search.domain.util.ScoreUtil.mapScoreToPercentage;
 
 @Component
 public class SearchResultConvertor {

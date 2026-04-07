@@ -33,14 +33,14 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static com.smart.vision.core.constant.AliyunConstant.VISION_MODEL_NAME;
-import static com.smart.vision.core.constant.ValidationConstant.AI_RESPONSE_REGEX;
-import static com.smart.vision.core.constant.ValidationConstant.DIGIT_REGEX;
-import static com.smart.vision.core.constant.ValidationConstant.PUNCTUATION_REGEX;
-import static com.smart.vision.core.constant.ValidationConstant.SINGLE_LETTER_REGEX;
-import static com.smart.vision.core.constant.ValidationConstant.URL_REGEX;
-import static com.smart.vision.core.constant.ValidationConstant.WHITE_SPACE_REGEX;
-import static com.smart.vision.core.model.enums.PromptEnum.OCR;
+import static com.smart.vision.core.common.constant.AliyunConstant.VISION_MODEL_NAME;
+import static com.smart.vision.core.common.constant.ValidationConstant.AI_RESPONSE_REGEX;
+import static com.smart.vision.core.common.constant.ValidationConstant.DIGIT_REGEX;
+import static com.smart.vision.core.common.constant.ValidationConstant.PUNCTUATION_REGEX;
+import static com.smart.vision.core.common.constant.ValidationConstant.SINGLE_LETTER_REGEX;
+import static com.smart.vision.core.common.constant.ValidationConstant.URL_REGEX;
+import static com.smart.vision.core.common.constant.ValidationConstant.WHITE_SPACE_REGEX;
+import static com.smart.vision.core.integration.ai.domain.model.PromptEnum.OCR;
 
 /**
  * Aliyun OCR Service

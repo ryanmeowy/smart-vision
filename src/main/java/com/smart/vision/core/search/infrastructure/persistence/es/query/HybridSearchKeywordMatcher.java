@@ -5,12 +5,12 @@ import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 
-import static com.smart.vision.core.constant.EmbeddingConstant.DEFAULT_FIELD_NAME_BOOST;
-import static com.smart.vision.core.constant.EmbeddingConstant.DEFAULT_OCR_BOOST;
-import static com.smart.vision.core.constant.EmbeddingConstant.DEFAULT_RELATION_O_BOOST;
-import static com.smart.vision.core.constant.EmbeddingConstant.DEFAULT_RELATION_P_BOOST;
-import static com.smart.vision.core.constant.EmbeddingConstant.DEFAULT_RELATION_S_BOOST;
-import static com.smart.vision.core.constant.EmbeddingConstant.DEFAULT_TAG_BOOST;
+import static com.smart.vision.core.common.constant.EmbeddingConstant.DEFAULT_FIELD_NAME_BOOST;
+import static com.smart.vision.core.common.constant.EmbeddingConstant.DEFAULT_OCR_BOOST;
+import static com.smart.vision.core.common.constant.EmbeddingConstant.DEFAULT_RELATION_O_BOOST;
+import static com.smart.vision.core.common.constant.EmbeddingConstant.DEFAULT_RELATION_P_BOOST;
+import static com.smart.vision.core.common.constant.EmbeddingConstant.DEFAULT_RELATION_S_BOOST;
+import static com.smart.vision.core.common.constant.EmbeddingConstant.DEFAULT_TAG_BOOST;
 
 @Component
 public class HybridSearchKeywordMatcher implements FieldMatcher {

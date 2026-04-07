@@ -36,7 +36,7 @@ public class SearchQueryDTO {
     private Boolean enableOcr = true;
     /**
      * search strategy type
-     * @see com.smart.vision.core.model.enums.StrategyTypeEnum
+     * @see com.smart.vision.core.search.domain.model.StrategyTypeEnum
      */
     private String searchType;
 

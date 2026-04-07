@@ -3,7 +3,7 @@ package com.smart.vision.core.integration.oss;
 import com.aliyun.oss.HttpMethod;
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.model.GeneratePresignedUrlRequest;
-import com.smart.vision.core.config.OSSConfig;
+import com.smart.vision.core.common.config.OSSConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.logging.log4j.util.Strings;

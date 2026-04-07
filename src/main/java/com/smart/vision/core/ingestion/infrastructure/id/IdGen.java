@@ -10,13 +10,13 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import static com.smart.vision.core.constant.CacheConstant.ID_GEN_KEY;
-import static com.smart.vision.core.constant.CommonConstant.ID_GEN_MAX_ID;
-import static com.smart.vision.core.constant.CommonConstant.ID_GEN_MAX_STEP;
-import static com.smart.vision.core.constant.CommonConstant.ID_GEN_MIN_ID;
-import static com.smart.vision.core.constant.CommonConstant.ID_GEN_MIN_STEP;
-import static com.smart.vision.core.constant.CommonConstant.ID_GEN_SEGMENT_SIZE;
-import static com.smart.vision.core.constant.CommonConstant.PROFILE_KEY_NAME;
+import static com.smart.vision.core.common.constant.CacheConstant.ID_GEN_KEY;
+import static com.smart.vision.core.common.constant.CommonConstant.ID_GEN_MAX_ID;
+import static com.smart.vision.core.common.constant.CommonConstant.ID_GEN_MAX_STEP;
+import static com.smart.vision.core.common.constant.CommonConstant.ID_GEN_MIN_ID;
+import static com.smart.vision.core.common.constant.CommonConstant.ID_GEN_MIN_STEP;
+import static com.smart.vision.core.common.constant.CommonConstant.ID_GEN_SEGMENT_SIZE;
+import static com.smart.vision.core.common.constant.CommonConstant.PROFILE_KEY_NAME;
 
 @Slf4j
 @Component

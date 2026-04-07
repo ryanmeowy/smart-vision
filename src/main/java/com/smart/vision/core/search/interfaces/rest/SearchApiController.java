@@ -3,12 +3,12 @@ package com.smart.vision.core.search.interfaces.rest;
 import com.smart.vision.core.integration.ai.port.ContentGenerationService;
 import com.smart.vision.core.integration.ai.port.ImageOcrService;
 import com.smart.vision.core.integration.oss.OssManager;
-import com.smart.vision.core.manager.HotSearchManager;
+import com.smart.vision.core.search.application.support.HotSearchManager;
 import com.smart.vision.core.common.api.Result;
 import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchQueryDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchResultDTO;
-import com.smart.vision.core.model.dto.VectorCompareResultDTO;
+import com.smart.vision.core.search.interfaces.rest.dto.VectorCompareResultDTO;
 import com.smart.vision.core.search.application.SmartSearchService;
 import com.smart.vision.core.search.application.VectorCompareService;
 import com.smart.vision.core.search.domain.strategy.StrategySelectionContext;
@@ -33,13 +33,14 @@ import java.util.LinkedHashSet;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.stream.Stream;
 
-import static com.smart.vision.core.constant.AliyunConstant.X_OSS_PROCESS_EMBEDDING;
-import static com.smart.vision.core.model.enums.PresignedValidityEnum.MEDIUM_TERM_VALIDITY;
-import static com.smart.vision.core.constant.SearchConstant.IMAGE_MAX_SIZE;
-import static com.smart.vision.core.constant.SearchConstant.MAX_INPUT_LENGTH;
+import static com.smart.vision.core.common.constant.AliyunConstant.X_OSS_PROCESS_EMBEDDING;
+import static com.smart.vision.core.integration.oss.domain.model.PresignedValidityEnum.MEDIUM_TERM_VALIDITY;
+import static com.smart.vision.core.common.constant.SearchConstant.IMAGE_MAX_SIZE;
+import static com.smart.vision.core.common.constant.SearchConstant.MAX_INPUT_LENGTH;
 
 /**
  * rest api controller for vision search functionality;
@@ -200,7 +201,11 @@ public class SearchApiController {
 
             List<GraphTripleDTO> graph = List.of();
             if (enableGraph) {
-                graph = contentGenerationService.generateGraph(imageUrl);
+                graph = Optional.ofNullable(contentGenerationService.generateGraph(imageUrl))
+                        .orElse(List.of())
+                        .stream()
+                        .map(t -> new GraphTripleDTO(t.getS(), t.getP(), t.getO()))
+                        .toList();
             }
             sendEvent(emitter, "graph", Map.of("items", graph == null ? List.of() : graph));
 

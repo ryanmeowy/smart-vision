@@ -1,9 +1,9 @@
 package com.smart.vision.core.search.infrastructure.persistence.es.query.factory;
 
 import co.elastic.clients.elasticsearch.core.SearchRequest;
-import com.smart.vision.core.config.VectorConfig;
+import com.smart.vision.core.common.config.VectorConfig;
 import com.smart.vision.core.search.infrastructure.persistence.es.query.GraphTriplesMatcher;
-import com.smart.vision.core.model.dto.HybridSearchParamDTO;
+import com.smart.vision.core.search.domain.model.HybridSearchParamDTO;
 import com.smart.vision.core.search.infrastructure.persistence.es.query.HybridSearchKeywordMatcher;
 import com.smart.vision.core.search.infrastructure.persistence.es.query.SimilarSearchIdMatcher;
 import com.smart.vision.core.search.infrastructure.persistence.es.query.spec.DuplicateQuerySpec;

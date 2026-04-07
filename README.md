@@ -215,31 +215,41 @@ app:
 
 ```
 src/main/java/com/smart/vision/core
-├── ai                          # AI 服务接口与实现
-│   ├── MultiModalEmbeddingService    # 多模态向量服务
-│   ├── ImageOcrService               # OCR 服务
-│   └── ContentGenerationService      # AIGC 内容生成
-├── controller                   # REST API 控制器
-│   ├── ImageApiController           # 图片上传接口
-│   └── SearchApiController          # 搜索接口
-├── service                       # 业务逻辑层
-│   ├── ingestion/                  # 图片入库流水线
-│   └── search/                    # 搜索服务
-├── strategy                       # 检索策略
-│   ├── RetrievalStrategy           # 策略接口
-│   └── impl/
-│       └── HybridRetrievalStrategy  # 混合检索策略
-├── repository                    # 持久层
-│   └── ImageRepository            # ES 数据访问
-├── model                          # 数据模型
-│   ├── dto/                       # 请求/响应 DTO
-│   ├── entity/                    # ES 文档实体
-│   └── enums/                     # 枚举类
-├── query                          # ES 查询构建
-├── component                      # 通用组件
-├── manager                        # 外部服务封装 (ACL)
-├── config                         # 配置类
-└── constant                       # 常量定义
+├── auth                           # 认证子域（STS、令牌接口）
+│   ├── application
+│   ├── infrastructure/aliyun
+│   └── interfaces/rest
+├── common                         # 跨域共享能力
+│   ├── api                        # 统一返回模型
+│   ├── config                     # 全局配置与 Bean 装配
+│   ├── constant                   # 通用常量
+│   ├── exception                  # 统一异常与错误码
+│   ├── security                   # 鉴权注解/拦截器/加密
+│   └── util
+├── ingestion                      # 入库流水线子域
+│   ├── application(/impl)
+│   ├── domain/model
+│   ├── infrastructure/(id,persistence/es)
+│   └── interfaces/rest(/dto)
+├── integration                    # 外部系统适配层
+│   ├── ai
+│   │   ├── adapter/(cloud,local)
+│   │   ├── client
+│   │   ├── domain/model
+│   │   ├── interfaces/rest
+│   │   └── port
+│   └── oss
+│       ├── domain/model
+│       └── task
+└── search                         # 搜索子域
+    ├── application(/impl,/support)
+    ├── domain/(model,strategy,util)
+    ├── infrastructure/persistence/es
+    │   ├── bootstrap
+    │   ├── document
+    │   ├── query/(factory,spec)
+    │   └── repository
+    └── interfaces/(rest/dto,assembler)
 ```
 
 ---

@@ -8,11 +8,11 @@ import com.smart.vision.core.integration.ai.port.MultiModalEmbeddingService;
 import com.smart.vision.core.ingestion.infrastructure.persistence.es.EsBatchTemplate;
 import com.smart.vision.core.ingestion.infrastructure.id.IdGen;
 import com.smart.vision.core.integration.oss.OssManager;
-import com.smart.vision.core.model.BulkSaveResult;
+import com.smart.vision.core.ingestion.domain.model.BulkSaveResult;
 import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchProcessDTO;
 import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchTaskStatusDTO;
 import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchUploadResultDTO;
-import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
+import com.smart.vision.core.search.domain.model.GraphTriple;
 import com.smart.vision.core.search.domain.model.GraphTriple;
 import com.smart.vision.core.search.infrastructure.persistence.es.document.ImageDocument;
 import com.smart.vision.core.ingestion.application.ImageIngestionService;
@@ -34,11 +34,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
-import static com.smart.vision.core.constant.AliyunConstant.X_OSS_PROCESS_EMBEDDING;
-import static com.smart.vision.core.constant.CacheConstant.HASH_INDEX_CACHE_PREFIX;
-import static com.smart.vision.core.constant.CommonConstant.DEFAULT_IMAGE_NAME;
-import static com.smart.vision.core.constant.CommonConstant.PROFILE_KEY_NAME;
-import static com.smart.vision.core.model.enums.PresignedValidityEnum.SHORT_TERM_VALIDITY;
+import static com.smart.vision.core.common.constant.AliyunConstant.X_OSS_PROCESS_EMBEDDING;
+import static com.smart.vision.core.common.constant.CacheConstant.HASH_INDEX_CACHE_PREFIX;
+import static com.smart.vision.core.common.constant.CommonConstant.DEFAULT_IMAGE_NAME;
+import static com.smart.vision.core.common.constant.CommonConstant.PROFILE_KEY_NAME;
+import static com.smart.vision.core.integration.oss.domain.model.PresignedValidityEnum.SHORT_TERM_VALIDITY;
 
 /**
  * image ingestion service cloud implementation
@@ -281,7 +281,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
             List<Float> vector = embeddingService.embedImage(tempUrl);
             String ocrText = imageOcrService.extractText(tempUrl);
             List<String> tags = contentGenerationService.generateTags(tempUrl);
-            List<GraphTripleDTO> graphTriples = contentGenerationService.generateGraph(tempUrl);
+            List<GraphTriple> graphTriples = contentGenerationService.generateGraph(tempUrl);
 
             ImageDocument doc = new ImageDocument();
             doc.setId(idGen.nextId());
@@ -537,7 +537,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         }
     }
 
-    private List<GraphTriple> toDomainTriples(List<GraphTripleDTO> triples) {
+    private List<GraphTriple> toDomainTriples(List<GraphTriple> triples) {
         if (triples == null || triples.isEmpty()) {
             return Collections.emptyList();
         }

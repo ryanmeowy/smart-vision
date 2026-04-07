@@ -4,7 +4,7 @@ package com.smart.vision.core.integration.ai.adapter.local;
 import com.smart.vision.core.integration.ai.port.ImageOcrService;
 import com.smart.vision.core.grpc.VisionProto;
 import com.smart.vision.core.grpc.VisionServiceGrpc;
-import com.smart.vision.core.model.enums.PromptEnum;
+import com.smart.vision.core.integration.ai.domain.model.PromptEnum;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.apache.logging.log4j.util.Strings;
