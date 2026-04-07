@@ -1,5 +1,6 @@
 package com.smart.vision.core.exception;
 
+import com.smart.vision.core.common.exception.ApiError;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
