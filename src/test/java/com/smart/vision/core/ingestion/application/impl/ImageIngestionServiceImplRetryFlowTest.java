@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smart.vision.core.integration.ai.port.ContentGenerationService;
 import com.smart.vision.core.integration.ai.port.ImageOcrService;
 import com.smart.vision.core.integration.ai.port.MultiModalEmbeddingService;
+import com.smart.vision.core.ingestion.domain.port.ImageHashStateRepository;
 import com.smart.vision.core.ingestion.infrastructure.persistence.es.EsBatchTemplate;
 import com.smart.vision.core.ingestion.infrastructure.id.IdGen;
 import com.smart.vision.core.integration.oss.OssManager;
@@ -43,6 +44,8 @@ class ImageIngestionServiceImplRetryFlowTest {
     @Mock
     private ContentGenerationService contentGenerationService;
     @Mock
+    private ImageHashStateRepository imageHashStateRepository;
+    @Mock
     private StringRedisTemplate redisTemplate;
     @Mock
     private IdGen idGen;
@@ -65,6 +68,7 @@ class ImageIngestionServiceImplRetryFlowTest {
                 embeddingService,
                 imageOcrService,
                 contentGenerationService,
+                imageHashStateRepository,
                 redisTemplate,
                 idGen,
                 objectMapper

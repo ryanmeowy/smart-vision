@@ -2,20 +2,28 @@ package com.smart.vision.core.ingestion.application.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.smart.vision.core.integration.ai.port.ContentGenerationService;
-import com.smart.vision.core.integration.ai.port.ImageOcrService;
-import com.smart.vision.core.integration.ai.port.MultiModalEmbeddingService;
-import com.smart.vision.core.ingestion.infrastructure.persistence.es.EsBatchTemplate;
-import com.smart.vision.core.ingestion.infrastructure.id.IdGen;
-import com.smart.vision.core.integration.oss.OssManager;
+import com.smart.vision.core.ingestion.application.ImageIngestionService;
+import com.smart.vision.core.ingestion.domain.model.BatchTask;
+import com.smart.vision.core.ingestion.domain.model.BatchTaskItem;
+import com.smart.vision.core.ingestion.domain.model.BatchTaskItemStatus;
+import com.smart.vision.core.ingestion.domain.model.BatchTaskStatus;
 import com.smart.vision.core.ingestion.domain.model.BulkSaveResult;
+import com.smart.vision.core.ingestion.domain.model.ImageHashAcquireOutcome;
+import com.smart.vision.core.ingestion.domain.model.ImageHashAcquireOutcomeType;
+import com.smart.vision.core.ingestion.domain.model.ImageHashStatePolicy;
+import com.smart.vision.core.ingestion.domain.model.ImageHashStatus;
+import com.smart.vision.core.ingestion.domain.port.ImageHashStateRepository;
+import com.smart.vision.core.ingestion.infrastructure.id.IdGen;
+import com.smart.vision.core.ingestion.infrastructure.persistence.es.EsBatchTemplate;
 import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchProcessDTO;
 import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchTaskStatusDTO;
 import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchUploadResultDTO;
-import com.smart.vision.core.search.domain.model.GraphTriple;
+import com.smart.vision.core.integration.ai.port.ContentGenerationService;
+import com.smart.vision.core.integration.ai.port.ImageOcrService;
+import com.smart.vision.core.integration.ai.port.MultiModalEmbeddingService;
+import com.smart.vision.core.integration.oss.OssManager;
 import com.smart.vision.core.search.domain.model.GraphTriple;
 import com.smart.vision.core.search.infrastructure.persistence.es.document.ImageDocument;
-import com.smart.vision.core.ingestion.application.ImageIngestionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -35,9 +43,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 import static com.smart.vision.core.common.constant.AliyunConstant.X_OSS_PROCESS_EMBEDDING;
-import static com.smart.vision.core.common.constant.CacheConstant.HASH_INDEX_CACHE_PREFIX;
 import static com.smart.vision.core.common.constant.CommonConstant.DEFAULT_IMAGE_NAME;
-import static com.smart.vision.core.common.constant.CommonConstant.PROFILE_KEY_NAME;
 import static com.smart.vision.core.integration.oss.domain.model.PresignedValidityEnum.SHORT_TERM_VALIDITY;
 
 /**
@@ -50,23 +56,9 @@ import static com.smart.vision.core.integration.oss.domain.model.PresignedValidi
 @Service
 @RequiredArgsConstructor
 public class ImageIngestionServiceImpl implements ImageIngestionService {
-    private static final String HASH_STATUS_PROCESSING = "PROCESSING";
-    private static final String HASH_STATUS_SUCCESS = "SUCCESS";
-    private static final String HASH_STATUS_FAILED = "FAILED";
     private static final long HASH_PROCESSING_TTL_MINUTES = 30L;
     private static final long HASH_SUCCESS_TTL_DAYS = 30L;
     private static final long HASH_FAILED_TTL_MINUTES = 10L;
-
-    private static final String TASK_STATUS_PENDING = "PENDING";
-    private static final String TASK_STATUS_RUNNING = "RUNNING";
-    private static final String TASK_STATUS_SUCCESS = "SUCCESS";
-    private static final String TASK_STATUS_PARTIAL_FAILED = "PARTIAL_FAILED";
-    private static final String TASK_STATUS_FAILED = "FAILED";
-
-    private static final String TASK_ITEM_STATUS_PENDING = "PENDING";
-    private static final String TASK_ITEM_STATUS_RUNNING = "RUNNING";
-    private static final String TASK_ITEM_STATUS_SUCCESS = "SUCCESS";
-    private static final String TASK_ITEM_STATUS_FAILED = "FAILED";
 
     private static final String BATCH_TASK_CACHE_PREFIX = "img:batch:task:";
     private static final String BATCH_TASK_LOCK_PREFIX = "img:batch:task:lock:";
@@ -82,6 +74,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
     private final MultiModalEmbeddingService embeddingService;
     private final ImageOcrService imageOcrService;
     private final ContentGenerationService contentGenerationService;
+    private final ImageHashStateRepository imageHashStateRepository;
     private final StringRedisTemplate redisTemplate;
     private final IdGen idGen;
     private final ObjectMapper objectMapper;
@@ -124,20 +117,20 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
                 Set<String> failedIdSet = bulkResult.getFailedIds();
                 for (ImageDocument doc : successDocs) {
                     if (failedIdSet.contains(String.valueOf(doc.getId()))) {
-                        markHashStatus(doc.getFileHash(), HASH_STATUS_FAILED, HASH_FAILED_TTL_MINUTES, TimeUnit.MINUTES);
+                        markHashStatus(doc.getFileHash(), ImageHashStatus.FAILED, HASH_FAILED_TTL_MINUTES, TimeUnit.MINUTES);
                         failures.add(BatchUploadResultDTO.BatchFailureItem.builder()
                                 .objectKey(doc.getImagePath())
                                 .filename(doc.getRawFilename())
                                 .errorMessage("Database writes failed")
                                 .build());
                     } else {
-                        markHashStatus(doc.getFileHash(), HASH_STATUS_SUCCESS, HASH_SUCCESS_TTL_DAYS, TimeUnit.DAYS);
+                        markHashStatus(doc.getFileHash(), ImageHashStatus.SUCCESS, HASH_SUCCESS_TTL_DAYS, TimeUnit.DAYS);
                     }
                 }
             } catch (Exception e) {
                 log.error("ES writes failed", e);
                 for (ImageDocument doc : successDocs) {
-                    markHashStatus(doc.getFileHash(), HASH_STATUS_FAILED, HASH_FAILED_TTL_MINUTES, TimeUnit.MINUTES);
+                    markHashStatus(doc.getFileHash(), ImageHashStatus.FAILED, HASH_FAILED_TTL_MINUTES, TimeUnit.MINUTES);
                     failures.add(BatchUploadResultDTO.BatchFailureItem.builder()
                             .objectKey(doc.getImagePath())
                             .filename(doc.getRawFilename())
@@ -157,113 +150,62 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
 
     @Override
     public BatchTaskStatusDTO submitBatchTask(List<BatchProcessDTO> items) {
-        BatchTaskStatusDTO task = new BatchTaskStatusDTO();
         long now = System.currentTimeMillis();
-        task.setTaskId(UUID.randomUUID().toString());
-        task.setStatus(TASK_STATUS_PENDING);
-        task.setCreatedAt(now);
-        task.setUpdatedAt(now);
-        task.setCompletedAt(null);
-
-        List<BatchTaskStatusDTO.ItemStatus> itemStatuses = new ArrayList<>();
+        List<BatchTaskItem> taskItems = new ArrayList<>();
         for (BatchProcessDTO item : items) {
-            BatchTaskStatusDTO.ItemStatus itemStatus = new BatchTaskStatusDTO.ItemStatus();
-            itemStatus.setItemId(UUID.randomUUID().toString());
-            itemStatus.setKey(item.getKey());
-            itemStatus.setFileName(item.getFileName());
-            itemStatus.setFileHash(item.getFileHash());
-            itemStatus.setStatus(TASK_ITEM_STATUS_PENDING);
-            itemStatus.setErrorMessage(null);
-            itemStatus.setRetryCount(0);
-            itemStatus.setUpdatedAt(now);
-            itemStatuses.add(itemStatus);
+            BatchTaskItem taskItem = new BatchTaskItem();
+            taskItem.setItemId(UUID.randomUUID().toString());
+            taskItem.setKey(item.getKey());
+            taskItem.setFileName(item.getFileName());
+            taskItem.setFileHash(item.getFileHash());
+            taskItem.setStatus(BatchTaskItemStatus.PENDING);
+            taskItem.setErrorMessage(null);
+            taskItem.setRetryCount(0);
+            taskItem.setUpdatedAt(now);
+            taskItems.add(taskItem);
         }
 
-        task.setItems(itemStatuses);
-        refreshTaskSummary(task);
+        BatchTask task = BatchTask.createPending(UUID.randomUUID().toString(), taskItems, now);
         saveTask(task);
-
         ingestionTaskExecutor.execute(() -> processTask(task.getTaskId()));
-        return task;
+        return toTaskDto(task);
     }
 
     @Override
     public BatchTaskStatusDTO getBatchTaskStatus(String taskId) {
-        BatchTaskStatusDTO task = loadTask(taskId);
+        BatchTask task = loadTask(taskId);
         if (task == null) {
             throw new RuntimeException("Task not found");
         }
-        return task;
+        return toTaskDto(task);
     }
 
     @Override
     public BatchTaskStatusDTO retryBatchTaskItem(String taskId, String itemId) {
-        BatchTaskStatusDTO task = loadTask(taskId);
+        BatchTask task = loadTask(taskId);
         if (task == null) {
             throw new RuntimeException("Task not found");
         }
-        if (TASK_STATUS_RUNNING.equals(task.getStatus())) {
-            throw new RuntimeException("Task is running, retry after current round completes.");
-        }
 
-        BatchTaskStatusDTO.ItemStatus target = task.getItems().stream()
-                .filter(item -> itemId.equals(item.getItemId()))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("Task item not found"));
-
-        if (!TASK_ITEM_STATUS_FAILED.equals(target.getStatus())) {
-            throw new RuntimeException("Only FAILED item can be retried");
-        }
-
-        long now = System.currentTimeMillis();
-        target.setStatus(TASK_ITEM_STATUS_PENDING);
-        target.setErrorMessage(null);
-        target.setRetryCount(target.getRetryCount() + 1);
-        target.setUpdatedAt(now);
-
-        task.setUpdatedAt(now);
-        task.setCompletedAt(null);
-        refreshTaskSummary(task);
+        task.retryItem(itemId, System.currentTimeMillis());
         saveTask(task);
 
         ingestionTaskExecutor.execute(() -> processTask(task.getTaskId()));
-        return task;
+        return toTaskDto(task);
     }
 
     @Override
     public BatchTaskStatusDTO retryAllFailedBatchTaskItems(String taskId) {
-        BatchTaskStatusDTO task = loadTask(taskId);
+        BatchTask task = loadTask(taskId);
         if (task == null) {
             throw new RuntimeException("Task not found");
         }
-        if (TASK_STATUS_RUNNING.equals(task.getStatus())) {
-            throw new RuntimeException("Task is running, retry after current round completes.");
-        }
 
-        long now = System.currentTimeMillis();
-        int changed = 0;
-        for (BatchTaskStatusDTO.ItemStatus item : task.getItems()) {
-            if (!TASK_ITEM_STATUS_FAILED.equals(item.getStatus())) {
-                continue;
-            }
-            item.setStatus(TASK_ITEM_STATUS_PENDING);
-            item.setErrorMessage(null);
-            item.setRetryCount(item.getRetryCount() + 1);
-            item.setUpdatedAt(now);
-            changed++;
-        }
-
-        if (changed == 0) {
-            throw new RuntimeException("No FAILED items to retry");
-        }
-
-        task.setUpdatedAt(now);
-        task.setCompletedAt(null);
-        refreshTaskSummary(task);
+        task.retryAllFailed(System.currentTimeMillis());
         saveTask(task);
 
         ingestionTaskExecutor.execute(() -> processTask(task.getTaskId()));
-        return task;
+        return toTaskDto(task);
     }
 
     /**
@@ -272,8 +214,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
      * @param item the batch process request containing OSS key and file metadata
      */
     protected ImageDocument processSingleItem(BatchProcessDTO item) {
-        String cacheKey = String.format("%s%s:%s", HASH_INDEX_CACHE_PREFIX, System.getenv(PROFILE_KEY_NAME), item.getFileHash());
-        if (!acquireHashProcessingLock(cacheKey, item.getFileHash(), item.getFileName())) {
+        if (!acquireHashProcessingLock(item.getFileHash(), item.getFileName())) {
             throw new RuntimeException("Image is processing, retry later.");
         }
         try {
@@ -296,7 +237,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
             doc.setRelations(toDomainTriples(graphTriples));
             return doc;
         } catch (Exception e) {
-            markHashStatus(item.getFileHash(), HASH_STATUS_FAILED, HASH_FAILED_TTL_MINUTES, TimeUnit.MINUTES);
+            markHashStatus(item.getFileHash(), ImageHashStatus.FAILED, HASH_FAILED_TTL_MINUTES, TimeUnit.MINUTES);
             throw e;
         }
     }
@@ -306,25 +247,27 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         return String.format("%s-%s", name, System.currentTimeMillis());
     }
 
-    private boolean acquireHashProcessingLock(String cacheKey, String fileHash, String fileName) {
-        Boolean locked = redisTemplate.opsForValue().setIfAbsent(cacheKey, HASH_STATUS_PROCESSING, HASH_PROCESSING_TTL_MINUTES, TimeUnit.MINUTES);
-        if (Boolean.TRUE.equals(locked)) {
+    private boolean acquireHashProcessingLock(String fileHash, String fileName) {
+        boolean locked = imageHashStateRepository.tryAcquireProcessing(fileHash, HASH_PROCESSING_TTL_MINUTES, TimeUnit.MINUTES);
+        ImageHashAcquireOutcome outcome = ImageHashStatePolicy.evaluateAcquireResult(
+                locked,
+                locked ? null : imageHashStateRepository.findStatus(fileHash).map(ImageHashStatus::value).orElse(null)
+        );
+        if (outcome.type() == ImageHashAcquireOutcomeType.ALLOW) {
             return true;
         }
-
-        String currentStatus = redisTemplate.opsForValue().get(cacheKey);
-        if (HASH_STATUS_SUCCESS.equals(currentStatus)) {
+        if (outcome.type() == ImageHashAcquireOutcomeType.REJECT_DUPLICATE) {
             log.info("Duplicate image hash [{}] [{}]", fileHash, fileName);
-            throw new RuntimeException("Duplicate image, skipped.");
+            throw new RuntimeException(outcome.message());
         }
-        if (HASH_STATUS_PROCESSING.equals(currentStatus)) {
+        if (outcome.type() == ImageHashAcquireOutcomeType.REJECT_PROCESSING) {
             log.info("Image is processing [{}] [{}]", fileHash, fileName);
             return false;
         }
-        if (HASH_STATUS_FAILED.equals(currentStatus)) {
-            redisTemplate.delete(cacheKey);
-            Boolean retryLocked = redisTemplate.opsForValue().setIfAbsent(cacheKey, HASH_STATUS_PROCESSING, HASH_PROCESSING_TTL_MINUTES, TimeUnit.MINUTES);
-            if (Boolean.TRUE.equals(retryLocked)) {
+        if (outcome.type() == ImageHashAcquireOutcomeType.RETRY_FROM_FAILED) {
+            imageHashStateRepository.delete(fileHash);
+            boolean retryLocked = imageHashStateRepository.tryAcquireProcessing(fileHash, HASH_PROCESSING_TTL_MINUTES, TimeUnit.MINUTES);
+            if (retryLocked) {
                 log.info("Retry processing for failed image hash [{}] [{}]", fileHash, fileName);
                 return true;
             }
@@ -332,9 +275,8 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         return false;
     }
 
-    private void markHashStatus(String fileHash, String status, long ttl, TimeUnit unit) {
-        String cacheKey = String.format("%s%s:%s", HASH_INDEX_CACHE_PREFIX, System.getenv(PROFILE_KEY_NAME), fileHash);
-        redisTemplate.opsForValue().set(cacheKey, status, ttl, unit);
+    private void markHashStatus(String fileHash, ImageHashStatus status, long ttl, TimeUnit unit) {
+        imageHashStateRepository.markStatus(fileHash, status, ttl, unit);
     }
 
     private void processTask(String taskId) {
@@ -344,34 +286,31 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         }
 
         try {
-            BatchTaskStatusDTO task = loadTask(taskId);
+            BatchTask task = loadTask(taskId);
             if (task == null) {
                 return;
             }
 
-            boolean hasPending = task.getItems().stream().anyMatch(x -> TASK_ITEM_STATUS_PENDING.equals(x.getStatus()));
-            if (!hasPending) {
-                refreshTaskSummary(task);
+            if (!task.hasPendingItems()) {
+                task.refreshSummary(System.currentTimeMillis());
                 saveTask(task);
                 return;
             }
 
-            List<BatchTaskStatusDTO.ItemStatus> pendingItems = task.getItems().stream()
-                    .filter(x -> TASK_ITEM_STATUS_PENDING.equals(x.getStatus()))
-                    .toList();
+            List<BatchTaskItem> pendingItems = task.pendingItems();
             if (pendingItems.isEmpty()) {
-                refreshTaskSummary(task);
+                task.refreshSummary(System.currentTimeMillis());
                 saveTask(task);
                 return;
             }
 
             List<CompletableFuture<Void>> futures = pendingItems.stream()
-                    .map(itemStatus -> CompletableFuture.runAsync(() -> processTaskItem(task, taskId, itemStatus), embedTaskExecutor))
+                    .map(item -> CompletableFuture.runAsync(() -> processTaskItem(task, taskId, item.getItemId()), embedTaskExecutor))
                     .toList();
 
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
             synchronized (task) {
-                refreshTaskSummary(task);
+                task.refreshSummary(System.currentTimeMillis());
                 saveTask(task);
             }
         } finally {
@@ -379,37 +318,33 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         }
     }
 
-    private void processTaskItem(BatchTaskStatusDTO task, String taskId, BatchTaskStatusDTO.ItemStatus itemStatus) {
+    private void processTaskItem(BatchTask task, String taskId, String itemId) {
+        BatchProcessDTO request;
+        String fileName;
+
         synchronized (task) {
-            itemStatus.setStatus(TASK_ITEM_STATUS_RUNNING);
-            itemStatus.setErrorMessage(null);
-            itemStatus.setUpdatedAt(System.currentTimeMillis());
-            refreshTaskSummary(task);
+            task.markItemRunning(itemId, System.currentTimeMillis());
+            BatchTaskItem item = task.findItemOrThrow(itemId);
+            request = toBatchProcessDTO(item);
+            fileName = item.getFileName();
             saveTask(task);
         }
 
         try {
-            ImageDocument doc = processSingleItem(toBatchProcessDTO(itemStatus));
+            ImageDocument doc = processSingleItem(request);
             boolean saved = saveSingleDoc(doc);
             synchronized (task) {
                 if (saved) {
-                    itemStatus.setStatus(TASK_ITEM_STATUS_SUCCESS);
-                    itemStatus.setErrorMessage(null);
+                    task.markItemSuccess(itemId, System.currentTimeMillis());
                 } else {
-                    itemStatus.setStatus(TASK_ITEM_STATUS_FAILED);
-                    itemStatus.setErrorMessage("Database writes failed");
+                    task.markItemFailed(itemId, "Database writes failed", System.currentTimeMillis());
                 }
-                itemStatus.setUpdatedAt(System.currentTimeMillis());
-                refreshTaskSummary(task);
                 saveTask(task);
             }
         } catch (Exception e) {
-            log.warn("task [{}] item [{}] failed: {}", taskId, itemStatus.getFileName(), e.getMessage());
+            log.warn("task [{}] item [{}] failed: {}", taskId, fileName, e.getMessage());
             synchronized (task) {
-                itemStatus.setStatus(TASK_ITEM_STATUS_FAILED);
-                itemStatus.setErrorMessage(e.getMessage());
-                itemStatus.setUpdatedAt(System.currentTimeMillis());
-                refreshTaskSummary(task);
+                task.markItemFailed(itemId, e.getMessage(), System.currentTimeMillis());
                 saveTask(task);
             }
         }
@@ -421,73 +356,25 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
             boolean failed = bulkSaveResult.getFailedIds() != null
                     && bulkSaveResult.getFailedIds().contains(String.valueOf(doc.getId()));
             if (failed) {
-                markHashStatus(doc.getFileHash(), HASH_STATUS_FAILED, HASH_FAILED_TTL_MINUTES, TimeUnit.MINUTES);
+                markHashStatus(doc.getFileHash(), ImageHashStatus.FAILED, HASH_FAILED_TTL_MINUTES, TimeUnit.MINUTES);
                 return false;
             }
 
-            markHashStatus(doc.getFileHash(), HASH_STATUS_SUCCESS, HASH_SUCCESS_TTL_DAYS, TimeUnit.DAYS);
+            markHashStatus(doc.getFileHash(), ImageHashStatus.SUCCESS, HASH_SUCCESS_TTL_DAYS, TimeUnit.DAYS);
             return true;
         } catch (Exception e) {
             log.error("ES writes failed in async task", e);
-            markHashStatus(doc.getFileHash(), HASH_STATUS_FAILED, HASH_FAILED_TTL_MINUTES, TimeUnit.MINUTES);
+            markHashStatus(doc.getFileHash(), ImageHashStatus.FAILED, HASH_FAILED_TTL_MINUTES, TimeUnit.MINUTES);
             return false;
         }
     }
 
-    private BatchProcessDTO toBatchProcessDTO(BatchTaskStatusDTO.ItemStatus itemStatus) {
+    private BatchProcessDTO toBatchProcessDTO(BatchTaskItem itemStatus) {
         BatchProcessDTO item = new BatchProcessDTO();
         item.setKey(itemStatus.getKey());
         item.setFileName(itemStatus.getFileName());
         item.setFileHash(itemStatus.getFileHash());
         return item;
-    }
-
-    private void refreshTaskSummary(BatchTaskStatusDTO task) {
-        int total = task.getItems().size();
-        int success = 0;
-        int failure = 0;
-        int running = 0;
-        int pending = 0;
-
-        for (BatchTaskStatusDTO.ItemStatus item : task.getItems()) {
-            if (TASK_ITEM_STATUS_SUCCESS.equals(item.getStatus())) {
-                success++;
-            } else if (TASK_ITEM_STATUS_FAILED.equals(item.getStatus())) {
-                failure++;
-            } else if (TASK_ITEM_STATUS_RUNNING.equals(item.getStatus())) {
-                running++;
-            } else if (TASK_ITEM_STATUS_PENDING.equals(item.getStatus())) {
-                pending++;
-            }
-        }
-
-        task.setTotal(total);
-        task.setSuccessCount(success);
-        task.setFailureCount(failure);
-        task.setRunningCount(running);
-        task.setPendingCount(pending);
-        task.setUpdatedAt(System.currentTimeMillis());
-
-        if (pending == total && running == 0 && success == 0 && failure == 0) {
-            task.setStatus(TASK_STATUS_PENDING);
-            task.setCompletedAt(null);
-            return;
-        }
-
-        if (pending == 0 && running == 0) {
-            if (success == total) {
-                task.setStatus(TASK_STATUS_SUCCESS);
-            } else if (failure == total) {
-                task.setStatus(TASK_STATUS_FAILED);
-            } else {
-                task.setStatus(TASK_STATUS_PARTIAL_FAILED);
-            }
-            task.setCompletedAt(System.currentTimeMillis());
-            return;
-        }
-
-        task.setStatus(TASK_STATUS_RUNNING);
-        task.setCompletedAt(null);
     }
 
     private boolean acquireTaskLock(String taskId, String lockValue) {
@@ -508,22 +395,23 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         }
     }
 
-    private void saveTask(BatchTaskStatusDTO task) {
+    private void saveTask(BatchTask task) {
         redisTemplate.opsForValue().set(
                 BATCH_TASK_CACHE_PREFIX + task.getTaskId(),
-                serializeTask(task),
+                serializeTask(toTaskDto(task)),
                 BATCH_TASK_TTL_HOURS,
                 TimeUnit.HOURS
         );
     }
 
-    private BatchTaskStatusDTO loadTask(String taskId) {
+    private BatchTask loadTask(String taskId) {
         String raw = redisTemplate.opsForValue().get(BATCH_TASK_CACHE_PREFIX + taskId);
         if (!StringUtils.hasText(raw)) {
             return null;
         }
         try {
-            return objectMapper.readValue(raw, BatchTaskStatusDTO.class);
+            BatchTaskStatusDTO dto = objectMapper.readValue(raw, BatchTaskStatusDTO.class);
+            return toTaskDomain(dto);
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Failed to parse task payload", e);
         }
@@ -534,6 +422,88 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
             return objectMapper.writeValueAsString(task);
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Failed to serialize task payload", e);
+        }
+    }
+
+    private BatchTaskStatusDTO toTaskDto(BatchTask task) {
+        BatchTaskStatusDTO dto = new BatchTaskStatusDTO();
+        dto.setTaskId(task.getTaskId());
+        dto.setStatus(task.getStatus() == null ? BatchTaskStatus.PENDING.name() : task.getStatus().name());
+        dto.setTotal(task.getTotal());
+        dto.setSuccessCount(task.getSuccessCount());
+        dto.setFailureCount(task.getFailureCount());
+        dto.setRunningCount(task.getRunningCount());
+        dto.setPendingCount(task.getPendingCount());
+        dto.setCreatedAt(task.getCreatedAt());
+        dto.setUpdatedAt(task.getUpdatedAt());
+        dto.setCompletedAt(task.getCompletedAt());
+        List<BatchTaskItem> items = task.getItems() == null ? List.of() : task.getItems();
+        dto.setItems(items.stream().map(this::toTaskItemDto).toList());
+        return dto;
+    }
+
+    private BatchTaskStatusDTO.ItemStatus toTaskItemDto(BatchTaskItem item) {
+        BatchTaskStatusDTO.ItemStatus dto = new BatchTaskStatusDTO.ItemStatus();
+        dto.setItemId(item.getItemId());
+        dto.setKey(item.getKey());
+        dto.setFileName(item.getFileName());
+        dto.setFileHash(item.getFileHash());
+        dto.setStatus(item.getStatus().name());
+        dto.setErrorMessage(item.getErrorMessage());
+        dto.setRetryCount(item.getRetryCount());
+        dto.setUpdatedAt(item.getUpdatedAt());
+        return dto;
+    }
+
+    private BatchTask toTaskDomain(BatchTaskStatusDTO dto) {
+        BatchTask task = new BatchTask();
+        task.setTaskId(dto.getTaskId());
+        task.setStatus(parseTaskStatus(dto.getStatus()));
+        task.setTotal(dto.getTotal());
+        task.setSuccessCount(dto.getSuccessCount());
+        task.setFailureCount(dto.getFailureCount());
+        task.setRunningCount(dto.getRunningCount());
+        task.setPendingCount(dto.getPendingCount());
+        task.setCreatedAt(dto.getCreatedAt());
+        task.setUpdatedAt(dto.getUpdatedAt());
+        task.setCompletedAt(dto.getCompletedAt());
+        List<BatchTaskStatusDTO.ItemStatus> items = dto.getItems() == null ? List.of() : dto.getItems();
+        task.setItems(items.stream().map(this::toTaskItemDomain).toList());
+        return task;
+    }
+
+    private BatchTaskItem toTaskItemDomain(BatchTaskStatusDTO.ItemStatus dto) {
+        BatchTaskItem item = new BatchTaskItem();
+        item.setItemId(dto.getItemId());
+        item.setKey(dto.getKey());
+        item.setFileName(dto.getFileName());
+        item.setFileHash(dto.getFileHash());
+        item.setStatus(parseTaskItemStatus(dto.getStatus()));
+        item.setErrorMessage(dto.getErrorMessage());
+        item.setRetryCount(dto.getRetryCount());
+        item.setUpdatedAt(dto.getUpdatedAt());
+        return item;
+    }
+
+    private BatchTaskStatus parseTaskStatus(String value) {
+        if (!StringUtils.hasText(value)) {
+            return BatchTaskStatus.PENDING;
+        }
+        try {
+            return BatchTaskStatus.valueOf(value);
+        } catch (IllegalArgumentException e) {
+            return BatchTaskStatus.PENDING;
+        }
+    }
+
+    private BatchTaskItemStatus parseTaskItemStatus(String value) {
+        if (!StringUtils.hasText(value)) {
+            return BatchTaskItemStatus.PENDING;
+        }
+        try {
+            return BatchTaskItemStatus.valueOf(value);
+        } catch (IllegalArgumentException e) {
+            return BatchTaskItemStatus.PENDING;
         }
     }
 
