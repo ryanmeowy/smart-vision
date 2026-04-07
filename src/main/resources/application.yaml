@@ -37,6 +37,15 @@ app:
     image-input-mode: auto
   search:
     quality-absolute-min-score: 0.72
+    rrf:
+      enabled: true
+      rank-constant: 60
+      candidate-multiplier: 4
+      max-candidates: 200
+    rerank:
+      enabled: true
+      model: gte-rerank-v2
+      max-doc-chars: 1200
   compare:
     max-text-length: 500
     high-threshold: 0.8

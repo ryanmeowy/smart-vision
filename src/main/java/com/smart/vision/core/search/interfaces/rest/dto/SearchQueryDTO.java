@@ -1,0 +1,53 @@
+package com.smart.vision.core.search.interfaces.rest.dto;
+
+import lombok.Data;
+
+import java.util.List;
+
+/**
+ * image search request model
+ *
+ * @author Ryan
+ * @since 2025/12/15
+ */
+@Data
+public class SearchQueryDTO {
+    /**
+     * search keyword
+     */
+    private String keyword;
+    /**
+     * topK
+     */
+    private Integer topK;
+    /**
+     * page number
+     */
+    private Integer pageNo;
+    /**
+     * Deprecated for retrieval flow.
+     * Kept for backward compatibility of callers that still send the field.
+     */
+    @Deprecated
+    private Float similarity;
+    /**
+     * whether to enable OCR hybrid search
+     */
+    private Boolean enableOcr = true;
+    /**
+     * search strategy type
+     * @see com.smart.vision.core.search.domain.model.StrategyTypeEnum
+     */
+    private String searchType;
+
+    /**
+     * Maximum number of results to return
+     */
+    private Integer limit;
+
+    /**
+     * Search cursor for pagination
+     */
+    private List<Object> searchAfter;
+
+}
