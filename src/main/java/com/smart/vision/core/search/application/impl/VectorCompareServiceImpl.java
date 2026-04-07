@@ -1,7 +1,7 @@
 package com.smart.vision.core.search.application.impl;
 
-import com.smart.vision.core.integration.ai.port.MultiModalEmbeddingService;
-import com.smart.vision.core.integration.oss.OssManager;
+import com.smart.vision.core.search.domain.port.SearchEmbeddingPort;
+import com.smart.vision.core.search.domain.port.SearchObjectStoragePort;
 import com.smart.vision.core.search.interfaces.rest.dto.VectorCompareResultDTO;
 import com.smart.vision.core.search.application.VectorCompareService;
 import com.smart.vision.core.common.util.VectorUtil;
@@ -19,12 +19,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
-import static com.smart.vision.core.common.constant.AliyunConstant.X_OSS_PROCESS_EMBEDDING;
 import static com.smart.vision.core.common.constant.CacheConstant.COMPARE_IMAGE_CACHE_PREFIX;
 import static com.smart.vision.core.common.constant.CacheConstant.COMPARE_TEXT_CACHE_PREFIX;
 import static com.smart.vision.core.common.constant.CommonConstant.PROFILE_KEY_NAME;
 import static com.smart.vision.core.common.constant.SearchConstant.IMAGE_MAX_SIZE;
-import static com.smart.vision.core.integration.oss.domain.model.PresignedValidityEnum.SHORT_TERM_VALIDITY;
 
 @Slf4j
 @Service
@@ -47,9 +45,9 @@ public class VectorCompareServiceImpl implements VectorCompareService {
     @Value("${app.embedding.image-input-mode:auto}")
     private String imageInputMode;
 
-    private final MultiModalEmbeddingService embeddingService;
+    private final SearchEmbeddingPort embeddingPort;
     private final RedisTemplate<String, List<Float>> redisTemplate;
-    private final OssManager ossManager;
+    private final SearchObjectStoragePort objectStoragePort;
 
     @Override
     public VectorCompareResultDTO compare(String leftType,
@@ -109,7 +107,7 @@ public class VectorCompareServiceImpl implements VectorCompareService {
             return new EmbeddingResolveResult(vector, true);
         }
 
-        vector = embeddingService.embedText(normalizedText);
+        vector = embeddingPort.embedText(normalizedText);
         validateVector(vector, sideName);
         redisTemplate.opsForValue().set(cacheKey, vector, CACHE_TTL_HOURS, TimeUnit.HOURS);
         return new EmbeddingResolveResult(vector, false);
@@ -128,15 +126,11 @@ public class VectorCompareServiceImpl implements VectorCompareService {
             }
 
             if (shouldUseBytesInput()) {
-                vector = embeddingService.embedImage(bytes, file.getContentType());
+                vector = embeddingPort.embedImage(bytes, file.getContentType());
             } else {
-                String objectKey = ossManager.uploadFile(file);
-                String tempAiUrl = ossManager.getAiPresignedUrl(
-                        objectKey,
-                        SHORT_TERM_VALIDITY.getValidity(),
-                        X_OSS_PROCESS_EMBEDDING
-                );
-                vector = embeddingService.embedImage(tempAiUrl);
+                String objectKey = objectStoragePort.uploadFile(file);
+                String tempAiUrl = objectStoragePort.buildAiImageInput(objectKey, SearchObjectStoragePort.AiInputValidity.SHORT);
+                vector = embeddingPort.embedImage(tempAiUrl);
             }
             validateVector(vector, sideName);
             redisTemplate.opsForValue().set(cacheKey, vector, CACHE_TTL_HOURS, TimeUnit.HOURS);
