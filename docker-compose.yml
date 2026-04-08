@@ -1,63 +1,57 @@
-
-
 services:
-  
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.18.8
     container_name: elasticsearch
     environment:
-      - discovery.type=single-node 
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m" 
-      - xpack.security.enabled=false 
+      - TZ=Asia/Shanghai
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=false
       - ELASTIC_PASSWORD=${ES_PASSWORD}
-#      - xpack.security.http.ssl.enabled=true
-#      - xpack.security.http.ssl.keystore.path=cert/http_ca.p12
-#      - xpack.security.http.ssl.truststore.path=cert/http_ca.p12
-#      - xpack.security.http.ssl.verification_mode=none
-
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
     ports:
-      - "9200:9200" 
-      - "9300:9300" 
+      - "9200:9200"
+      # - "9300:9300"
     volumes:
       - es_data:/usr/share/elasticsearch/data
+      - es_logs:/usr/share/elasticsearch/logs
       - ./plugins:/usr/share/elasticsearch/plugins
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
     networks:
       - es_network
-
-  # Kibana
-  # kibana:
-  #  image: docker.elastic.co/kibana/kibana:8.11.3
-  #  container_name: kibana
-  #  ports:
-  #    - "5601:5601"
-  #  environment:
-  #    - ELASTICSEARCH_HOSTS=["http://elasticsearch:9200"]
-  #  depends_on:
-  #    - elasticsearch=
-  #  networks:
-  #    - es_network
 
   redis:
     image: redis:latest
     container_name: redis
+    environment:
+      - TZ=Asia/Shanghai
     ports:
-      - "6379:6379" 
-    command: redis-server --requirepass "${REDIS_PASSWORD}" 
+      - "6379:6379"
+    command: redis-server --requirepass "${REDIS_PASSWORD}" --appendonly yes
     volumes:
-      - redis_data:/data 
+      - redis_data:/data
     networks:
-      - es_network 
-      
+      - es_network
 
 volumes:
-  es_data: 
+  es_data:
     driver: local
-  redis_data: 
+  es_logs:
+    driver: local
+  redis_data:
     driver: local
 
 networks:
-  es_network: 
+  es_network:
     driver: bridge
-
-
-
