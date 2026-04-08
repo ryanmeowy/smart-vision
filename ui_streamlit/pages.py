@@ -31,9 +31,15 @@ SPO_PREVIEW_MAX_CHARS = 140
 
 def render_text_search_page(base_url: str) -> None:
     st.subheader("Text Search")
-    st.caption("Endpoint: POST /api/v1/vision/search")
+    st.caption("Endpoint: POST /api/v1/vision/search-page")
 
     state = _get_result_state("text")
+    if "next_cursor" not in state:
+        state["next_cursor"] = ""
+    if "has_more" not in state:
+        state["has_more"] = False
+    if "base_payload" not in state:
+        state["base_payload"] = {}
     keyword_store_key = "text_search_keyword_store"
     keyword_widget_key = "text_search_keyword_widget"
     strategy_store_key = "text_search_strategy_store"
@@ -57,7 +63,7 @@ def render_text_search_page(base_url: str) -> None:
     if topk_widget_key not in st.session_state:
         st.session_state[topk_widget_key] = int(st.session_state[topk_store_key])
     if limit_store_key not in st.session_state:
-        st.session_state[limit_store_key] = 20
+        st.session_state[limit_store_key] = 10
     if limit_widget_key not in st.session_state:
         st.session_state[limit_widget_key] = int(st.session_state[limit_store_key])
     if ocr_store_key not in st.session_state:
@@ -92,7 +98,7 @@ def render_text_search_page(base_url: str) -> None:
         submitted = st.form_submit_button(
             "Run Search",
             type="primary",
-            disabled=_is_action_busy("text_search", draft_payload),
+            disabled=_is_action_busy("text_search_first", draft_payload),
         )
     st.session_state[keyword_store_key] = keyword
     st.session_state[strategy_store_key] = str(strategy)
@@ -105,36 +111,41 @@ def render_text_search_page(base_url: str) -> None:
             st.warning("Keyword is required.")
             return
 
-        payload = {
+        first_payload = {
             "keyword": keyword.strip(),
             "searchType": str(strategy),
             "limit": int(limit),
             "topK": int(top_k),
             "enableOcr": bool(enable_ocr),
         }
-        _queue_action("text_search", payload)
+        _queue_action("text_search_first", first_payload)
         st.rerun()
 
-    if _consume_queued_action("text_search", draft_payload):
+    if _consume_queued_action("text_search_first", draft_payload):
         try:
             with st.spinner("Searching..."):
-                response_payload = _request_json(
-                    method="POST",
-                    url=f"{_normalize_base_url(base_url)}/api/v1/vision/search",
-                    json=draft_payload,
+                response_payload = _request_search_page(
+                    url=f"{_normalize_base_url(base_url)}/api/v1/vision/search-page",
+                    payload=draft_payload,
                 )
             if response_payload is None:
                 return
             data, headers, status_code = response_payload
+            items = data.get("items") if isinstance(data, dict) else []
+            next_cursor = _safe_str(data.get("nextCursor")) if isinstance(data, dict) else ""
+            has_more = bool(data.get("hasMore")) if isinstance(data, dict) else False
 
-            state["results"] = data
+            state["results"] = items if isinstance(items, list) else []
             state["headers"] = headers
             state["status_code"] = status_code
             state["payload_text"] = _pretty_json(draft_payload)
             state["keyword"] = draft_payload.get("keyword", "")
+            state["base_payload"] = dict(draft_payload)
+            state["next_cursor"] = next_cursor
+            state["has_more"] = has_more and bool(next_cursor)
             state["has_searched"] = True
         finally:
-            _complete_action("text_search")
+            _complete_action("text_search_first")
             st.rerun()
 
     if state["has_searched"]:
@@ -142,6 +153,46 @@ def render_text_search_page(base_url: str) -> None:
         if state["payload_text"]:
             st.code(state["payload_text"], language="json")
         _render_search_results(state["results"], layout_key="text", highlight_term=_safe_str(state.get("keyword")))
+        loaded_count = len(state["results"]) if isinstance(state.get("results"), list) else 0
+        st.caption(f"Loaded {loaded_count} items")
+
+        if state.get("has_more") and _safe_str(state.get("next_cursor")):
+            more_payload = dict(state.get("base_payload", {}))
+            more_payload["cursor"] = _safe_str(state.get("next_cursor"))
+            if st.button(
+                "Load More",
+                key="text_search_load_more_btn",
+                type="secondary",
+                disabled=_is_action_busy("text_search_more", more_payload),
+            ):
+                _queue_action("text_search_more", more_payload)
+                st.rerun()
+
+            if _consume_queued_action("text_search_more", more_payload):
+                try:
+                    with st.spinner("Loading more..."):
+                        response_payload = _request_search_page(
+                            url=f"{_normalize_base_url(base_url)}/api/v1/vision/search-page",
+                            payload=more_payload,
+                        )
+                    if response_payload is None:
+                        return
+                    data, headers, status_code = response_payload
+                    items = data.get("items") if isinstance(data, dict) else []
+                    next_cursor = _safe_str(data.get("nextCursor")) if isinstance(data, dict) else ""
+                    has_more = bool(data.get("hasMore")) if isinstance(data, dict) else False
+
+                    existing = state["results"] if isinstance(state.get("results"), list) else []
+                    incoming = items if isinstance(items, list) else []
+                    state["results"] = existing + incoming
+                    state["headers"] = headers
+                    state["status_code"] = status_code
+                    state["payload_text"] = _pretty_json(more_payload)
+                    state["next_cursor"] = next_cursor
+                    state["has_more"] = has_more and bool(next_cursor)
+                finally:
+                    _complete_action("text_search_more")
+                    st.rerun()
 
 
 def render_image_search_page(base_url: str) -> None:
@@ -1623,6 +1674,67 @@ def _request_json(
         st.error("Unexpected response shape: data is not a list.")
         return None
 
+    return data, headers, status_code
+
+
+def _request_search_page(
+    *,
+    url: str,
+    payload: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, str], int] | None:
+    try:
+        response = requests.post(
+            url=url,
+            json=payload,
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+    except requests.exceptions.Timeout:
+        st.error("Request timed out. Please check backend status and retry.")
+        return None
+    except requests.exceptions.RequestException as exc:
+        st.error(f"Request failed: {exc}")
+        return None
+
+    status_code = response.status_code
+    headers = {
+        "X-Strategy-Requested": response.headers.get("X-Strategy-Requested", ""),
+        "X-Strategy-Effective": response.headers.get("X-Strategy-Effective", ""),
+        "X-Strategy-Fallback": response.headers.get("X-Strategy-Fallback", ""),
+        "X-Strategy-Fallback-Reason": response.headers.get("X-Strategy-Fallback-Reason", ""),
+    }
+
+    if status_code >= 400:
+        st.error(f"HTTP {status_code}: {response.text[:600]}")
+        return None
+
+    try:
+        envelope = response.json()
+    except ValueError:
+        st.error("Backend returned non-JSON response.")
+        return None
+
+    if not isinstance(envelope, dict):
+        st.error("Unexpected response shape: top-level JSON is not an object.")
+        return None
+
+    biz_code = envelope.get("code")
+    message = envelope.get("message", "")
+    data = envelope.get("data")
+
+    if biz_code != SUCCESS_CODE:
+        st.error(f"Business error {biz_code}: {message or 'Unknown error'}")
+        return None
+
+    if data is None:
+        data = {}
+    if not isinstance(data, dict):
+        st.error("Unexpected response shape: data is not an object.")
+        return None
+
+    items = data.get("items")
+    if items is not None and not isinstance(items, list):
+        st.error("Unexpected response shape: data.items is not a list.")
+        return None
     return data, headers, status_code
 
 

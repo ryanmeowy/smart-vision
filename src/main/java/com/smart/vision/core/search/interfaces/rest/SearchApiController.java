@@ -10,6 +10,8 @@ import com.smart.vision.core.search.domain.port.SearchObjectStoragePort;
 import com.smart.vision.core.search.domain.port.SearchOcrPort;
 import com.smart.vision.core.search.domain.strategy.StrategySelectionContext;
 import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
+import com.smart.vision.core.search.interfaces.rest.dto.SearchPageDTO;
+import com.smart.vision.core.search.interfaces.rest.dto.SearchPageQueryDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchQueryDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchResultDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.VectorCompareResultDTO;
@@ -70,6 +72,16 @@ public class SearchApiController {
     public Result<List<SearchResultDTO>> search(@Valid @RequestBody SearchQueryDTO query, HttpServletResponse response) {
         try {
             return Result.success(searchService.search(query));
+        } finally {
+            attachStrategyDebugHeaders(response);
+            StrategySelectionContext.clear();
+        }
+    }
+
+    @PostMapping("/search-page")
+    public Result<SearchPageDTO> searchPage(@Valid @RequestBody SearchPageQueryDTO query, HttpServletResponse response) {
+        try {
+            return Result.success(searchService.searchPage(query));
         } finally {
             attachStrategyDebugHeaders(response);
             StrategySelectionContext.clear();

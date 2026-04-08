@@ -1,6 +1,8 @@
 package com.smart.vision.core.search.application;
 
 import com.smart.vision.core.search.interfaces.rest.dto.SearchQueryDTO;
+import com.smart.vision.core.search.interfaces.rest.dto.SearchPageDTO;
+import com.smart.vision.core.search.interfaces.rest.dto.SearchPageQueryDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchResultDTO;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -39,4 +41,6 @@ public interface SmartSearchService {
     List<SearchResultDTO> searchSimilarById(String docId);
 
     List<SearchResultDTO> searchByImage(MultipartFile file, int limit);
+
+    SearchPageDTO searchPage(SearchPageQueryDTO query);
 }

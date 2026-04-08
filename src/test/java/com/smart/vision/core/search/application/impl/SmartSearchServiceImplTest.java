@@ -2,7 +2,9 @@ package com.smart.vision.core.search.application.impl;
 
 import com.smart.vision.core.search.interfaces.assembler.ImageDocConvertor;
 import com.smart.vision.core.common.exception.InfraException;
+import com.smart.vision.core.search.application.support.SearchCursorCodec;
 import com.smart.vision.core.search.application.support.HotSearchManager;
+import com.smart.vision.core.search.application.support.SearchSessionManager;
 import com.smart.vision.core.common.model.GraphTriple;
 import com.smart.vision.core.search.domain.model.ImageSearchResultDTO;
 import com.smart.vision.core.search.domain.port.SearchEmbeddingPort;
@@ -57,6 +59,10 @@ class SmartSearchServiceImplTest {
     @Mock
     private SearchObjectStoragePort objectStoragePort;
     @Mock
+    private SearchSessionManager searchSessionManager;
+    @Mock
+    private SearchCursorCodec searchCursorCodec;
+    @Mock
     private MultipartFile multipartFile;
     @Mock
     private ValueOperations<String, List<Float>> valueOperations;
@@ -72,7 +78,9 @@ class SmartSearchServiceImplTest {
                 hotSearchManager,
                 strategyFactory,
                 redisTemplate,
-                objectStoragePort
+                objectStoragePort,
+                searchSessionManager,
+                searchCursorCodec
         );
         ReflectionTestUtils.setField(service, "qualityAbsoluteMinScore", 0.72d);
     }
