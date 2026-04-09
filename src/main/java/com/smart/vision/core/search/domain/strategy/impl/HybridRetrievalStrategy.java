@@ -167,11 +167,6 @@ public class HybridRetrievalStrategy implements RetrievalStrategy {
                 break;
             }
             ImageSearchResultDTO dto = window.get(index);
-            Double rerankScore = scoreByIndex.get(index);
-            if (rerankScore != null) {
-                dto.setRawScore(rerankScore);
-                dto.setScore(rerankScore);
-            }
             reranked.add(dto);
         }
         log.debug("Cross-encoder rerank applied, candidates={}, scored={}, return={}",
