@@ -18,12 +18,14 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.smart.vision.core.common.constant.EmbeddingConstant.DEFAULT_TOP_K;
@@ -102,13 +104,19 @@ public class HybridRetrievalStrategy implements RetrievalStrategy {
                                                       boolean enableOcr) {
         List<List<ImageSearchResultDTO>> rankingLists = new ArrayList<>();
         rankingLists.add(hybridHits);
+        List<ImageSearchResultDTO> vectorHits = List.of();
         if (!CollectionUtil.isEmpty(queryVector)) {
-            rankingLists.add(imageRepository.vectorSearch(queryVector, recallSize));
+            vectorHits = imageRepository.vectorSearch(queryVector, recallSize);
+            rankingLists.add(vectorHits);
         }
+        List<ImageSearchResultDTO> textHits = List.of();
         if (StringUtils.hasText(query.getKeyword())) {
-            rankingLists.add(imageRepository.textSearch(query.getKeyword(), recallSize, enableOcr));
+            textHits = imageRepository.textSearch(query.getKeyword(), recallSize, enableOcr);
+            rankingLists.add(textHits);
         }
-        return rrfFusionService.fuse(rankingLists, recallSize, rrfRankConstant);
+        List<ImageSearchResultDTO> fused = rrfFusionService.fuse(rankingLists, recallSize, rrfRankConstant);
+        annotateRecallSources(fused, vectorHits, textHits);
+        return fused;
     }
 
     private List<ImageSearchResultDTO> applyCrossEncoderRerank(String keyword,
@@ -169,6 +177,43 @@ public class HybridRetrievalStrategy implements RetrievalStrategy {
         log.debug("Cross-encoder rerank applied, candidates={}, scored={}, return={}",
                 window.size(), scoreByIndex.size(), reranked.size());
         return reranked;
+    }
+
+    private void annotateRecallSources(List<ImageSearchResultDTO> fused,
+                                       List<ImageSearchResultDTO> vectorHits,
+                                       List<ImageSearchResultDTO> textHits) {
+        if (CollectionUtil.isEmpty(fused)) {
+            return;
+        }
+        Set<Long> vectorIds = collectDocIds(vectorHits);
+        Set<Long> textIds = collectDocIds(textHits);
+        for (ImageSearchResultDTO item : fused) {
+            if (item == null) {
+                continue;
+            }
+            Long id = item.getDocument() == null ? null : item.getDocument().getId();
+            if (id == null) {
+                item.setVectorRecallHit(false);
+                item.setTextRecallHit(false);
+                continue;
+            }
+            item.setVectorRecallHit(vectorIds.contains(id));
+            item.setTextRecallHit(textIds.contains(id));
+        }
+    }
+
+    private Set<Long> collectDocIds(List<ImageSearchResultDTO> items) {
+        Set<Long> ids = new HashSet<>();
+        if (CollectionUtil.isEmpty(items)) {
+            return ids;
+        }
+        for (ImageSearchResultDTO item : items) {
+            Long id = item == null || item.getDocument() == null ? null : item.getDocument().getId();
+            if (id != null) {
+                ids.add(id);
+            }
+        }
+        return ids;
     }
 
     private String buildRerankText(ImageSearchResultDTO item, boolean enableOcr) {

@@ -36,9 +36,11 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -429,7 +431,7 @@ public class SmartSearchServiceImpl implements SmartSearchService {
             SearchResultDTO dto = dtoList.get(i);
             ImageSearchResultDTO source = sourceDocs.get(i);
             ImageDocument doc = source == null ? null : source.getDocument();
-            dto.setVectorHitStatus(computeVectorHitStatus(doc, normalizedKeyword, enableOcr, strategyType));
+            dto.setVectorHitStatus(computeVectorHitStatus(doc, source, normalizedKeyword, enableOcr, strategyType));
         }
     }
 
@@ -456,11 +458,12 @@ public class SmartSearchServiceImpl implements SmartSearchService {
             SearchResultDTO dto = dtoList.get(i);
             ImageSearchResultDTO source = sourceDocs.get(i);
             ImageDocument doc = source == null ? null : source.getDocument();
-            dto.setExplain(buildExplain(doc, normalizedKeyword, enableOcr, strategyType));
+            dto.setExplain(buildExplain(doc, source, normalizedKeyword, enableOcr, strategyType));
         }
     }
 
     private String computeVectorHitStatus(ImageDocument doc,
+                                          ImageSearchResultDTO source,
                                           String normalizedKeyword,
                                           boolean enableOcr,
                                           StrategyTypeEnum strategyType) {
@@ -471,28 +474,52 @@ public class SmartSearchServiceImpl implements SmartSearchService {
             return "VECTOR_ONLY_LIKE";
         }
         if (strategyType == StrategyTypeEnum.HYBRID) {
-            boolean textHit = hasTextHit(doc, normalizedKeyword, enableOcr);
-            return textHit ? "VECTOR_AND_TEXT" : "VECTOR_ONLY_LIKE";
+            boolean textHit = hasTextHit(doc, source, normalizedKeyword, enableOcr);
+            boolean vectorHit = isVectorEvidenceHit(source, strategyType);
+            if (vectorHit && textHit) {
+                return "VECTOR_AND_TEXT";
+            }
+            if (vectorHit) {
+                return "VECTOR_ONLY_LIKE";
+            }
+            if (textHit) {
+                return "TEXT_ONLY";
+            }
+            return "VECTOR_ONLY_LIKE";
         }
         return "TEXT_ONLY";
     }
 
     private SearchExplainDTO buildExplain(ImageDocument doc,
+                                          ImageSearchResultDTO source,
                                           String normalizedKeyword,
                                           boolean enableOcr,
                                           StrategyTypeEnum strategyType) {
-        boolean vectorHit = strategyType == StrategyTypeEnum.HYBRID
-                || strategyType == StrategyTypeEnum.VECTOR_ONLY
-                || strategyType == StrategyTypeEnum.IMAGE_TO_IMAGE;
         boolean allowTextExplain = strategyType == StrategyTypeEnum.HYBRID || strategyType == StrategyTypeEnum.TEXT_ONLY;
-        boolean filenameHit = allowTextExplain && hasFilenameHit(doc, normalizedKeyword);
-        boolean ocrHit = allowTextExplain && hasOcrHit(doc, normalizedKeyword, enableOcr);
-        boolean tagHit = allowTextExplain && hasTagHit(doc, normalizedKeyword);
-        boolean graphHit = allowTextExplain && hasGraphHit(doc, normalizedKeyword);
+        Set<String> highlightFields = allowTextExplain ? resolveHighlightFields(source) : Set.of();
+        boolean hasHighlightEvidence = !highlightFields.isEmpty();
+        boolean filenameHit = allowTextExplain && (
+                highlightFields.contains("fileName")
+                        || (!hasHighlightEvidence && hasFilenameHit(doc, normalizedKeyword))
+        );
+        boolean ocrHit = allowTextExplain && (
+                highlightFields.contains("ocrContent")
+                        || (!hasHighlightEvidence && hasOcrHit(doc, normalizedKeyword, enableOcr))
+        );
+        boolean tagHit = allowTextExplain && (
+                highlightFields.contains("tags")
+                        || (!hasHighlightEvidence && hasTagHit(doc, normalizedKeyword))
+        );
+        boolean graphHit = allowTextExplain && !hasHighlightEvidence && hasGraphHit(doc, normalizedKeyword);
+        boolean textHit = filenameHit || ocrHit || tagHit || graphHit;
+        boolean vectorHit = isVectorEvidenceHit(source, strategyType);
 
         LinkedHashSet<String> hitSources = new LinkedHashSet<>();
         if (vectorHit) {
             hitSources.add("VECTOR");
+        }
+        if (filenameHit) {
+            hitSources.add("FILENAME");
         }
         if (ocrHit) {
             hitSources.add("OCR");
@@ -517,7 +544,13 @@ public class SmartSearchServiceImpl implements SmartSearchService {
                 .build();
     }
 
-    private boolean hasTextHit(ImageDocument doc, String normalizedKeyword, boolean enableOcr) {
+    private boolean hasTextHit(ImageDocument doc,
+                               ImageSearchResultDTO source,
+                               String normalizedKeyword,
+                               boolean enableOcr) {
+        if (!resolveHighlightFields(source).isEmpty()) {
+            return true;
+        }
         if (doc == null || !StringUtils.hasText(normalizedKeyword)) {
             return false;
         }
@@ -533,6 +566,37 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         if (hasGraphHit(doc, normalizedKeyword)) {
             return true;
         }
+        return false;
+    }
+
+    private Set<String> resolveHighlightFields(ImageSearchResultDTO source) {
+        if (source == null || CollectionUtils.isEmpty(source.getHighlightFields())) {
+            return Set.of();
+        }
+        Set<String> fields = new HashSet<>();
+        for (String field : source.getHighlightFields()) {
+            if (StringUtils.hasText(field)) {
+                fields.add(field.trim());
+            }
+        }
+        return fields;
+    }
+
+    private boolean isVectorEvidenceHit(ImageSearchResultDTO source,
+                                        StrategyTypeEnum strategyType) {
+        if (strategyType == StrategyTypeEnum.VECTOR_ONLY || strategyType == StrategyTypeEnum.IMAGE_TO_IMAGE) {
+            return true;
+        }
+        if (strategyType == StrategyTypeEnum.TEXT_ONLY) {
+            return false;
+        }
+        if (strategyType != StrategyTypeEnum.HYBRID) {
+            return false;
+        }
+        if (source != null && source.getVectorRecallHit() != null) {
+            return source.getVectorRecallHit();
+        }
+        // Strict mode: if vector recall evidence is unknown, do not mark as VECTOR.
         return false;
     }
 

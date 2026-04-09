@@ -19,7 +19,7 @@ public class SearchExplainDTO implements Serializable {
     private String strategyEffective;
 
     /**
-     * Coarse match sources for UI badge display: VECTOR/OCR/TAG/GRAPH.
+     * Coarse match sources for UI badge display: VECTOR/FILENAME/OCR/TAG/GRAPH.
      */
     private List<String> hitSources;
 

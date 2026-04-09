@@ -7,9 +7,12 @@ import co.elastic.clients.elasticsearch.core.search.HitsMetadata;
 import com.smart.vision.core.search.domain.model.ImageSearchResultDTO;
 import com.smart.vision.core.search.infrastructure.persistence.es.document.ImageDocument;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
+import java.util.LinkedHashMap;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -31,13 +34,38 @@ public class SearchResultConvertor {
                     ImageDocument doc = hit.source();
                     doc.setId(Long.parseLong(hit.id()));
                     double rawScore = hit.score();
+                    Map<String, String> highlightMap = extractHighlightMap(hit);
                     return ImageSearchResultDTO.builder()
                             .document(doc)
                             .rawScore(rawScore)
                             .score(mapScoreToPercentage(rawScore))
                             .sortValues(hit.sort().stream().map(this::unwrapFieldValue).collect(Collectors.toList()))
+                            .highlights(highlightMap)
+                            .highlightFields(List.copyOf(highlightMap.keySet()))
                             .build();
                 }).collect(Collectors.toList());
+    }
+
+    private Map<String, String> extractHighlightMap(Hit<ImageDocument> hit) {
+        Map<String, List<String>> highlightByField = hit.highlight();
+        if (highlightByField == null || highlightByField.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, String> normalized = new LinkedHashMap<>();
+        for (Map.Entry<String, List<String>> entry : highlightByField.entrySet()) {
+            String field = entry.getKey();
+            if (!StringUtils.hasText(field) || entry.getValue() == null || entry.getValue().isEmpty()) {
+                continue;
+            }
+            String snippet = entry.getValue().stream()
+                    .filter(StringUtils::hasText)
+                    .findFirst()
+                    .orElse(null);
+            if (StringUtils.hasText(snippet)) {
+                normalized.put(field, snippet);
+            }
+        }
+        return normalized;
     }
 
     private Object unwrapFieldValue(FieldValue fv) {

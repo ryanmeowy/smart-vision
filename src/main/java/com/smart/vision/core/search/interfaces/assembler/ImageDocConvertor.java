@@ -38,6 +38,7 @@ public class ImageDocConvertor {
                     .id(String.valueOf(doc.getId()))
                     .filename(doc.getFileName())
                     .sortValues(result.getSortValues())
+                    .highlights(result.getHighlights())
                     .tags(doc.getTags())
                     .relations(toDtoRelations(doc.getRelations()))
                     .build();

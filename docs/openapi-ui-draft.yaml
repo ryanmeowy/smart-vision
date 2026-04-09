@@ -518,7 +518,9 @@ components:
           type: number
           format: double
         ocrText: { type: string }
-        highlight: { type: string }
+        highlight:
+          type: string
+          description: ES highlight snippet for matched content. May include highlight wrappers (for example <em>...</em>). UI should prefer this snippet and gracefully fallback when absent.
         filename: { type: string }
         sortValues:
           type: array

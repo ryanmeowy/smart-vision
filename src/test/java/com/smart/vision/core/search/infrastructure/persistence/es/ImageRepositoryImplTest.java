@@ -4,9 +4,9 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.HitsMetadata;
-import com.smart.vision.core.search.infrastructure.persistence.es.SearchResultConvertor;
 import com.smart.vision.core.common.exception.InfraException;
 import com.smart.vision.core.search.domain.model.HybridSearchParamDTO;
+import com.smart.vision.core.search.infrastructure.persistence.es.SearchResultConvertor;
 import com.smart.vision.core.search.infrastructure.persistence.es.document.ImageDocument;
 import com.smart.vision.core.search.infrastructure.persistence.es.query.factory.SearchRequestFactory;
 import com.smart.vision.core.search.infrastructure.persistence.es.repository.ImageRepositoryImpl;
@@ -80,4 +80,5 @@ class ImageRepositoryImplTest {
 
         assertThat(duplicate).isNull();
     }
+
 }

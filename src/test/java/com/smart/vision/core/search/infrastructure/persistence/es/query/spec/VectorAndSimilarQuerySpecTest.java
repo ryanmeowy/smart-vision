@@ -19,13 +19,14 @@ class VectorAndSimilarQuerySpecTest {
 
     @Test
     void vectorOnlySpec_shouldUseDefaultTopK_whenTopKIsInvalid() {
-        VectorOnlyQuerySpec spec = new VectorOnlyQuerySpec("idx", List.of(0.1f, 0.2f), 0);
+        VectorOnlyQuerySpec spec = new VectorOnlyQuerySpec("idx", List.of(0.1f, 0.2f), 0, 0.72d);
 
         SearchRequest request = spec.toSearchRequest();
 
         assertThat(request.size()).isEqualTo(EmbeddingConstant.DEFAULT_TOP_K);
         assertThat(request.knn()).isNotNull();
         assertThat(request.knn()).hasSize(1);
+        assertThat(request.minScore()).isEqualTo(0.72d);
     }
 
     @Test

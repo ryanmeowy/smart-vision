@@ -37,6 +37,7 @@ app:
     image-input-mode: auto
   search:
     quality-absolute-min-score: 0.72
+    vector-min-score: 0.6
     rrf:
       enabled: true
       rank-constant: 60

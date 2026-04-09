@@ -43,6 +43,9 @@ class TextOnlyQuerySpecTest {
         assertThat(request.size()).isEqualTo(5);
         assertThat(request.query()).isNotNull();
         assertThat(request.query().isMatchNone()).isTrue();
+        assertThat(request.highlight()).isNotNull();
+        assertThat(request.highlight().fields().keySet()).contains("fileName", "tags");
+        assertThat(request.highlight().fields().keySet()).doesNotContain("ocrContent");
         verify(matcher).match("invoice", false);
     }
 
@@ -58,6 +61,8 @@ class TextOnlyQuerySpecTest {
         assertThat(request.size()).isEqualTo(8);
         assertThat(request.query()).isNotNull();
         assertThat(request.query().isMatch()).isTrue();
+        assertThat(request.highlight()).isNotNull();
+        assertThat(request.highlight().fields().keySet()).contains("fileName", "tags", "ocrContent");
         verify(matcher).match("cat", true);
     }
 }

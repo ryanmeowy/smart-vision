@@ -14,11 +14,13 @@ public class VectorOnlyQuerySpec implements QuerySpec {
     private final String indexName;
     private final List<Float> vector;
     private final Integer topK;
+    private final Double minScore;
 
-    public VectorOnlyQuerySpec(String indexName, List<Float> vector, Integer topK) {
+    public VectorOnlyQuerySpec(String indexName, List<Float> vector, Integer topK, Double minScore) {
         this.indexName = indexName;
         this.vector = vector;
         this.topK = topK;
+        this.minScore = minScore;
     }
 
     @Override
@@ -28,6 +30,9 @@ public class VectorOnlyQuerySpec implements QuerySpec {
         builder.index(indexName);
         builder.size(safeTopK);
         builder.sort(defaultSort());
+        if (minScore != null && minScore > 0) {
+            builder.minScore(minScore);
+        }
 
         KnnSearch knn = new KnnSearch.Builder()
                 .field("imageEmbedding")
@@ -46,4 +51,3 @@ public class VectorOnlyQuerySpec implements QuerySpec {
         );
     }
 }
-

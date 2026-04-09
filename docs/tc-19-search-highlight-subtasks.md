@@ -11,12 +11,12 @@
 
 | 序号 | 子任务 | 优先级 | 状态 | 主要产出 | 依赖 | 预估 |
 |---|---|---|---|---|---|---|
-| ST-01 | 明确高亮字段与规则 | P0 | 待执行 | 确认 `ocrContent/tags/fileName` 的高亮字段、fragment 策略、fallback 规则 | 无 | 0.5 天 |
-| ST-02 | ES 查询增加 highlight 配置 | P0 | 待执行 | 在 Text/Hybrid 相关查询中加入 `highlight` 配置（字段、`pre_tags/post_tags`、片段参数） | ST-01 | 0.5 天 |
-| ST-03 | 结果转换层透传高亮片段 | P0 | 待执行 | 从 ES `Hit` 读取高亮内容，映射到 `SearchResultDTO.highlight` | ST-02 | 0.5 天 |
-| ST-04 | UI 渲染策略升级 | P0 | 待执行 | 优先渲染后端 `highlight`，缺失时回退当前前端关键词高亮 | ST-03 | 0.5 天 |
-| ST-05 | 文档与契约更新 | P1 | 待执行 | OpenAPI 与任务卡同步 `highlight` 语义与降级规则 | ST-03 | 0.5 天 |
-| ST-06 | 测试与回归验证 | P0 | 待执行 | 覆盖“有片段/无片段/字段缺失/大小写”场景与 UI 回退逻辑 | ST-04~05 | 0.5-1 天 |
+| ST-01 | 明确高亮字段与规则 | P0 | 已完成 | 规则固定：字段 `ocrContent/tags/fileName`；优先级 `ocrContent > tags > fileName`；OCR `fragmentSize=160`、`numberOfFragments=1`；fallback 保留前端关键词高亮 | 无 | 0.5 天 |
+| ST-02 | ES 查询增加 highlight 配置 | P0 | 已完成 | 在 Text/Hybrid 查询中加入 highlight（`pre_tags=<em>`、`post_tags=</em>`、`requireFieldMatch=false`） | ST-01 | 0.5 天 |
+| ST-03 | 结果转换层透传高亮片段 | P0 | 已完成 | 从 ES `Hit.highlight` 读取片段并映射到 `SearchResultDTO.highlight`（含 RRF 保留） | ST-02 | 0.5 天 |
+| ST-04 | UI 渲染策略升级 | P0 | 已完成 | 优先渲染后端 `highlight`；缺失时回退当前前端关键词高亮；对 `<em>/<strong>` 安全转换为 `<mark>` | ST-03 | 0.5 天 |
+| ST-05 | 文档与契约更新 | P1 | 已完成 | OpenAPI 同步 `highlight` 语义与降级规则 | ST-03 | 0.5 天 |
+| ST-06 | 测试与回归验证 | P0 | 已完成 | 覆盖 QuerySpec 高亮配置、转换层优先级、装配层映射；核心回归通过 | ST-04~05 | 0.5-1 天 |
 
 ## 3. 影响面分析
 

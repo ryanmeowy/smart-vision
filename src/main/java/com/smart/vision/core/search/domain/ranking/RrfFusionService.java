@@ -75,6 +75,10 @@ public class RrfFusionService {
                     .rawScore(rawScore)
                     .score(mapScoreToPercentage(rawScore))
                     .sortValues(accumulator.primary.getSortValues())
+                    .highlights(accumulator.primary.getHighlights())
+                    .highlightFields(accumulator.primary.getHighlightFields())
+                    .vectorRecallHit(accumulator.primary.getVectorRecallHit())
+                    .textRecallHit(accumulator.primary.getTextRecallHit())
                     .build());
         }
         return fused;

@@ -24,7 +24,6 @@ RESULT_STATE_KEYS = {
 }
 LAYOUT_OPTIONS = ["Large (2 per row)", "Compact (3 per row)"]
 OCR_PREVIEW_MAX_CHARS = 100
-HIGHLIGHT_PREVIEW_MAX_CHARS = 80
 SPO_PREVIEW_MAX_ITEMS = 3
 SPO_PREVIEW_MAX_CHARS = 140
 
@@ -152,7 +151,14 @@ def render_text_search_page(base_url: str) -> None:
         _render_response_meta(state["status_code"], state["headers"])
         if state["payload_text"]:
             st.code(state["payload_text"], language="json")
-        _render_search_results(state["results"], layout_key="text", highlight_term=_safe_str(state.get("keyword")))
+        requested_strategy = _safe_str(state.get("base_payload", {}).get("searchType")) if isinstance(
+            state.get("base_payload"), dict
+        ) else ""
+        _render_search_results(
+            state["results"],
+            layout_key="text",
+            requested_strategy=requested_strategy,
+        )
         loaded_count = len(state["results"]) if isinstance(state.get("results"), list) else 0
         st.caption(f"Loaded {loaded_count} items")
 
@@ -1800,7 +1806,12 @@ def _render_response_meta(status_code: int, headers: dict[str, str]) -> None:
         st.json({k: v for k, v in headers.items() if v})
 
 
-def _render_search_results(results: list[Any], *, layout_key: str, highlight_term: str = "") -> None:
+def _render_search_results(
+    results: list[Any],
+    *,
+    layout_key: str,
+    requested_strategy: str = "",
+) -> None:
     st.markdown("### Results")
     if not results:
         st.info("No results found.")
@@ -1841,25 +1852,31 @@ def _render_search_results(results: list[Any], *, layout_key: str, highlight_ter
             score = "-" if item.get("score") is None else str(item.get("score"))
             tags = item.get("tags")
             tags_text = ", ".join(str(tag) for tag in tags[:8]) if isinstance(tags, list) and tags else "-"
-            highlight = _clip_text(_safe_str(item.get("highlight")), HIGHLIGHT_PREVIEW_MAX_CHARS)
+            field_highlights = _normalize_field_highlights(item.get("highlights"))
+            filename_terms = _resolve_field_highlight_terms(field_highlights, ["fileName"])
+            tags_terms = _resolve_field_highlight_terms(field_highlights, ["tags"])
+            ocr_terms = _resolve_field_highlight_terms(field_highlights, ["ocrContent"])
+            spo_terms = _resolve_field_highlight_terms(field_highlights, ["relations", "relations.s", "relations.p", "relations.o"])
             ocr_text = _clip_text(_safe_str(item.get("ocrText")), OCR_PREVIEW_MAX_CHARS)
             relations_text = _clip_text(
                 _format_relations_preview(item.get("relations"), max_items=SPO_PREVIEW_MAX_ITEMS),
                 SPO_PREVIEW_MAX_CHARS,
             )
-            vector_status = _safe_str(item.get("vectorHitStatus")) or "-"
             explain = item.get("explain") if isinstance(item.get("explain"), dict) else {}
             hit_sources = _normalize_hit_sources(explain.get("hitSources"))
             hit_sources_html = _render_hit_source_badges(hit_sources)
-            matched_by_text = _format_matched_by(explain.get("matchedBy"))
             strategy_effective = _safe_str(explain.get("strategyEffective")) or "-"
-            tags_html = _highlight_text_html(tags_text, highlight_term)
-            ocr_html = _highlight_text_html(ocr_text, highlight_term) if ocr_text else ""
-            spo_html = _highlight_text_html(relations_text, highlight_term) if relations_text else ""
+            tags_html = _highlight_text_html_by_terms(tags_text, tags_terms)
+            ocr_html = _highlight_text_html_by_terms(ocr_text, ocr_terms) if ocr_text else ""
+            spo_html = _highlight_text_html_by_terms(relations_text, spo_terms) if relations_text else ""
 
             card_html = [
                 "<div class='result-card'>",
-                _render_large_preview(image_url, filename, highlight_term=highlight_term),
+                _render_large_preview(
+                    image_url,
+                    filename,
+                    highlight_terms=filename_terms,
+                ),
                 "<div class='result-meta'>",
             ]
             card_html.append(_meta_row("id", doc_id))
@@ -1867,17 +1884,12 @@ def _render_search_results(results: list[Any], *, layout_key: str, highlight_ter
             card_html.append(_meta_row_html("tags", tags_html))
             if relations_text:
                 card_html.append(_meta_row_single_line_html("spo", spo_html, relations_text))
-            card_html.append(_meta_row("vector", vector_status))
-            if hit_sources_html:
-                card_html.append(_meta_row_html("hitSources", hit_sources_html))
-            if strategy_effective != "-":
+            if _should_show_strategy_mismatch(strategy_effective, requested_strategy):
                 card_html.append(_meta_row("strategy", strategy_effective))
-            if matched_by_text:
-                card_html.append(_meta_row_single_line("matchedBy", matched_by_text))
-            if highlight:
-                card_html.append(_meta_row("highlight", highlight))
             if ocr_text:
                 card_html.append(_meta_row_html("ocrText", ocr_html))
+            if hit_sources_html:
+                card_html.append(_meta_row_html("hitSources", hit_sources_html))
             card_html.append("</div></div>")
             st.markdown("".join(card_html), unsafe_allow_html=True)
 
@@ -1891,13 +1903,77 @@ def _format_relations_preview(relations: Any, *, max_items: int) -> str:
     return "; ".join(triples)
 
 
-def _highlight_text_html(text: str, keyword: str) -> str:
+def _highlight_text_html_by_terms(text: str, terms: list[str]) -> str:
     safe_text = html.escape(_safe_str(text))
-    key = _safe_str(keyword)
-    if not safe_text or not key:
+    if not safe_text:
         return safe_text
-    pattern = re.compile(re.escape(key), re.IGNORECASE)
+    deduped_terms = _dedupe_terms(terms)
+    if not deduped_terms:
+        return safe_text
+    pattern = re.compile("|".join(re.escape(term) for term in deduped_terms), re.IGNORECASE)
     return pattern.sub(lambda m: f"<mark class='hit-mark'>{m.group(0)}</mark>", safe_text)
+
+
+def _normalize_field_highlights(value: Any) -> dict[str, str]:
+    if not isinstance(value, dict):
+        return {}
+    normalized: dict[str, str] = {}
+    for key, snippet in value.items():
+        field = _safe_str(key)
+        if not field:
+            continue
+        if not isinstance(snippet, str):
+            continue
+        raw = snippet.strip()
+        if not raw:
+            continue
+        normalized[field] = raw
+    return normalized
+
+
+def _resolve_field_highlight_terms(highlights: dict[str, str], fields: list[str]) -> list[str]:
+    terms: list[str] = []
+    for field in fields:
+        snippet = highlights.get(field)
+        if not snippet:
+            continue
+        terms.extend(_extract_marked_terms_from_snippet(snippet))
+    return _dedupe_terms(terms)
+
+
+def _extract_marked_terms_from_snippet(snippet: str) -> list[str]:
+    raw = _safe_str(snippet)
+    if not raw:
+        return []
+    terms: list[str] = []
+    for pattern in [
+        r"<em>(.*?)</em>",
+        r"<strong>(.*?)</strong>",
+        r"&lt;em&gt;(.*?)&lt;/em&gt;",
+        r"&lt;strong&gt;(.*?)&lt;/strong&gt;",
+    ]:
+        for match in re.findall(pattern, raw, flags=re.IGNORECASE | re.DOTALL):
+            term = html.unescape(_safe_str(match))
+            if term:
+                terms.append(term)
+    return _dedupe_terms(terms)
+
+
+def _dedupe_terms(terms: list[str]) -> list[str]:
+    cleaned = [_safe_str(term) for term in terms if _safe_str(term)]
+    if not cleaned:
+        return []
+    # Prefer longer terms first to reduce partial-overlap replacements.
+    ordered = sorted(cleaned, key=lambda term: len(term), reverse=True)
+    seen: set[str] = set()
+    result: list[str] = []
+    for term in ordered:
+        key = term.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(term)
+    return result
 
 
 def _normalize_relations(relations: Any) -> list[dict[str, str]]:
@@ -1932,7 +2008,7 @@ def _normalize_hit_sources(value: Any) -> list[str]:
     normalized: list[str] = []
     for item in value:
         source = _safe_str(item).upper()
-        if source in {"VECTOR", "OCR", "TAG", "GRAPH"} and source not in normalized:
+        if source in {"VECTOR", "FILENAME", "OCR", "TAG", "GRAPH"} and source not in normalized:
             normalized.append(source)
     return normalized
 
@@ -1946,15 +2022,12 @@ def _render_hit_source_badges(hit_sources: list[str]) -> str:
     )
 
 
-def _format_matched_by(value: Any) -> str:
-    if not isinstance(value, dict):
-        return ""
-    pairs: list[str] = []
-    for key in ["vector", "filename", "ocr", "tag", "graph"]:
-        raw = value.get(key)
-        if isinstance(raw, bool):
-            pairs.append(f"{key}={'Y' if raw else 'N'}")
-    return ", ".join(pairs)
+def _should_show_strategy_mismatch(strategy_effective: str, requested_strategy: str) -> bool:
+    effective = _safe_str(strategy_effective)
+    requested = _safe_str(requested_strategy)
+    if not effective or effective == "-" or not requested:
+        return False
+    return effective != requested
 
 
 def _validate_uploaded_image_size(uploaded: Any, label: str) -> bool:
@@ -2058,8 +2131,16 @@ def _get_result_state(page: str) -> dict[str, Any]:
     return st.session_state[key]
 
 
-def _render_large_preview(image_url: str, filename: str, highlight_term: str = "") -> str:
-    safe_filename = _highlight_text_html(filename, highlight_term) if _safe_str(highlight_term) else html.escape(filename)
+def _render_large_preview(
+    image_url: str,
+    filename: str,
+    highlight_terms: list[str] | None = None,
+) -> str:
+    terms = _dedupe_terms(highlight_terms or [])
+    if terms:
+        safe_filename = _highlight_text_html_by_terms(filename, terms)
+    else:
+        safe_filename = html.escape(filename)
     if image_url:
         safe_image_url = html.escape(image_url, quote=True)
         return (
@@ -2176,6 +2257,7 @@ def _inject_result_text_styles() -> None:
           background: #9fb4cf;
         }
         .hit-source-vector { background: #7dd3fc; }
+        .hit-source-filename { background: #c4b5fd; }
         .hit-source-ocr { background: #86efac; }
         .hit-source-tag { background: #fcd34d; }
         .hit-source-graph { background: #f9a8d4; }

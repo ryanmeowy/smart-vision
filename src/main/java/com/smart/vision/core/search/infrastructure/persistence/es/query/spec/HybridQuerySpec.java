@@ -7,6 +7,7 @@ import co.elastic.clients.elasticsearch._types.SortOptions;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.elasticsearch.core.search.Highlight;
 import com.smart.vision.core.common.constant.EmbeddingConstant;
 import com.smart.vision.core.search.domain.model.HybridSearchParamDTO;
 import com.smart.vision.core.search.infrastructure.persistence.es.query.GraphTriplesMatcher;
@@ -56,6 +57,9 @@ public class HybridQuerySpec implements QuerySpec {
         if (merged != null) {
             builder.query(merged);
         }
+        if (hasKeyword()) {
+            builder.highlight(buildHighlight(isEnableOcrEnabled()));
+        }
         return builder.build();
     }
 
@@ -77,7 +81,7 @@ public class HybridQuerySpec implements QuerySpec {
         BoolQuery.Builder combined = new BoolQuery.Builder();
         boolean hasClause = false;
 
-        if (paramDTO.getKeyword() != null && !paramDTO.getKeyword().isBlank()) {
+        if (hasKeyword()) {
             Optional<Query> keywordQueryOpt = keywordMatcher.match(paramDTO.getKeyword(), isEnableOcrEnabled());
             if (keywordQueryOpt.isPresent()) {
                 combined.should(keywordQueryOpt.get());
@@ -100,6 +104,23 @@ public class HybridQuerySpec implements QuerySpec {
 
     private boolean isEnableOcrEnabled() {
         return paramDTO.getEnableOcr() == null || paramDTO.getEnableOcr();
+    }
+
+    private boolean hasKeyword() {
+        return paramDTO.getKeyword() != null && !paramDTO.getKeyword().isBlank();
+    }
+
+    private Highlight buildHighlight(boolean ocrEnabled) {
+        Highlight.Builder builder = new Highlight.Builder()
+                .preTags("<em>")
+                .postTags("</em>")
+                .requireFieldMatch(false)
+                .fields("fileName", field -> field.numberOfFragments(0))
+                .fields("tags", field -> field.numberOfFragments(0));
+        if (ocrEnabled) {
+            builder.fields("ocrContent", field -> field.fragmentSize(160).numberOfFragments(1));
+        }
+        return builder.build();
     }
 
     private static List<SortOptions> defaultSort() {

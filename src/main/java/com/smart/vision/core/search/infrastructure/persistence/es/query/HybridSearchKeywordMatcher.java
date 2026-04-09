@@ -7,9 +7,6 @@ import java.util.Optional;
 
 import static com.smart.vision.core.common.constant.EmbeddingConstant.DEFAULT_FIELD_NAME_BOOST;
 import static com.smart.vision.core.common.constant.EmbeddingConstant.DEFAULT_OCR_BOOST;
-import static com.smart.vision.core.common.constant.EmbeddingConstant.DEFAULT_RELATION_O_BOOST;
-import static com.smart.vision.core.common.constant.EmbeddingConstant.DEFAULT_RELATION_P_BOOST;
-import static com.smart.vision.core.common.constant.EmbeddingConstant.DEFAULT_RELATION_S_BOOST;
 import static com.smart.vision.core.common.constant.EmbeddingConstant.DEFAULT_TAG_BOOST;
 
 @Component
@@ -27,20 +24,7 @@ public class HybridSearchKeywordMatcher implements FieldMatcher {
             }
             b.should(sh -> sh.constantScore(x -> x.filter(s -> s.match(m -> m.field("tags").query(keyword))).boost(DEFAULT_TAG_BOOST)));
             b.should(sh -> sh.constantScore(x -> x.filter(s -> s.match(m -> m.field("fileName").query(keyword))).boost(DEFAULT_FIELD_NAME_BOOST)));
-            b.should(relationNestedQuery("relations.o", keyword, DEFAULT_RELATION_O_BOOST));
-            b.should(relationNestedQuery("relations.s", keyword, DEFAULT_RELATION_S_BOOST));
-            b.should(relationNestedQuery("relations.p", keyword, DEFAULT_RELATION_P_BOOST));
             return b;
         })));
-    }
-
-    private Query relationNestedQuery(String field, String keyword, float boost) {
-        return Query.of(sh -> sh.constantScore(x -> x
-                .filter(s -> s.nested(n -> n
-                        .path("relations")
-                        .query(nq -> nq.match(m -> m.field(field).query(keyword)))
-                ))
-                .boost(boost)
-        ));
     }
 }

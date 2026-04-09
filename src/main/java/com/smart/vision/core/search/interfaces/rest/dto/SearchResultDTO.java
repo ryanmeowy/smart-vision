@@ -6,6 +6,7 @@ import lombok.Data;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Map;
 
 /**
  * image search result model
@@ -37,9 +38,9 @@ public class SearchResultDTO implements Serializable {
     private String ocrText;
 
     /**
-     * highlight (optional, used to display matched text fragments)
+     * Field-level highlight snippets from Elasticsearch, e.g. {"tags": "<em>cat</em>"}.
      */
-    private String highlight;
+    private Map<String, String> highlights;
 
     /**
      * image filename
