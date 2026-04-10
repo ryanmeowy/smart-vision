@@ -33,3 +33,7 @@
 - 可行性评估：改动中等、影响面可控，主要集中在 ES 查询构建、结果转换、UI 渲染和测试，不涉及分页与 rerank 主链路改造。
 - 推荐拆分：详见 [tc-19-search-highlight-subtasks.md](/Users/ryan/personal/smart-vision/docs/tc-19-search-highlight-subtasks.md)。
 - 执行状态：`ST-01 ~ ST-06` 已按序完成。
+
+## TC-16 执行状态（2026-04-10）
+
+- 执行状态：`ST-01 ~ ST-08` 已按序完成（含灰度发布与调参手册）。

@@ -47,6 +47,13 @@ app:
       enabled: true
       model: gte-rerank-v2
       max-doc-chars: 1200
+      window-enabled: true
+      window-size: 40
+      window-factor: 3
+      window-min: 20
+      window-max: 80
+      fusion-alpha: 0.6
+      fusion-beta: 0.4
   compare:
     max-text-length: 500
     high-threshold: 0.8
