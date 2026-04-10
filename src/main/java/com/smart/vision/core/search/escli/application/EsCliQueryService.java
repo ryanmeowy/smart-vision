@@ -8,8 +8,11 @@ import co.elastic.clients.elasticsearch.cluster.ClusterStatsResponse;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.elasticsearch.indices.GetMappingResponse;
+import co.elastic.clients.elasticsearch.indices.get_mapping.IndexMappingRecord;
 import co.elastic.clients.elasticsearch.indices.stats.IndicesStats;
 import co.elastic.clients.elasticsearch.indices.stats.IndexStats;
+import co.elastic.clients.json.JsonpSerializable;
+import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smart.vision.core.common.exception.ApiError;
@@ -38,6 +41,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -48,6 +52,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import jakarta.json.spi.JsonProvider;
 
 /**
  * ES read-only query service used by the internal ES CLI APIs.
@@ -56,6 +61,7 @@ import java.util.regex.Pattern;
 @Service
 @RequiredArgsConstructor
 public class EsCliQueryService {
+    private static final JacksonJsonpMapper JSONP_MAPPER = new JacksonJsonpMapper();
 
     private static final Set<String> ALLOWED_QUERY_FIELDS = Set.of(
             "id", "imagePath", "ocrContent", "createTime", "rawFilename", "fileName", "tags", "fileHash"
@@ -176,9 +182,8 @@ public class EsCliQueryService {
             if (response.result() == null || response.result().isEmpty()) {
                 throw new BusinessException(ApiError.NOT_FOUND, "Index not found");
             }
-            Map.Entry<String, ?> entry = response.result().entrySet().iterator().next();
-            Map<String, Object> mapping = objectMapper.convertValue(entry.getValue(), new TypeReference<>() {
-            });
+            Map.Entry<String, IndexMappingRecord> entry = response.result().entrySet().iterator().next();
+            Map<String, Object> mapping = resolveMapping(entry.getValue());
 
             EsIndexMappingDTO result = EsIndexMappingDTO.builder()
                     .index(entry.getKey())
@@ -188,6 +193,33 @@ public class EsCliQueryService {
             auditSuccess("indices.mapping", "index=" + safe(result.index()) + ",keys=" + (result.mapping() == null ? 0 : result.mapping().size()));
             return result;
         });
+    }
+
+    private Map<String, Object> resolveMapping(IndexMappingRecord record) {
+        if (record == null) {
+            return Map.of();
+        }
+        Map<String, Object> mapping = parseJsonpAsMap(record.mappings());
+        if (!mapping.isEmpty()) {
+            return mapping;
+        }
+        return parseJsonpAsMap(record);
+    }
+
+    private Map<String, Object> parseJsonpAsMap(JsonpSerializable payload) {
+        if (payload == null) {
+            return Map.of();
+        }
+        try {
+            StringWriter writer = new StringWriter();
+            var generator = JsonProvider.provider().createGenerator(writer);
+            payload.serialize(generator, JSONP_MAPPER);
+            generator.close();
+            return objectMapper.readValue(writer.toString(), new TypeReference<>() {
+            });
+        } catch (IOException e) {
+            throw new BusinessException(ApiError.INTERNAL_ERROR, "Failed to parse index mapping");
+        }
     }
 
     public EsDocGetDTO getDocument(String index, String id, boolean sourceEnabled) {
