@@ -1,5 +1,7 @@
 package com.smart.vision.core.search.application.impl;
 
+import com.smart.vision.core.common.exception.ApiError;
+import com.smart.vision.core.common.exception.InfraException;
 import com.smart.vision.core.search.domain.port.SearchEmbeddingPort;
 import com.smart.vision.core.search.domain.port.SearchObjectStoragePort;
 import com.smart.vision.core.search.interfaces.rest.dto.VectorCompareResultDTO;
@@ -139,13 +141,14 @@ public class VectorCompareServiceImpl implements VectorCompareService {
             throw e;
         } catch (Exception e) {
             log.error("Failed to embed image for {} side", sideName, e);
-            throw new RuntimeException("Failed to generate image embedding, please retry later.");
+            throw new InfraException(ApiError.EMBEDDING_FAILED);
         }
     }
 
     private void validateVector(List<Float> vector, String sideName) {
         if (vector == null || vector.isEmpty()) {
-            throw new RuntimeException("Embedding result is empty for " + sideName + " input.");
+            throw new InfraException(ApiError.EMBEDDING_RESULT_EMPTY,
+                    "Embedding result is empty for " + sideName + " input.");
         }
     }
 

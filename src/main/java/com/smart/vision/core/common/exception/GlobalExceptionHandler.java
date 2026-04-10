@@ -25,7 +25,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     public Result<Void> handleBusinessException(BusinessException e) {
-        return Result.error(e.getCode(), safeMessage(e.getMessage(), ApiError.INTERNAL_ERROR.getMessage()));
+        String fallback = e.getError() == null ? ApiError.INTERNAL_ERROR.getMessage() : e.getError().getMessage();
+        return Result.error(e.getCode(), safeMessage(e.getMessage(), fallback));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
@@ -43,12 +44,12 @@ public class GlobalExceptionHandler {
             ConstraintViolationException.class
     })
     public Result<Void> handleBadRequest(Exception e) {
-        return Result.error(ApiError.INVALID_REQUEST.getCode(), ApiError.INVALID_REQUEST.getMessage());
+        return Result.error(ApiError.INVALID_REQUEST);
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public Result<Void> handleUploadTooLarge(MaxUploadSizeExceededException e) {
-        return Result.error(ApiError.UPLOAD_TOO_LARGE.getCode(), ApiError.UPLOAD_TOO_LARGE.getMessage());
+        return Result.error(ApiError.UPLOAD_TOO_LARGE);
     }
 
     @ExceptionHandler(Exception.class)
@@ -56,7 +57,7 @@ public class GlobalExceptionHandler {
         String path = request == null ? "unknown" : request.getRequestURI();
         String errorId = UUID.randomUUID().toString();
         log.error("Unhandled exception, errorId={}, path={}, message={}", errorId, path, e.getMessage(), e);
-        return Result.error(ApiError.INTERNAL_ERROR.getCode(), ApiError.INTERNAL_ERROR.getMessage(), errorId);
+        return Result.error(ApiError.INTERNAL_ERROR, errorId);
     }
 
     private String safeMessage(String message, String fallback) {

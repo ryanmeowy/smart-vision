@@ -1,6 +1,7 @@
 
 package com.smart.vision.core.common.api;
 
+import com.smart.vision.core.common.exception.ApiError;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -51,10 +52,18 @@ public class Result<T> implements Serializable {
         return result;
     }
 
+    public static <T> Result<T> error(ApiError error) {
+        return error(error.getCode(), error.getMessage());
+    }
+
     public static <T> Result<T> error(int code, String message, String errorId) {
         Result<T> result = error(code, message);
         result.setErrorId(errorId);
         return result;
+    }
+
+    public static <T> Result<T> error(ApiError error, String errorId) {
+        return error(error.getCode(), error.getMessage(), errorId);
     }
 
     public static <T> Result<T> error(String message) {
