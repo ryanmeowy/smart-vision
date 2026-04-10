@@ -1,6 +1,6 @@
 # SmartVision 任务卡清单（按优先级与 ROI 排序）
 
-更新时间：2026-04-08
+更新时间：2026-04-10
 
 | 排名 | 任务卡 | 优先级 | ROI | 目标 | In Scope（边界内） | Out Scope（边界外） | 验收标准（DoD） | 预计投入 |
 |---|---|---|---:|---|---|---|---|---|
@@ -14,17 +14,21 @@
 | 8 | `TC-18 临时文件生命周期治理` | P1 | 7.5/10 | 降低 OSS 成本与脏数据 | 明确开启调度或改事件后删；补监控告警；清理策略配置化 | 全量对象治理平台 | `temp/` 历史堆积可控；清理任务可观测 | 0.5-1 天 |
 | 9 | `TC-19 搜索高亮片段（已完成）` | P1 | 7/10 | 提升结果可解释性与命中证据可读性 | ES 查询增加 highlight（`ocrContent/tags/fileName`）；后端返回 `highlight` 片段；UI 优先展示后端片段，缺失时回退前端关键词高亮；补充测试与文档 | 复杂语义解释系统；多语言分词与同义词体系改造；复杂摘要生成 | 用户可看到 ES 命中片段；`highlight` 为空时页面平滑降级；核心查询回归通过 | 1-2 天 |
 | 10 | `TC-20 筛选/排序能力` | P2 | 6.5/10 | 强化产品可用性 | 增加标签/时间/阈值筛选与排序参数；查询层 filter 支持 | 复杂推荐排序策略 | 常用筛选组合可用；接口文档与测试齐全 | 2 天 |
+| 11 | `TC-21 ES 查询 CLI（后端封装 + 命令简化）` | P1 | 8/10 | 降低 ES 查询复杂度与排障门槛 | 后端白名单 API（cluster/index/doc）；CLI 7 个 MVP 命令；鉴权、审计、错误码与格式化输出 | 全量 DSL 透传；写操作；跨集群复杂聚合 | 7 个命令可用；查询全链路可审计；1 分钟内完成常见排查 | 1.5-2 周 |
+| 12 | `TC-22 ES 正式 CLI 迁移（Picocli）` | P1 | 7.5/10 | 将脚本版 CLI 正式化为可分发产物 | 独立 CLI 工程、会话命令、查询命令、输出与错误映射、fat jar 打包、迁移文档 | 自动升级、native image、全平台安装器 | 正式 CLI 覆盖脚本核心能力；登录后免重复传 token；可打包运行 | 2-4 天 |
 
 ## 推荐执行顺序（第一阶段）
 
 建议优先并行推进：`TC-11`、`TC-12`、`TC-13`、`TC-14`。  
 这 4 张卡可以最快建立安全性、可用性、可量化评估与检索效果的基础盘。
 
-## 子任务卡索引（2026-04-08）
+## 子任务卡索引（2026-04-10）
 
 - TC-12： [tc-12-search-pagination-subtasks.md](/Users/ryan/personal/smart-vision/docs/tc-12-search-pagination-subtasks.md)
 - TC-16： [tc-16-rerank-cost-optimization-subtasks.md](/Users/ryan/personal/smart-vision/docs/tc-16-rerank-cost-optimization-subtasks.md)
 - TC-19： [tc-19-search-highlight-subtasks.md](/Users/ryan/personal/smart-vision/docs/tc-19-search-highlight-subtasks.md)
+- TC-21： [tc-21-es-cli-query-subtasks.md](/Users/ryan/personal/smart-vision/docs/tc-21-es-cli-query-subtasks.md)
+- TC-22： [tc-22-official-cli-migration-subtasks.md](/Users/ryan/personal/smart-vision/docs/tc-22-official-cli-migration-subtasks.md)
 
 ## TC-19 补充说明（2026-04-08）
 
