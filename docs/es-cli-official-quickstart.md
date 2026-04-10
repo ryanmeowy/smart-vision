@@ -2,6 +2,8 @@
 
 更新时间：2026-04-10
 
+实现链路说明：`docs/es-cli-request-flow.md`
+
 ## 1. 构建
 
 ```bash

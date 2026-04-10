@@ -2,6 +2,8 @@
 
 更新时间：2026-04-10
 
+实现链路说明：`docs/es-cli-request-flow.md`
+
 ## 1. 脚本位置
 
 - 脚本：`scripts/sv-es`
