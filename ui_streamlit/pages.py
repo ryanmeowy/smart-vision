@@ -1816,7 +1816,6 @@ def _render_search_results(
     if not results:
         st.info("No results found.")
         return
-    _inject_result_text_styles()
 
     pref_key = f"result_layout_pref_{layout_key}"
     if pref_key not in st.session_state:
@@ -1842,56 +1841,149 @@ def _render_search_results(
         st.error("Unexpected response shape: result items are not objects.")
         return
 
-    cols = st.columns(num_cols)
-    # Masonry-like distribution: keep adding cards down each column to reduce row-gap blank space.
-    for idx, item in enumerate(normalized_results):
-        with cols[idx % num_cols]:
-            image_url = _safe_str(item.get("url"))
-            filename = _safe_str(item.get("filename")) or "Unnamed"
-            doc_id = _safe_str(item.get("id")) or "-"
-            score = "-" if item.get("score") is None else str(item.get("score"))
-            tags = item.get("tags")
-            tags_text = ", ".join(str(tag) for tag in tags[:8]) if isinstance(tags, list) and tags else "-"
-            field_highlights = _normalize_field_highlights(item.get("highlights"))
-            filename_terms = _resolve_field_highlight_terms(field_highlights, ["fileName"])
-            tags_terms = _resolve_field_highlight_terms(field_highlights, ["tags"])
-            ocr_terms = _resolve_field_highlight_terms(field_highlights, ["ocrContent"])
-            spo_terms = _resolve_field_highlight_terms(field_highlights, ["relations", "relations.s", "relations.p", "relations.o"])
-            ocr_text = _clip_text(_safe_str(item.get("ocrText")), OCR_PREVIEW_MAX_CHARS)
-            relations_text = _clip_text(
-                _format_relations_preview(item.get("relations"), max_items=SPO_PREVIEW_MAX_ITEMS),
-                SPO_PREVIEW_MAX_CHARS,
-            )
-            explain = item.get("explain") if isinstance(item.get("explain"), dict) else {}
-            hit_sources = _normalize_hit_sources(explain.get("hitSources"))
-            hit_sources_html = _render_hit_source_badges(hit_sources)
-            strategy_effective = _safe_str(explain.get("strategyEffective")) or "-"
-            tags_html = _highlight_text_html_by_terms(tags_text, tags_terms)
-            ocr_html = _highlight_text_html_by_terms(ocr_text, ocr_terms) if ocr_text else ""
-            spo_html = _highlight_text_html_by_terms(relations_text, spo_terms) if relations_text else ""
+    _inject_result_text_styles()
+    _render_search_results_balanced_columns(
+        normalized_results,
+        num_cols=num_cols,
+        layout_key=layout_key,
+        requested_strategy=requested_strategy,
+    )
 
-            card_html = [
-                "<div class='result-card'>",
-                _render_large_preview(
-                    image_url,
-                    filename,
-                    highlight_terms=filename_terms,
-                ),
-                "<div class='result-meta'>",
-            ]
-            card_html.append(_meta_row("id", doc_id))
-            card_html.append(_meta_row("score", score))
-            card_html.append(_meta_row_html("tags", tags_html))
-            if relations_text:
-                card_html.append(_meta_row_single_line_html("spo", spo_html, relations_text))
-            if _should_show_strategy_mismatch(strategy_effective, requested_strategy):
-                card_html.append(_meta_row("strategy", strategy_effective))
-            if ocr_text:
-                card_html.append(_meta_row_html("ocrText", ocr_html))
-            if hit_sources_html:
-                card_html.append(_meta_row_html("hitSources", hit_sources_html))
-            card_html.append("</div></div>")
-            st.markdown("".join(card_html), unsafe_allow_html=True)
+
+def _build_result_card_html(item: dict[str, Any], *, requested_strategy: str = "") -> str:
+    image_url = _safe_str(item.get("url"))
+    filename = _safe_str(item.get("filename")) or "Unnamed"
+    doc_id = _safe_str(item.get("id")) or "-"
+    score = "-" if item.get("score") is None else str(item.get("score"))
+    tags = item.get("tags")
+    tags_text = ", ".join(str(tag) for tag in tags[:8]) if isinstance(tags, list) and tags else "-"
+    field_highlights = _normalize_field_highlights(item.get("highlights"))
+    filename_terms = _resolve_field_highlight_terms(field_highlights, ["fileName"])
+    tags_terms = _resolve_field_highlight_terms(field_highlights, ["tags"])
+    ocr_terms = _resolve_field_highlight_terms(field_highlights, ["ocrContent"])
+    spo_terms = _resolve_field_highlight_terms(field_highlights, ["relations", "relations.s", "relations.p", "relations.o"])
+    ocr_text = _clip_text(_safe_str(item.get("ocrText")), OCR_PREVIEW_MAX_CHARS)
+    relations_text = _clip_text(
+        _format_relations_preview(item.get("relations"), max_items=SPO_PREVIEW_MAX_ITEMS),
+        SPO_PREVIEW_MAX_CHARS,
+    )
+    explain = item.get("explain") if isinstance(item.get("explain"), dict) else {}
+    hit_sources = _normalize_hit_sources(explain.get("hitSources"))
+    hit_sources_html = _render_hit_source_badges(hit_sources)
+    strategy_effective = _safe_str(explain.get("strategyEffective")) or "-"
+    tags_html = _highlight_text_html_by_terms(tags_text, tags_terms)
+    ocr_html = _highlight_text_html_by_terms(ocr_text, ocr_terms) if ocr_text else ""
+    spo_html = _highlight_text_html_by_terms(relations_text, spo_terms) if relations_text else ""
+
+    card_html = [
+        "<div class='result-card'>",
+        _render_large_preview(
+            image_url,
+            filename,
+            highlight_terms=filename_terms,
+        ),
+        "<div class='result-meta'>",
+    ]
+    card_html.append(_meta_row("id", doc_id))
+    card_html.append(_meta_row("score", score))
+    card_html.append(_meta_row_html("tags", tags_html))
+    if relations_text:
+        card_html.append(_meta_row_single_line_html("spo", spo_html, relations_text))
+    if _should_show_strategy_mismatch(strategy_effective, requested_strategy):
+        card_html.append(_meta_row("strategy", strategy_effective))
+    if ocr_text:
+        card_html.append(_meta_row_html("ocrText", ocr_html))
+    if hit_sources_html:
+        card_html.append(_meta_row_html("hitSources", hit_sources_html))
+    card_html.append("</div></div>")
+    return "".join(card_html)
+
+
+def _render_search_results_balanced_columns(
+    results: list[dict[str, Any]],
+    *,
+    num_cols: int,
+    layout_key: str,
+    requested_strategy: str = "",
+) -> None:
+    safe_col_count = max(1, int(num_cols))
+    state_key = f"result_layout_columns_state_{layout_key}_{safe_col_count}"
+    layout_state = st.session_state.get(state_key)
+    if not isinstance(layout_state, dict):
+        layout_state = {}
+
+    previous_map = layout_state.get("col_map")
+    if not isinstance(previous_map, dict):
+        previous_map = {}
+
+    col_items: list[list[dict[str, Any]]] = [[] for _ in range(safe_col_count)]
+    col_heights = [0 for _ in range(safe_col_count)]
+    current_map: dict[str, int] = {}
+    id_seen_count: dict[str, int] = {}
+
+    for idx, item in enumerate(results):
+        item_key = _resolve_result_layout_key(item, idx, id_seen_count)
+        estimated_height = _estimate_result_card_height(item, requested_strategy=requested_strategy)
+        mapped_col = previous_map.get(item_key)
+        if isinstance(mapped_col, int) and 0 <= mapped_col < safe_col_count:
+            col_idx = mapped_col
+        else:
+            col_idx = min(range(safe_col_count), key=lambda i: (col_heights[i], i))
+
+        col_items[col_idx].append(item)
+        col_heights[col_idx] += estimated_height
+        current_map[item_key] = col_idx
+
+    st.session_state[state_key] = {"col_map": current_map}
+
+    cols = st.columns(safe_col_count)
+    for col_idx, col in enumerate(cols):
+        with col:
+            for item in col_items[col_idx]:
+                st.markdown(
+                    _build_result_card_html(item, requested_strategy=requested_strategy),
+                    unsafe_allow_html=True,
+                )
+
+
+def _resolve_result_layout_key(item: dict[str, Any], idx: int, id_seen_count: dict[str, int]) -> str:
+    raw_id = _safe_str(item.get("id"))
+    if raw_id:
+        seq = id_seen_count.get(raw_id, 0)
+        id_seen_count[raw_id] = seq + 1
+        return raw_id if seq == 0 else f"{raw_id}#{seq}"
+    return f"idx:{idx}"
+
+
+def _estimate_result_card_height(item: dict[str, Any], *, requested_strategy: str = "") -> int:
+    estimated = 220
+
+    tags = item.get("tags")
+    tags_text = ", ".join(str(tag) for tag in tags[:8]) if isinstance(tags, list) and tags else "-"
+    tags_len = len(tags_text)
+    estimated += 14 + min(44, (tags_len // 28) * 10)
+
+    ocr_text = _clip_text(_safe_str(item.get("ocrText")), OCR_PREVIEW_MAX_CHARS)
+    if ocr_text:
+        estimated += 18 + min(64, (len(ocr_text) // 26) * 10)
+
+    relations_text = _clip_text(
+        _format_relations_preview(item.get("relations"), max_items=SPO_PREVIEW_MAX_ITEMS),
+        SPO_PREVIEW_MAX_CHARS,
+    )
+    if relations_text:
+        estimated += 18
+
+    explain = item.get("explain") if isinstance(item.get("explain"), dict) else {}
+    strategy_effective = _safe_str(explain.get("strategyEffective")) or "-"
+    if _should_show_strategy_mismatch(strategy_effective, requested_strategy):
+        estimated += 16
+
+    hit_sources = _normalize_hit_sources(explain.get("hitSources"))
+    if hit_sources:
+        estimated += 14 + (len(hit_sources) // 3) * 8
+
+    return estimated
 
 
 def _format_relations_preview(relations: Any, *, max_items: int) -> str:
