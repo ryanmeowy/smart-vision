@@ -59,6 +59,54 @@ paths:
               schema:
                 $ref: '#/components/schemas/SearchResultEnvelope'
 
+  /api/v1/vision/search-page:
+    post:
+      tags: [Vision]
+      summary: Paged text search
+      operationId: visionSearchPage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchPageQueryDTO'
+            examples:
+              firstPage:
+                value:
+                  keyword: "猫咪在沙发上"
+                  topK: 30
+                  limit: 10
+                  searchType: "0"
+                  enableOcr: true
+              nextPage:
+                value:
+                  keyword: "猫咪在沙发上"
+                  topK: 30
+                  limit: 10
+                  searchType: "0"
+                  enableOcr: true
+                  cursor: "opaque-cursor"
+      responses:
+        '200':
+          description: Success
+          headers:
+            X-Strategy-Requested:
+              schema: { type: string }
+              description: Optional debug header (present on first-page query path)
+            X-Strategy-Effective:
+              schema: { type: string }
+              description: Optional debug header
+            X-Strategy-Fallback:
+              schema: { type: string }
+              description: Optional debug header
+            X-Strategy-Fallback-Reason:
+              schema: { type: string }
+              description: Optional debug header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchPageEnvelope'
+
   /api/v1/vision/similar:
     get:
       tags: [Vision]
@@ -433,6 +481,27 @@ components:
           type: array
           items: {}
 
+    SearchPageQueryDTO:
+      type: object
+      properties:
+        keyword:
+          type: string
+          maxLength: 50
+        topK:
+          type: integer
+        enableOcr:
+          type: boolean
+        searchType:
+          type: string
+          description: "0:HYBRID, 1:VECTOR_ONLY, 2:TEXT_ONLY, 3:IMAGE_TO_IMAGE"
+          enum: ["0", "1", "2", "3"]
+        limit:
+          type: integer
+          description: Page size for each page request.
+        cursor:
+          type: string
+          description: Opaque cursor for next page; omit on first page.
+
     GraphTripleDTO:
       type: object
       properties:
@@ -449,7 +518,9 @@ components:
           type: number
           format: double
         ocrText: { type: string }
-        highlight: { type: string }
+        highlight:
+          type: string
+          description: ES highlight snippet for matched content. May include highlight wrappers (for example <em>...</em>). UI should prefer this snippet and gracefully fallback when absent.
         filename: { type: string }
         sortValues:
           type: array
@@ -566,6 +637,28 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SearchResultDTO'
+        timestamp: { type: integer, format: int64 }
+
+    SearchPageDTO:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchResultDTO'
+        nextCursor:
+          type: string
+          nullable: true
+        hasMore:
+          type: boolean
+
+    SearchPageEnvelope:
+      type: object
+      properties:
+        code: { type: integer, example: 200 }
+        message: { type: string, example: Success }
+        data:
+          $ref: '#/components/schemas/SearchPageDTO'
         timestamp: { type: integer, format: int64 }
 
     BatchUploadResultEnvelope:

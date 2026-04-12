@@ -4,7 +4,8 @@
 /ui_streamlit/.venv
 /ui_streamlit/venv
 /ui_streamlit/.streamlit
-/docs/*.md
+/ui_streamlit/myenv
+#/docs/*.md
 /docs/*.sh
 /scripts
 /*.iml

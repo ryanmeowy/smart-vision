@@ -1,5 +1,7 @@
 package com.smart.vision.core.ingestion.domain.model;
 
+import com.smart.vision.core.common.exception.ApiError;
+import com.smart.vision.core.common.exception.BusinessException;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -52,12 +54,12 @@ public class BatchTask {
         return items.stream()
                 .filter(item -> Objects.equals(itemId, item.getItemId()))
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("Task item not found"));
+                .orElseThrow(() -> new BusinessException(ApiError.INGEST_TASK_ITEM_NOT_FOUND));
     }
 
     public void ensureNotRunning() {
         if (status == BatchTaskStatus.RUNNING) {
-            throw new RuntimeException("Task is running, retry after current round completes.");
+            throw new BusinessException(ApiError.INGEST_TASK_RUNNING);
         }
     }
 
@@ -79,7 +81,7 @@ public class BatchTask {
             changed++;
         }
         if (changed == 0) {
-            throw new RuntimeException("No FAILED items to retry");
+            throw new BusinessException(ApiError.INGEST_NO_FAILED_ITEMS);
         }
         this.completedAt = null;
         refreshSummary(now);
@@ -149,4 +151,3 @@ public class BatchTask {
         this.completedAt = null;
     }
 }
-

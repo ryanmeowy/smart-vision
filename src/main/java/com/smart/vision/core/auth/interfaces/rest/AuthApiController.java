@@ -4,6 +4,7 @@ package com.smart.vision.core.auth.interfaces.rest;
 import com.aliyuncs.exceptions.ClientException;
 import com.smart.vision.core.common.security.RequireAuth;
 import com.smart.vision.core.common.api.Result;
+import com.smart.vision.core.common.exception.ApiError;
 import com.smart.vision.core.auth.application.OssService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -55,10 +56,10 @@ public class AuthApiController {
                                        @RequestParam(required = false) String code) {
         if (!StringUtils.hasText(adminSecret)) {
             log.error("Admin secret is not configured");
-            return Result.error(500, "Internal error");
+            return Result.error(ApiError.AUTH_ADMIN_SECRET_MISSING);
         }
         if (!constantTimeEquals(adminSecret, secret)) {
-            return Result.error(403, "Unauthorized access");
+            return Result.error(ApiError.FORBIDDEN);
         }
 
         String newToken;
@@ -72,7 +73,7 @@ public class AuthApiController {
             redisTemplate.opsForValue().set(TOKEN_CACHE_PREFIX, newToken, 12, TimeUnit.HOURS);
         } catch (Exception e) {
             log.error("Failed to store token in redis", e);
-            return Result.error(500, "Internal error");
+            return Result.error(ApiError.INTERNAL_ERROR);
         }
         return Result.success(newToken);
     }
@@ -81,16 +82,16 @@ public class AuthApiController {
     public Result<Void> cleanToken(@RequestHeader("X-Admin-Secret") String secret) {
         if (!StringUtils.hasText(adminSecret)) {
             log.error("Admin secret is not configured");
-            return Result.error(500, "Internal error");
+            return Result.error(ApiError.AUTH_ADMIN_SECRET_MISSING);
         }
         if (!constantTimeEquals(adminSecret, secret)) {
-            return Result.error(403, "Unauthorized access");
+            return Result.error(ApiError.FORBIDDEN);
         }
         try {
             redisTemplate.delete(TOKEN_CACHE_PREFIX);
         } catch (Exception e) {
             log.warn("Failed to delete token in redis", e);
-            return Result.error(500, "Internal error");
+            return Result.error(ApiError.INTERNAL_ERROR);
         }
         return Result.success();
     }
@@ -102,10 +103,10 @@ public class AuthApiController {
             return Result.success(ossService.fetchStsToken());
         } catch (ClientException e) {
             log.error("Failed to fetch STS token", e);
-            return Result.error(500, "Failed to fetch STS token");
+            return Result.error(ApiError.AUTH_STS_FETCH_FAILED);
         } catch (Exception e) {
             log.error("Unexpected error fetching STS token", e);
-            return Result.error(500, "Internal error");
+            return Result.error(ApiError.INTERNAL_ERROR);
         }
     }
 }

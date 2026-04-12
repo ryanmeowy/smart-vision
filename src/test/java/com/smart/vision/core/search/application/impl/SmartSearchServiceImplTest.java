@@ -2,7 +2,9 @@ package com.smart.vision.core.search.application.impl;
 
 import com.smart.vision.core.search.interfaces.assembler.ImageDocConvertor;
 import com.smart.vision.core.common.exception.InfraException;
+import com.smart.vision.core.search.application.support.SearchCursorCodec;
 import com.smart.vision.core.search.application.support.HotSearchManager;
+import com.smart.vision.core.search.application.support.SearchSessionManager;
 import com.smart.vision.core.common.model.GraphTriple;
 import com.smart.vision.core.search.domain.model.ImageSearchResultDTO;
 import com.smart.vision.core.search.domain.port.SearchEmbeddingPort;
@@ -29,6 +31,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -57,6 +60,10 @@ class SmartSearchServiceImplTest {
     @Mock
     private SearchObjectStoragePort objectStoragePort;
     @Mock
+    private SearchSessionManager searchSessionManager;
+    @Mock
+    private SearchCursorCodec searchCursorCodec;
+    @Mock
     private MultipartFile multipartFile;
     @Mock
     private ValueOperations<String, List<Float>> valueOperations;
@@ -72,7 +79,9 @@ class SmartSearchServiceImplTest {
                 hotSearchManager,
                 strategyFactory,
                 redisTemplate,
-                objectStoragePort
+                objectStoragePort,
+                searchSessionManager,
+                searchCursorCodec
         );
         ReflectionTestUtils.setField(service, "qualityAbsoluteMinScore", 0.72d);
     }
@@ -110,6 +119,8 @@ class SmartSearchServiceImplTest {
                 .document(doc)
                 .rawScore(0.95)
                 .score(0.95)
+                .vectorRecallHit(true)
+                .textRecallHit(true)
                 .build();
         SearchResultDTO dto = SearchResultDTO.builder().build();
 
@@ -127,13 +138,101 @@ class SmartSearchServiceImplTest {
         assertThat(result.getVectorHitStatus()).isEqualTo("VECTOR_AND_TEXT");
         assertThat(result.getExplain()).isNotNull();
         assertThat(result.getExplain().getStrategyEffective()).isEqualTo("0");
-        assertThat(result.getExplain().getHitSources()).containsExactly("VECTOR", "OCR", "TAG", "GRAPH");
+        assertThat(result.getExplain().getHitSources()).containsExactly("VECTOR", "FILENAME", "OCR", "TAG", "GRAPH");
         SearchExplainDTO.MatchedBy matchedBy = result.getExplain().getMatchedBy();
         assertThat(matchedBy.isVector()).isTrue();
         assertThat(matchedBy.isFilename()).isTrue();
         assertThat(matchedBy.isOcr()).isTrue();
         assertThat(matchedBy.isTag()).isTrue();
         assertThat(matchedBy.isGraph()).isTrue();
+    }
+
+    @Test
+    void search_shouldAlignExplainWithHighlightEvidence_whenPhraseDoesNotContainExactKeyword() {
+        RetrievalStrategy strategy = mock(RetrievalStrategy.class);
+        SearchQueryDTO query = new SearchQueryDTO();
+        query.setKeyword("趴着的猫");
+        query.setSearchType("0");
+        query.setLimit(10);
+        query.setTopK(20);
+        query.setEnableOcr(true);
+
+        ImageDocument doc = new ImageDocument();
+        doc.setFileName("cat-photo.jpg");
+        doc.setOcrContent("一只猫在沙发上");
+        doc.setTags(List.of("猫", "沙发"));
+        ImageSearchResultDTO source = ImageSearchResultDTO.builder()
+                .document(doc)
+                .rawScore(0.95)
+                .score(0.95)
+                .highlights(Map.of("ocrContent", "一只<em>猫</em>在沙发上"))
+                .highlightFields(List.of("ocrContent"))
+                .vectorRecallHit(false)
+                .textRecallHit(true)
+                .build();
+        SearchResultDTO dto = SearchResultDTO.builder().build();
+
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(anyString())).thenReturn(List.of(0.1f, 0.2f));
+        when(strategyFactory.getStrategy("0")).thenReturn(strategy);
+        when(strategy.getType()).thenReturn(StrategyTypeEnum.HYBRID);
+        when(strategy.search(eq(query), anyList())).thenReturn(List.of(source));
+        when(imageDocConvertor.convert2SearchResultDTO(anyList())).thenReturn(List.of(dto));
+
+        List<SearchResultDTO> output = service.search(query);
+
+        assertThat(output).hasSize(1);
+        SearchResultDTO result = output.getFirst();
+        assertThat(result.getVectorHitStatus()).isEqualTo("TEXT_ONLY");
+        assertThat(result.getExplain()).isNotNull();
+        assertThat(result.getExplain().getHitSources()).containsExactly("OCR");
+        assertThat(result.getExplain().getMatchedBy().isVector()).isFalse();
+        assertThat(result.getExplain().getMatchedBy().isOcr()).isTrue();
+        assertThat(result.getExplain().getMatchedBy().isTag()).isFalse();
+        assertThat(result.getExplain().getMatchedBy().isFilename()).isFalse();
+    }
+
+    @Test
+    void search_shouldMarkFilenameSource_whenHighlightComesFromFilename() {
+        RetrievalStrategy strategy = mock(RetrievalStrategy.class);
+        SearchQueryDTO query = new SearchQueryDTO();
+        query.setKeyword("趴着的猫");
+        query.setSearchType("0");
+        query.setLimit(10);
+        query.setTopK(20);
+        query.setEnableOcr(true);
+
+        ImageDocument doc = new ImageDocument();
+        doc.setFileName("猫趴着.jpg");
+        doc.setOcrContent("背景是沙发");
+        ImageSearchResultDTO source = ImageSearchResultDTO.builder()
+                .document(doc)
+                .rawScore(0.93)
+                .score(0.93)
+                .highlights(Map.of("fileName", "<em>猫</em>趴着.jpg"))
+                .highlightFields(List.of("fileName"))
+                .vectorRecallHit(false)
+                .textRecallHit(true)
+                .build();
+        SearchResultDTO dto = SearchResultDTO.builder().build();
+
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(anyString())).thenReturn(List.of(0.1f, 0.2f));
+        when(strategyFactory.getStrategy("0")).thenReturn(strategy);
+        when(strategy.getType()).thenReturn(StrategyTypeEnum.HYBRID);
+        when(strategy.search(eq(query), anyList())).thenReturn(List.of(source));
+        when(imageDocConvertor.convert2SearchResultDTO(anyList())).thenReturn(List.of(dto));
+
+        List<SearchResultDTO> output = service.search(query);
+
+        assertThat(output).hasSize(1);
+        SearchResultDTO result = output.getFirst();
+        assertThat(result.getVectorHitStatus()).isEqualTo("TEXT_ONLY");
+        assertThat(result.getExplain().getHitSources()).containsExactly("FILENAME");
+        assertThat(result.getExplain().getMatchedBy().isVector()).isFalse();
+        assertThat(result.getExplain().getMatchedBy().isFilename()).isTrue();
+        assertThat(result.getExplain().getMatchedBy().isOcr()).isFalse();
+        assertThat(result.getExplain().getMatchedBy().isTag()).isFalse();
     }
 
     @Test

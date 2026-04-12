@@ -2,6 +2,7 @@ package com.smart.vision.core.search.interfaces.rest;
 
 import com.smart.vision.core.common.api.Result;
 import com.smart.vision.core.common.exception.ApiError;
+import com.smart.vision.core.common.exception.BusinessException;
 import com.smart.vision.core.search.application.SmartSearchService;
 import com.smart.vision.core.search.application.VectorCompareService;
 import com.smart.vision.core.search.application.support.HotSearchManager;
@@ -10,6 +11,8 @@ import com.smart.vision.core.search.domain.port.SearchObjectStoragePort;
 import com.smart.vision.core.search.domain.port.SearchOcrPort;
 import com.smart.vision.core.search.domain.strategy.StrategySelectionContext;
 import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
+import com.smart.vision.core.search.interfaces.rest.dto.SearchPageDTO;
+import com.smart.vision.core.search.interfaces.rest.dto.SearchPageQueryDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchQueryDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchResultDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.VectorCompareResultDTO;
@@ -76,6 +79,16 @@ public class SearchApiController {
         }
     }
 
+    @PostMapping("/search-page")
+    public Result<SearchPageDTO> searchPage(@Valid @RequestBody SearchPageQueryDTO query, HttpServletResponse response) {
+        try {
+            return Result.success(searchService.searchPage(query));
+        } finally {
+            attachStrategyDebugHeaders(response);
+            StrategySelectionContext.clear();
+        }
+    }
+
     @GetMapping("/similar")
     public Result<List<SearchResultDTO>> searchSimilar(@RequestParam @NotBlank(message = "id cannot be empty") String id) {
         return Result.success(searchService.searchSimilarById(id));
@@ -92,10 +105,10 @@ public class SearchApiController {
                                                        HttpServletResponse response) {
         try {
             if (file.isEmpty()) {
-                return Result.error(ApiError.INVALID_REQUEST.getCode(), "Please upload an image");
+                throw new BusinessException(ApiError.IMAGE_UPLOAD_REQUIRED);
             }
             if (file.getSize() > IMAGE_MAX_SIZE) {
-                return Result.error(ApiError.INVALID_REQUEST.getCode(), "The image is too large, please upload an image within 10MB");
+                throw new BusinessException(ApiError.UPLOAD_TOO_LARGE);
             }
 
             return Result.success(searchService.searchByImage(file, limit));
@@ -126,22 +139,15 @@ public class SearchApiController {
                                                         @RequestParam("rightType") String rightType,
                                                         @RequestParam(value = "rightText", required = false) String rightText,
                                                         @RequestParam(value = "rightFile", required = false) MultipartFile rightFile) {
-        try {
-            VectorCompareResultDTO result = vectorCompareService.compare(
-                    leftType,
-                    leftText,
-                    leftFile,
-                    rightType,
-                    rightText,
-                    rightFile
-            );
-            return Result.success(result);
-        } catch (IllegalArgumentException e) {
-            return Result.error(400, e.getMessage());
-        } catch (Exception e) {
-            log.error("Vector compare failed: {}", e.getMessage(), e);
-            return Result.error("Vector compare failed, please try again later.");
-        }
+        VectorCompareResultDTO result = vectorCompareService.compare(
+                leftType,
+                leftText,
+                leftFile,
+                rightType,
+                rightText,
+                rightFile
+        );
+        return Result.success(result);
     }
 
     private void runAnalyzeTask(SseEmitter emitter,
@@ -151,12 +157,12 @@ public class SearchApiController {
                                 boolean enableGraph) {
         try {
             if (file == null || file.isEmpty()) {
-                sendEvent(emitter, "error", Map.of("message", "Please upload an image"));
+                sendEvent(emitter, "error", Map.of("message", ApiError.IMAGE_UPLOAD_REQUIRED.getMessage()));
                 sendDone(emitter, false);
                 return;
             }
             if (file.getSize() > IMAGE_MAX_SIZE) {
-                sendEvent(emitter, "error", Map.of("message", "The image is too large, please upload an image within 10MB"));
+                sendEvent(emitter, "error", Map.of("message", ApiError.UPLOAD_TOO_LARGE.getMessage()));
                 sendDone(emitter, false);
                 return;
             }

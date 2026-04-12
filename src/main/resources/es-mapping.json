@@ -27,7 +27,8 @@
       "type": "long"
     },
     "rawFilename": {
-      "type": "keyword"
+      "type": "keyword",
+      "index": false
     },
     "fileName": {
       "type": "text",
@@ -38,7 +39,8 @@
       "type": "keyword"
     },
     "fileHash": {
-      "type": "keyword"
+      "type": "keyword",
+      "index": false
     },
     "relations": {
       "type": "nested",

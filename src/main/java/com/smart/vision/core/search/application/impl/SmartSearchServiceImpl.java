@@ -3,11 +3,17 @@ package com.smart.vision.core.search.application.impl;
 import com.smart.vision.core.search.interfaces.assembler.ImageDocConvertor;
 import com.smart.vision.core.common.exception.ApiError;
 import com.smart.vision.core.common.exception.InfraException;
+import com.smart.vision.core.search.application.support.SearchCursorCodec;
+import com.smart.vision.core.search.application.support.SearchCursorPayload;
 import com.smart.vision.core.search.application.support.HotSearchManager;
+import com.smart.vision.core.search.application.support.SearchPageSession;
+import com.smart.vision.core.search.application.support.SearchSessionManager;
 import com.smart.vision.core.search.domain.model.ImageSearchResultDTO;
 import com.smart.vision.core.common.model.GraphTriple;
 import com.smart.vision.core.search.domain.port.SearchEmbeddingPort;
 import com.smart.vision.core.search.domain.port.SearchObjectStoragePort;
+import com.smart.vision.core.search.interfaces.rest.dto.SearchPageDTO;
+import com.smart.vision.core.search.interfaces.rest.dto.SearchPageQueryDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchQueryDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchExplainDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchResultDTO;
@@ -28,16 +34,20 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.smart.vision.core.common.constant.CacheConstant.IMAGE_MD5_CACHE_PREFIX;
 import static com.smart.vision.core.common.constant.CacheConstant.VECTOR_CACHE_PREFIX;
 import static com.smart.vision.core.common.constant.CommonConstant.PROFILE_KEY_NAME;
+import static com.smart.vision.core.common.constant.EmbeddingConstant.DEFAULT_TOP_K;
 import static com.smart.vision.core.common.constant.EmbeddingConstant.QUALITY_MIN_RESULTS;
 import static com.smart.vision.core.common.constant.EmbeddingConstant.QUALITY_RATIO_CUTOFF;
 import static com.smart.vision.core.common.constant.EmbeddingConstant.SIMILARITY_TOP_K;
@@ -57,6 +67,10 @@ public class SmartSearchServiceImpl implements SmartSearchService {
     private String imageInputMode;
     @Value("${app.search.quality-absolute-min-score:0.72}")
     private double qualityAbsoluteMinScore;
+    @Value("${app.search.page.default-page-size:10}")
+    private int defaultPageSize;
+    @Value("${app.search.page.max-window:100}")
+    private int pageMaxWindow;
 
     private final SearchEmbeddingPort embeddingPort;
     private final ImageRepository imageRepository;
@@ -65,6 +79,8 @@ public class SmartSearchServiceImpl implements SmartSearchService {
     private final StrategyFactory strategyFactory;
     private final RedisTemplate<String, List<Float>> redisTemplate;
     private final SearchObjectStoragePort objectStoragePort;
+    private final SearchSessionManager searchSessionManager;
+    private final SearchCursorCodec searchCursorCodec;
 
     public List<SearchResultDTO> search(SearchQueryDTO query) {
         if (StringUtils.hasText(query.getKeyword())) {
@@ -192,6 +208,39 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         }
     }
 
+    @Override
+    public SearchPageDTO searchPage(SearchPageQueryDTO query) {
+        int pageSize = resolvePageSize(query == null ? null : query.getLimit());
+        if (query == null) {
+            throw new IllegalArgumentException("Paged search request cannot be empty.");
+        }
+        String queryFingerprint = buildPageQueryFingerprint(query, pageSize);
+
+        if (!StringUtils.hasText(query.getCursor())) {
+            SearchQueryDTO initialQuery = toInitialSearchQuery(query, pageSize);
+            List<SearchResultDTO> fullResults = search(initialQuery);
+            SearchPageSession session = searchSessionManager.create(queryFingerprint, fullResults);
+            return buildPagedResponse(fullResults, 0, pageSize, session);
+        }
+
+        SearchCursorPayload cursorPayload = searchCursorCodec.decode(query.getCursor());
+        if (cursorPayload.getExpireAt() <= System.currentTimeMillis()) {
+            throw new IllegalArgumentException("Cursor has expired, please search again.");
+        }
+        if (!queryFingerprint.equals(cursorPayload.getQueryFingerprint())) {
+            throw new IllegalArgumentException("Cursor does not match the current query.");
+        }
+        SearchPageSession session = searchSessionManager.find(cursorPayload.getSessionId())
+                .orElseThrow(() -> new IllegalArgumentException("Cursor has expired, please search again."));
+        if (!queryFingerprint.equals(session.getQueryFingerprint())) {
+            throw new IllegalArgumentException("Cursor fingerprint mismatch.");
+        }
+        if (session.getExpireAt() <= System.currentTimeMillis()) {
+            throw new IllegalArgumentException("Cursor has expired, please search again.");
+        }
+        return buildPagedResponse(session.getResults(), cursorPayload.getOffset(), pageSize, session);
+    }
+
     private List<ImageSearchResultDTO> manualRerank(List<ImageSearchResultDTO> list, String keyword, boolean enableOcr) {
         if (!StringUtils.hasText(keyword) || CollectionUtils.isEmpty(list)) {
             return list;
@@ -287,6 +336,77 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         return strategyType != StrategyTypeEnum.HYBRID;
     }
 
+    private SearchPageDTO buildPagedResponse(List<SearchResultDTO> allResults,
+                                             int offset,
+                                             int pageSize,
+                                             SearchPageSession session) {
+        List<SearchResultDTO> safeResults = allResults == null ? List.of() : allResults;
+        int safeOffset = Math.max(0, Math.min(offset, safeResults.size()));
+        int end = Math.min(safeResults.size(), safeOffset + Math.max(1, pageSize));
+        List<SearchResultDTO> pageItems = new ArrayList<>(safeResults.subList(safeOffset, end));
+        boolean hasMore = end < safeResults.size();
+        String nextCursor = null;
+        if (hasMore) {
+            SearchCursorPayload nextPayload = new SearchCursorPayload(
+                    session.getSessionId(),
+                    end,
+                    session.getQueryFingerprint(),
+                    session.getExpireAt()
+            );
+            nextCursor = searchCursorCodec.encode(nextPayload);
+        }
+        return SearchPageDTO.builder()
+                .items(pageItems)
+                .nextCursor(nextCursor)
+                .hasMore(hasMore)
+                .build();
+    }
+
+    private SearchQueryDTO toInitialSearchQuery(SearchPageQueryDTO pageQuery, int pageSize) {
+        SearchQueryDTO query = new SearchQueryDTO();
+        query.setKeyword(pageQuery.getKeyword());
+        query.setSearchType(pageQuery.getSearchType());
+        query.setEnableOcr(pageQuery.getEnableOcr());
+
+        int requestedTopK = pageQuery.getTopK() == null ? DEFAULT_TOP_K : pageQuery.getTopK();
+        int safeTopK = clamp(requestedTopK, 1, 200);
+        int safeWindowCap = clamp(pageMaxWindow, 1, 200);
+        int windowSize = Math.min(safeWindowCap, Math.max(pageSize, safeTopK));
+        query.setTopK(Math.max(safeTopK, windowSize));
+        query.setLimit(windowSize);
+        return query;
+    }
+
+    private int resolvePageSize(Integer limit) {
+        int fallback = Math.max(1, defaultPageSize);
+        if (limit == null || limit <= 0) {
+            return fallback;
+        }
+        return clamp(limit, 1, 100);
+    }
+
+    private String buildPageQueryFingerprint(SearchPageQueryDTO query, int pageSize) {
+        String normalized = String.join("|",
+                normalizeFingerprintToken(query.getKeyword()),
+                normalizeFingerprintToken(query.getSearchType()),
+                String.valueOf(clamp(query.getTopK() == null ? DEFAULT_TOP_K : query.getTopK(), 1, 200)),
+                String.valueOf(query.getEnableOcr() == null || query.getEnableOcr()),
+                String.valueOf(pageSize)
+        );
+        return DigestUtils.md5DigestAsHex(normalized.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private String normalizeFingerprintToken(String value) {
+        if (!StringUtils.hasText(value)) {
+            return "";
+        }
+        return value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
     private void applySimilarDisplayScore(List<ImageSearchResultDTO> results) {
         if (CollectionUtils.isEmpty(results)) {
             return;
@@ -311,7 +431,7 @@ public class SmartSearchServiceImpl implements SmartSearchService {
             SearchResultDTO dto = dtoList.get(i);
             ImageSearchResultDTO source = sourceDocs.get(i);
             ImageDocument doc = source == null ? null : source.getDocument();
-            dto.setVectorHitStatus(computeVectorHitStatus(doc, normalizedKeyword, enableOcr, strategyType));
+            dto.setVectorHitStatus(computeVectorHitStatus(doc, source, normalizedKeyword, enableOcr, strategyType));
         }
     }
 
@@ -338,11 +458,12 @@ public class SmartSearchServiceImpl implements SmartSearchService {
             SearchResultDTO dto = dtoList.get(i);
             ImageSearchResultDTO source = sourceDocs.get(i);
             ImageDocument doc = source == null ? null : source.getDocument();
-            dto.setExplain(buildExplain(doc, normalizedKeyword, enableOcr, strategyType));
+            dto.setExplain(buildExplain(doc, source, normalizedKeyword, enableOcr, strategyType));
         }
     }
 
     private String computeVectorHitStatus(ImageDocument doc,
+                                          ImageSearchResultDTO source,
                                           String normalizedKeyword,
                                           boolean enableOcr,
                                           StrategyTypeEnum strategyType) {
@@ -353,28 +474,52 @@ public class SmartSearchServiceImpl implements SmartSearchService {
             return "VECTOR_ONLY_LIKE";
         }
         if (strategyType == StrategyTypeEnum.HYBRID) {
-            boolean textHit = hasTextHit(doc, normalizedKeyword, enableOcr);
-            return textHit ? "VECTOR_AND_TEXT" : "VECTOR_ONLY_LIKE";
+            boolean textHit = hasTextHit(doc, source, normalizedKeyword, enableOcr);
+            boolean vectorHit = isVectorEvidenceHit(source, strategyType);
+            if (vectorHit && textHit) {
+                return "VECTOR_AND_TEXT";
+            }
+            if (vectorHit) {
+                return "VECTOR_ONLY_LIKE";
+            }
+            if (textHit) {
+                return "TEXT_ONLY";
+            }
+            return "VECTOR_ONLY_LIKE";
         }
         return "TEXT_ONLY";
     }
 
     private SearchExplainDTO buildExplain(ImageDocument doc,
+                                          ImageSearchResultDTO source,
                                           String normalizedKeyword,
                                           boolean enableOcr,
                                           StrategyTypeEnum strategyType) {
-        boolean vectorHit = strategyType == StrategyTypeEnum.HYBRID
-                || strategyType == StrategyTypeEnum.VECTOR_ONLY
-                || strategyType == StrategyTypeEnum.IMAGE_TO_IMAGE;
         boolean allowTextExplain = strategyType == StrategyTypeEnum.HYBRID || strategyType == StrategyTypeEnum.TEXT_ONLY;
-        boolean filenameHit = allowTextExplain && hasFilenameHit(doc, normalizedKeyword);
-        boolean ocrHit = allowTextExplain && hasOcrHit(doc, normalizedKeyword, enableOcr);
-        boolean tagHit = allowTextExplain && hasTagHit(doc, normalizedKeyword);
-        boolean graphHit = allowTextExplain && hasGraphHit(doc, normalizedKeyword);
+        Set<String> highlightFields = allowTextExplain ? resolveHighlightFields(source) : Set.of();
+        boolean hasHighlightEvidence = !highlightFields.isEmpty();
+        boolean filenameHit = allowTextExplain && (
+                highlightFields.contains("fileName")
+                        || (!hasHighlightEvidence && hasFilenameHit(doc, normalizedKeyword))
+        );
+        boolean ocrHit = allowTextExplain && (
+                highlightFields.contains("ocrContent")
+                        || (!hasHighlightEvidence && hasOcrHit(doc, normalizedKeyword, enableOcr))
+        );
+        boolean tagHit = allowTextExplain && (
+                highlightFields.contains("tags")
+                        || (!hasHighlightEvidence && hasTagHit(doc, normalizedKeyword))
+        );
+        boolean graphHit = allowTextExplain && !hasHighlightEvidence && hasGraphHit(doc, normalizedKeyword);
+        boolean textHit = filenameHit || ocrHit || tagHit || graphHit;
+        boolean vectorHit = isVectorEvidenceHit(source, strategyType);
 
         LinkedHashSet<String> hitSources = new LinkedHashSet<>();
         if (vectorHit) {
             hitSources.add("VECTOR");
+        }
+        if (filenameHit) {
+            hitSources.add("FILENAME");
         }
         if (ocrHit) {
             hitSources.add("OCR");
@@ -399,7 +544,13 @@ public class SmartSearchServiceImpl implements SmartSearchService {
                 .build();
     }
 
-    private boolean hasTextHit(ImageDocument doc, String normalizedKeyword, boolean enableOcr) {
+    private boolean hasTextHit(ImageDocument doc,
+                               ImageSearchResultDTO source,
+                               String normalizedKeyword,
+                               boolean enableOcr) {
+        if (!resolveHighlightFields(source).isEmpty()) {
+            return true;
+        }
         if (doc == null || !StringUtils.hasText(normalizedKeyword)) {
             return false;
         }
@@ -415,6 +566,37 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         if (hasGraphHit(doc, normalizedKeyword)) {
             return true;
         }
+        return false;
+    }
+
+    private Set<String> resolveHighlightFields(ImageSearchResultDTO source) {
+        if (source == null || CollectionUtils.isEmpty(source.getHighlightFields())) {
+            return Set.of();
+        }
+        Set<String> fields = new HashSet<>();
+        for (String field : source.getHighlightFields()) {
+            if (StringUtils.hasText(field)) {
+                fields.add(field.trim());
+            }
+        }
+        return fields;
+    }
+
+    private boolean isVectorEvidenceHit(ImageSearchResultDTO source,
+                                        StrategyTypeEnum strategyType) {
+        if (strategyType == StrategyTypeEnum.VECTOR_ONLY || strategyType == StrategyTypeEnum.IMAGE_TO_IMAGE) {
+            return true;
+        }
+        if (strategyType == StrategyTypeEnum.TEXT_ONLY) {
+            return false;
+        }
+        if (strategyType != StrategyTypeEnum.HYBRID) {
+            return false;
+        }
+        if (source != null && source.getVectorRecallHit() != null) {
+            return source.getVectorRecallHit();
+        }
+        // Strict mode: if vector recall evidence is unknown, do not mark as VECTOR.
         return false;
     }
 

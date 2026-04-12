@@ -1,5 +1,7 @@
 package com.smart.vision.core.ingestion.domain.model;
 
+import com.smart.vision.core.common.exception.ApiError;
+import com.smart.vision.core.common.exception.BusinessException;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -39,7 +41,7 @@ public class BatchTaskItem {
 
     public void retry(long now) {
         if (this.status != BatchTaskItemStatus.FAILED) {
-            throw new RuntimeException("Only FAILED item can be retried");
+            throw new BusinessException(ApiError.INGEST_RETRY_ONLY_FAILED);
         }
         this.status = BatchTaskItemStatus.PENDING;
         this.errorMessage = null;
@@ -47,4 +49,3 @@ public class BatchTaskItem {
         this.updatedAt = now;
     }
 }
-

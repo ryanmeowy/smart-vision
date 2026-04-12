@@ -3,6 +3,7 @@ package com.smart.vision.core.search.infrastructure.persistence.es.query.spec;
 import co.elastic.clients.elasticsearch._types.SortOptions;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.elasticsearch.core.search.Highlight;
 import com.smart.vision.core.common.constant.SearchConstant;
 import com.smart.vision.core.search.infrastructure.persistence.es.query.HybridSearchKeywordMatcher;
 import java.util.List;
@@ -46,8 +47,22 @@ public class TextOnlyQuerySpec implements QuerySpec {
         }
 
         boolean ocrEnabled = enableOcr == null || enableOcr;
+        builder.highlight(buildHighlight(ocrEnabled));
         Optional<Query> queryOpt = keywordMatcher.match(keyword, ocrEnabled);
         builder.query(queryOpt.orElseGet(() -> Query.of(q -> q.matchNone(m -> m))));
+        return builder.build();
+    }
+
+    private Highlight buildHighlight(boolean ocrEnabled) {
+        Highlight.Builder builder = new Highlight.Builder()
+                .preTags("<em>")
+                .postTags("</em>")
+                .requireFieldMatch(false)
+                .fields("fileName", field -> field.numberOfFragments(0))
+                .fields("tags", field -> field.numberOfFragments(0));
+        if (ocrEnabled) {
+            builder.fields("ocrContent", field -> field.fragmentSize(160).numberOfFragments(1));
+        }
         return builder.build();
     }
 
@@ -58,4 +73,3 @@ public class TextOnlyQuerySpec implements QuerySpec {
         );
     }
 }
-

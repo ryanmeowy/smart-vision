@@ -13,6 +13,7 @@ import com.smart.vision.core.search.infrastructure.persistence.es.query.spec.Sim
 import com.smart.vision.core.search.infrastructure.persistence.es.query.spec.TextOnlyQuerySpec;
 import com.smart.vision.core.search.infrastructure.persistence.es.query.spec.VectorOnlyQuerySpec;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -30,6 +31,8 @@ public class SearchRequestFactory {
     private final HybridSearchKeywordMatcher hybridSearchKeywordMatcher;
     private final SimilarSearchIdMatcher similarSearchIdMatcher;
     private final GraphTriplesMatcher graphTriplesMatcher;
+    @Value("${app.search.vector-min-score:0.6}")
+    private double vectorMinScore;
 
     public SearchRequest buildHybrid(HybridSearchParamDTO paramDTO) {
         QuerySpec spec = new HybridQuerySpec(vectorConfig.getReadTargetName(), paramDTO, hybridSearchKeywordMatcher, graphTriplesMatcher);
@@ -47,7 +50,7 @@ public class SearchRequestFactory {
     }
 
     public SearchRequest buildVectorOnly(List<Float> vector, Integer topK) {
-        QuerySpec spec = new VectorOnlyQuerySpec(vectorConfig.getReadTargetName(), vector, topK);
+        QuerySpec spec = new VectorOnlyQuerySpec(vectorConfig.getReadTargetName(), vector, topK, vectorMinScore);
         return spec.toSearchRequest();
     }
 

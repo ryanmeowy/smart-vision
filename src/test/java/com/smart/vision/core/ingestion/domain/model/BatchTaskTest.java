@@ -1,5 +1,6 @@
 package com.smart.vision.core.ingestion.domain.model;
 
+import com.smart.vision.core.common.exception.BusinessException;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -32,7 +33,7 @@ class BatchTaskTest {
         task.refreshSummary(now + 1);
 
         assertThatThrownBy(() -> task.retryAllFailed(now + 2))
-                .isInstanceOf(RuntimeException.class)
+                .isInstanceOf(BusinessException.class)
                 .hasMessage("No FAILED items to retry");
     }
 
@@ -63,4 +64,3 @@ class BatchTaskTest {
         return item;
     }
 }
-

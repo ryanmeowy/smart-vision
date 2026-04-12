@@ -1,6 +1,7 @@
 package com.smart.vision.core.ingestion.application.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smart.vision.core.common.exception.BusinessException;
 import com.smart.vision.core.ingestion.application.assembler.BatchTaskAssembler;
 import com.smart.vision.core.ingestion.domain.port.ImageHashStateRepository;
 import com.smart.vision.core.ingestion.domain.port.IngestionContentPort;
@@ -106,7 +107,7 @@ class ImageIngestionServiceImplRetryFlowTest {
         when(valueOps.get(taskKey)).thenReturn(objectMapper.writeValueAsString(task));
 
         assertThatThrownBy(() -> service.retryAllFailedBatchTaskItems("task-2"))
-                .isInstanceOf(RuntimeException.class)
+                .isInstanceOf(BusinessException.class)
                 .hasMessage("No FAILED items to retry");
 
         verify(valueOps, never()).set(eq(taskKey), anyString(), eq(24L), eq(TimeUnit.HOURS));

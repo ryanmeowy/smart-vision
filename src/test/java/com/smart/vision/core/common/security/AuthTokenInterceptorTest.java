@@ -1,5 +1,6 @@
 package com.smart.vision.core.common.security;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,7 +29,7 @@ class AuthTokenInterceptorTest {
 
     @BeforeEach
     void setUp() {
-        interceptor = new AuthTokenInterceptor(redisTemplate);
+        interceptor = new AuthTokenInterceptor(redisTemplate, new ObjectMapper());
     }
 
     @Test
