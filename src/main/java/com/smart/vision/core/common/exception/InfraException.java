@@ -16,4 +16,12 @@ public class InfraException extends BusinessException {
     public InfraException(ApiError error, String message) {
         super(error, message);
     }
+
+    public InfraException(ApiError error, Throwable cause) {
+        super(error, cause);
+    }
+
+    public InfraException(ApiError error, String message, Throwable cause) {
+        super(error, message, cause);
+    }
 }

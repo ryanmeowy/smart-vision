@@ -2,6 +2,9 @@ package com.smart.vision.core.ingestion.application.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smart.vision.core.common.exception.ApiError;
+import com.smart.vision.core.common.exception.BusinessException;
+import com.smart.vision.core.common.exception.InfraException;
 import com.smart.vision.core.ingestion.application.ImageIngestionService;
 import com.smart.vision.core.ingestion.application.assembler.BatchTaskAssembler;
 import com.smart.vision.core.ingestion.domain.model.BatchTask;
@@ -174,7 +177,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
     public BatchTaskStatusDTO getBatchTaskStatus(String taskId) {
         BatchTask task = loadTask(taskId);
         if (task == null) {
-            throw new RuntimeException("Task not found");
+            throw new BusinessException(ApiError.INGEST_TASK_NOT_FOUND);
         }
         return batchTaskAssembler.toTaskDto(task);
     }
@@ -183,7 +186,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
     public BatchTaskStatusDTO retryBatchTaskItem(String taskId, String itemId) {
         BatchTask task = loadTask(taskId);
         if (task == null) {
-            throw new RuntimeException("Task not found");
+            throw new BusinessException(ApiError.INGEST_TASK_NOT_FOUND);
         }
 
         task.retryItem(itemId, System.currentTimeMillis());
@@ -197,7 +200,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
     public BatchTaskStatusDTO retryAllFailedBatchTaskItems(String taskId) {
         BatchTask task = loadTask(taskId);
         if (task == null) {
-            throw new RuntimeException("Task not found");
+            throw new BusinessException(ApiError.INGEST_TASK_NOT_FOUND);
         }
 
         task.retryAllFailed(System.currentTimeMillis());
@@ -214,7 +217,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
      */
     protected IngestionImageDocument processSingleItem(BatchProcessDTO item) {
         if (!acquireHashProcessingLock(item.getFileHash(), item.getFileName())) {
-            throw new RuntimeException("Image is processing, retry later.");
+            throw new BusinessException(ApiError.INGEST_PROCESSING_RETRY_LATER);
         }
         try {
             String tempUrl = objectStoragePort.buildAiImageInput(item.getKey());
@@ -257,7 +260,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         }
         if (outcome.type() == ImageHashAcquireOutcomeType.REJECT_DUPLICATE) {
             log.info("Duplicate image hash [{}] [{}]", fileHash, fileName);
-            throw new RuntimeException(outcome.message());
+            throw new BusinessException(ApiError.CONFLICT, outcome.message());
         }
         if (outcome.type() == ImageHashAcquireOutcomeType.REJECT_PROCESSING) {
             log.info("Image is processing [{}] [{}]", fileHash, fileName);
@@ -404,7 +407,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
             BatchTaskStatusDTO dto = objectMapper.readValue(raw, BatchTaskStatusDTO.class);
             return batchTaskAssembler.toTaskDomain(dto);
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("Failed to parse task payload", e);
+            throw new InfraException(ApiError.INGEST_TASK_PAYLOAD_INVALID, e);
         }
     }
 
@@ -412,7 +415,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         try {
             return objectMapper.writeValueAsString(task);
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("Failed to serialize task payload", e);
+            throw new InfraException(ApiError.INGEST_TASK_PAYLOAD_SERIALIZE_FAILED, e);
         }
     }
 
