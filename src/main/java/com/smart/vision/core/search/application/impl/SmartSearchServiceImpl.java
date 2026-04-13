@@ -1,5 +1,6 @@
 package com.smart.vision.core.search.application.impl;
 
+import com.smart.vision.core.search.domain.model.HitSourceEnum;
 import com.smart.vision.core.search.interfaces.assembler.ImageDocConvertor;
 import com.smart.vision.core.common.exception.ApiError;
 import com.smart.vision.core.common.exception.InfraException;
@@ -71,6 +72,8 @@ public class SmartSearchServiceImpl implements SmartSearchService {
     private int defaultPageSize;
     @Value("${app.search.page.max-window:100}")
     private int pageMaxWindow;
+    @Value("${app.search.rrf.native-enabled:false}")
+    private boolean rrfNativeEnabled;
 
     private final SearchEmbeddingPort embeddingPort;
     private final ImageRepository imageRepository;
@@ -372,7 +375,7 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         int safeTopK = clamp(requestedTopK, 1, 200);
         int safeWindowCap = clamp(pageMaxWindow, 1, 200);
         int windowSize = Math.min(safeWindowCap, Math.max(pageSize, safeTopK));
-        query.setTopK(Math.max(safeTopK, windowSize));
+        query.setTopK(safeTopK);
         query.setLimit(windowSize);
         return query;
     }
@@ -497,38 +500,32 @@ public class SmartSearchServiceImpl implements SmartSearchService {
                                           StrategyTypeEnum strategyType) {
         boolean allowTextExplain = strategyType == StrategyTypeEnum.HYBRID || strategyType == StrategyTypeEnum.TEXT_ONLY;
         Set<String> highlightFields = allowTextExplain ? resolveHighlightFields(source) : Set.of();
-        boolean hasHighlightEvidence = !highlightFields.isEmpty();
-        boolean filenameHit = allowTextExplain && (
-                highlightFields.contains("fileName")
-                        || (!hasHighlightEvidence && hasFilenameHit(doc, normalizedKeyword))
+        boolean filenameHit = allowTextExplain && highlightFields.contains("fileName");
+        boolean ocrHit = allowTextExplain && highlightFields.contains("ocrContent");
+        boolean tagHit = allowTextExplain && highlightFields.contains("tags");
+
+        boolean graphHit = allowTextExplain && (
+                highlightFields.contains("relations.s")
+                        || highlightFields.contains("relations.p")
+                        || highlightFields.contains("relations.o")
         );
-        boolean ocrHit = allowTextExplain && (
-                highlightFields.contains("ocrContent")
-                        || (!hasHighlightEvidence && hasOcrHit(doc, normalizedKeyword, enableOcr))
-        );
-        boolean tagHit = allowTextExplain && (
-                highlightFields.contains("tags")
-                        || (!hasHighlightEvidence && hasTagHit(doc, normalizedKeyword))
-        );
-        boolean graphHit = allowTextExplain && !hasHighlightEvidence && hasGraphHit(doc, normalizedKeyword);
-        boolean textHit = filenameHit || ocrHit || tagHit || graphHit;
         boolean vectorHit = isVectorEvidenceHit(source, strategyType);
 
         LinkedHashSet<String> hitSources = new LinkedHashSet<>();
         if (vectorHit) {
-            hitSources.add("VECTOR");
+            hitSources.add(HitSourceEnum.VECTOR.name());
         }
         if (filenameHit) {
-            hitSources.add("FILENAME");
+            hitSources.add(HitSourceEnum.FILENAME.name());
         }
         if (ocrHit) {
-            hitSources.add("OCR");
+            hitSources.add(HitSourceEnum.OCR.name());
         }
         if (tagHit) {
-            hitSources.add("TAG");
+            hitSources.add(HitSourceEnum.TAG.name());
         }
         if (graphHit) {
-            hitSources.add("GRAPH");
+            hitSources.add(HitSourceEnum.GRAPH.name());
         }
 
         return SearchExplainDTO.builder()
@@ -548,6 +545,9 @@ public class SmartSearchServiceImpl implements SmartSearchService {
                                ImageSearchResultDTO source,
                                String normalizedKeyword,
                                boolean enableOcr) {
+        if (source != null && Boolean.TRUE.equals(source.getTextRecallHit())) {
+            return true;
+        }
         if (!resolveHighlightFields(source).isEmpty()) {
             return true;
         }
@@ -595,6 +595,9 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         }
         if (source != null && source.getVectorRecallHit() != null) {
             return source.getVectorRecallHit();
+        }
+        if (rrfNativeEnabled && source != null && source.getTextRecallHit() != null) {
+            return !source.getTextRecallHit();
         }
         // Strict mode: if vector recall evidence is unknown, do not mark as VECTOR.
         return false;

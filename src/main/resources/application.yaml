@@ -44,6 +44,7 @@ app:
       allowed-index-patterns: []
     rrf:
       enabled: true
+      native-enabled: false
       rank-constant: 60
       candidate-multiplier: 4
       max-candidates: 200
@@ -69,3 +70,9 @@ logging:
   level:
     co.elastic.clients: WARN
     org.springframework.boot.autoconfigure.elasticsearch: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics

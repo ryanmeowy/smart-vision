@@ -37,6 +37,7 @@ public class SimilarQuerySpec implements QuerySpec {
         builder.index(indexName);
         builder.size(topK);
         builder.sort(defaultSort());
+        builder.source(s -> s.filter(f -> f.excludes("imageEmbedding")));
 
         Query filterQuery = idMatcher.match(excludeDocId)
                 .orElseThrow(() -> new IllegalArgumentException("excludeDocId cannot be empty"));

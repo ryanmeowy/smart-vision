@@ -18,10 +18,10 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
-class HybridQuerySpecTest {
+class HybridNativeRrfQuerySpecTest {
 
     @Test
-    void toSearchRequest_shouldContainKnnAndQuery_whenKeywordOrGraphExists() {
+    void toSearchRequest_shouldBuildNativeRrfRetriever() {
         HybridSearchKeywordMatcher keywordMatcher = Mockito.mock(HybridSearchKeywordMatcher.class);
         GraphTriplesMatcher graphMatcher = Mockito.mock(GraphTriplesMatcher.class);
         Query keywordQuery = Query.of(q -> q.match(m -> m.field("fileName").query("cat")));
@@ -33,42 +33,63 @@ class HybridQuerySpecTest {
                 .queryVector(List.of(0.1f, 0.2f))
                 .keyword("cat")
                 .graphTriples(List.of(new GraphTriple("cat", "on", "sofa")))
-                .limit(5)
+                .limit(20)
                 .topK(10)
                 .enableOcr(true)
                 .build();
-        HybridQuerySpec spec = new HybridQuerySpec("idx", param, keywordMatcher, graphMatcher);
+
+        HybridNativeRrfQuerySpec spec = new HybridNativeRrfQuerySpec(
+                "idx",
+                param,
+                keywordMatcher,
+                graphMatcher,
+                60,
+                30
+        );
 
         SearchRequest request = spec.toSearchRequest();
 
         assertThat(request.index()).containsExactly("idx");
-        assertThat(request.knn()).isNotNull();
-        assertThat(request.knn()).hasSize(1);
-        assertThat(request.query()).isNotNull();
+        assertThat(request.size()).isEqualTo(20);
+        assertThat(request.retriever()).isNotNull();
+        assertThat(request.retriever().isRrf()).isTrue();
+        assertThat(request.retriever().rrf().rankConstant()).isEqualTo(60);
+        assertThat(request.retriever().rrf().rankWindowSize()).isEqualTo(30);
+        assertThat(request.retriever().rrf().retrievers()).hasSize(2);
+        assertThat(request.retriever().rrf().retrievers().get(0).isStandard()).isTrue();
+        assertThat(request.retriever().rrf().retrievers().get(1).isKnn()).isTrue();
         assertThat(request.highlight()).isNotNull();
-        assertThat(request.highlight().fields().keySet()).contains("fileName", "tags", "ocrContent", "relations.s", "relations.p", "relations.o");
+        assertThat(request.highlight().fields().keySet())
+                .contains("fileName", "tags", "ocrContent", "relations.s", "relations.p", "relations.o");
     }
 
     @Test
-    void toSearchRequest_shouldContainOnlyKnn_whenNoKeywordAndNoGraph() {
+    void toSearchRequest_shouldFallbackToMatchNoneWhenNoRetrieverCanBeBuilt() {
         HybridSearchKeywordMatcher keywordMatcher = Mockito.mock(HybridSearchKeywordMatcher.class);
         GraphTriplesMatcher graphMatcher = Mockito.mock(GraphTriplesMatcher.class);
         when(graphMatcher.match(anyList())).thenReturn(Optional.empty());
 
         HybridSearchParamDTO param = HybridSearchParamDTO.builder()
-                .queryVector(List.of(0.1f, 0.2f))
+                .queryVector(List.of())
                 .keyword(" ")
                 .graphTriples(List.of())
-                .limit(3)
-                .topK(6)
+                .limit(10)
+                .topK(5)
                 .build();
-        HybridQuerySpec spec = new HybridQuerySpec("idx", param, keywordMatcher, graphMatcher);
+
+        HybridNativeRrfQuerySpec spec = new HybridNativeRrfQuerySpec(
+                "idx",
+                param,
+                keywordMatcher,
+                graphMatcher,
+                60,
+                20
+        );
 
         SearchRequest request = spec.toSearchRequest();
 
-        assertThat(request.knn()).isNotNull();
-        assertThat(request.knn()).hasSize(1);
-        assertThat(request.query()).isNull();
-        assertThat(request.highlight()).isNull();
+        assertThat(request.retriever()).isNull();
+        assertThat(request.query()).isNotNull();
+        assertThat(request.query().isMatchNone()).isTrue();
     }
 }

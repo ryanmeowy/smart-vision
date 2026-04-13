@@ -160,6 +160,50 @@ streamlit run app.py
 - `Vector Compare`（支持 text-text / image-image / image-text 向量相似度比较）
 - `Batch Process`（一体化链路：`/api/v1/auth/sts -> OSS 直传 -> /api/v1/image/batch-tasks`，支持异步任务状态查询与失败重试）
 
+### 5. 指标观测（Actuator + MeterRegistry）
+
+项目中的 `MeterRegistry` 指标通过 Spring Boot Actuator 的 HTTP 接口查看。
+
+1. 在 `src/main/resources/application-local.yaml`（或你使用的 profile 配置）中增加：
+
+```yaml
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+```
+
+2. 启动服务后访问：
+
+- 指标列表：`GET http://localhost:8080/actuator/metrics`
+- 单指标详情：`GET http://localhost:8080/actuator/metrics/{metric.name}`
+
+3. 常用搜索链路指标：
+
+- `smartvision.strategy.selection`
+- `smartvision.strategy.fallback`
+- `smartvision.search.rerank.calls`
+- `smartvision.search.rerank.latency`
+- `smartvision.search.rerank.window.size`
+- `smartvision.search.rerank.window.ratio`
+- `smartvision.search.rerank.window.hit`
+- `smartvision.search.rerank.fallback`
+
+4. 命令行示例：
+
+```bash
+curl http://localhost:8080/actuator/metrics
+curl http://localhost:8080/actuator/metrics/smartvision.search.rerank.calls
+curl http://localhost:8080/actuator/metrics/smartvision.search.rerank.latency
+```
+
+说明：
+
+- 如果你只看到 `health` 而没有 `metrics`，通常是 `management.endpoints.web.exposure.include` 未包含 `metrics`。
+- 目前仓库未默认接入 Prometheus registry；如需 `/actuator/prometheus`，需额外引入 `micrometer-registry-prometheus` 并暴露该端点。
+- 详细速查可参考：`docs/observability-metrics-quick-reference.md`
+
 ---
 
 ## 配置说明

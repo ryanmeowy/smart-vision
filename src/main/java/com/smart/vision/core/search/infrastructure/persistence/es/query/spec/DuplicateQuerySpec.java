@@ -26,6 +26,7 @@ public class DuplicateQuerySpec implements QuerySpec {
         SearchRequest.Builder builder = new SearchRequest.Builder();
         builder.index(indexName);
         builder.size(1);
+        builder.source(s -> s.filter(f -> f.excludes("imageEmbedding")));
 
         float similarity = (float) threshold;
         KnnSearch knn = new KnnSearch.Builder()

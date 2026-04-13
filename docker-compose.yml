@@ -5,7 +5,9 @@ services:
     environment:
       - TZ=Asia/Shanghai
       - discovery.type=single-node
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "ES_JAVA_OPTS=-Xms384m -Xmx384m" # 防止扩容导致抖动
+      - bootstrap.memory_lock=true # 内存锁定, 防止swap
+      - xpack.ml.enabled=false # 机器学习模块
       - xpack.security.enabled=true
       - xpack.security.http.ssl.enabled=false
       - ELASTIC_PASSWORD=${ES_PASSWORD}
@@ -30,6 +32,10 @@ services:
         max-file: "3"
     networks:
       - es_network
+    deploy:
+      resources:
+        limits:
+          memory: 1350M
 
   redis:
     image: redis:latest
@@ -38,11 +44,15 @@ services:
       - TZ=Asia/Shanghai
     ports:
       - "6379:6379"
-    command: redis-server --requirepass "${REDIS_PASSWORD}" --appendonly yes
+    command: redis-server --requirepass "${REDIS_PASSWORD}" --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
     networks:
       - es_network
+    deploy:
+      resources:
+        limits:
+          memory: 350M
 
 volumes:
   es_data:

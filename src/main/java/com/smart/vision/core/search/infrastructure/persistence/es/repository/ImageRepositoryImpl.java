@@ -31,6 +31,7 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
     private final SearchResultConvertor converter;
     private final SearchRequestFactory searchRequestFactory;
 
+    @Deprecated(since = "2026-04", forRemoval = false)
     @Override
     public List<ImageSearchResultDTO> hybridSearch(HybridSearchParamDTO paramDTO) {
         try {
@@ -39,6 +40,20 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
             return converter.convert2Doc(response);
         } catch (Exception e) {
             log.error("Hybrid search execution failed", e);
+            throw new InfraException(ApiError.SEARCH_BACKEND_UNAVAILABLE);
+        }
+    }
+
+    @Override
+    public List<ImageSearchResultDTO> hybridSearchNativeRrf(HybridSearchParamDTO paramDTO,
+                                                            Integer rankConstant,
+                                                            Integer rankWindowSize) {
+        try {
+            SearchRequest request = searchRequestFactory.buildHybridNativeRrf(paramDTO, rankConstant, rankWindowSize);
+            SearchResponse<ImageDocument> response = esClient.search(request, ImageDocument.class);
+            return converter.convert2Doc(response);
+        } catch (Exception e) {
+            log.error("Hybrid native RRF search execution failed", e);
             throw new InfraException(ApiError.SEARCH_BACKEND_UNAVAILABLE);
         }
     }

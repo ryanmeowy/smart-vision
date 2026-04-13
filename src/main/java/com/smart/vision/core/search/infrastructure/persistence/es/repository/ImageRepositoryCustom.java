@@ -19,7 +19,18 @@ public interface ImageRepositoryCustom {
      *
      * @return list of matching documents
      */
+    @Deprecated(since = "2026-04", forRemoval = false)
     List<ImageSearchResultDTO> hybridSearch(HybridSearchParamDTO paramDTO);
+
+    /**
+     * Hybrid search powered by Elasticsearch native retriever RRF.
+     *
+     * @param paramDTO hybrid query parameters
+     * @param rankConstant RRF rank constant
+     * @param rankWindowSize RRF rank window size
+     * @return list of matching documents
+     */
+    List<ImageSearchResultDTO> hybridSearchNativeRrf(HybridSearchParamDTO paramDTO, Integer rankConstant, Integer rankWindowSize);
 
     /**
      * Search for similar documents based on vector (supports excluding specific ID)

@@ -18,8 +18,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.util.DigestUtils;
 
 import java.nio.charset.StandardCharsets;
@@ -75,6 +77,8 @@ class SmartSearchServiceImplPageTest {
                 searchSessionManager,
                 searchCursorCodec
         );
+        ReflectionTestUtils.setField(service, "defaultPageSize", 10);
+        ReflectionTestUtils.setField(service, "pageMaxWindow", 100);
     }
 
     @Test
@@ -98,7 +102,10 @@ class SmartSearchServiceImplPageTest {
         assertThat(page.getItems()).hasSize(10);
         assertThat(page.isHasMore()).isTrue();
         assertThat(page.getNextCursor()).isEqualTo("cursor-1");
-        verify(spyService).search(any(SearchQueryDTO.class));
+        ArgumentCaptor<SearchQueryDTO> queryCaptor = ArgumentCaptor.forClass(SearchQueryDTO.class);
+        verify(spyService).search(queryCaptor.capture());
+        assertThat(queryCaptor.getValue().getTopK()).isEqualTo(20);
+        assertThat(queryCaptor.getValue().getLimit()).isEqualTo(20);
     }
 
     @Test

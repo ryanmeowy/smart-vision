@@ -22,11 +22,14 @@ public interface SmartSearchService {
      * Perform intelligent search based on the provided search parameters
      * The search strategy is determined by the strategy type in the query DTO
      *
-     * @param query search parameters containing keyword, limits, minimum score threshold,
+     * @param query search parameters including:
+     *              {@code topK} as vector recall size (KNN k, strategy-dependent),
+     *              {@code limit} as final response size upper bound,
      *              and search strategy configuration
      * @return list of search results with image metadata, scores, and highlighted content
      * @see SearchQueryDTO#getKeyword() search keyword or text query
-     * @see SearchQueryDTO#getTopK() maximum number of results to return
+     * @see SearchQueryDTO#getTopK() vector recall size (ignored by TEXT_ONLY)
+     * @see SearchQueryDTO#getLimit() final response size upper bound
      * @see SearchQueryDTO#getSimilarity() deprecated, retrieval now follows topK-first strategy
      * @see SearchQueryDTO#getEnableOcr() whether to enable OCR-based text search
      */
@@ -42,5 +45,11 @@ public interface SmartSearchService {
 
     List<SearchResultDTO> searchByImage(MultipartFile file, int limit);
 
+    /**
+     * Perform paged search with cursor-based pagination.
+     *
+     * @param query paged query where {@code limit} is page size and final response upper bound;
+     *              {@code topK} is vector recall size for first-page retrieval when strategy uses vectors
+     */
     SearchPageDTO searchPage(SearchPageQueryDTO query);
 }

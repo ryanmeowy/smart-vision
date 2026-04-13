@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class StrategyFactoryTest {
 
@@ -64,7 +65,16 @@ class StrategyFactoryTest {
         assertThat(snapshot.getReason()).isEqualTo("strategy_not_registered");
     }
 
-    private static final class DummyStrategy implements RetrievalStrategy {
+    @Test
+    void constructor_shouldThrow_whenHybridRegisteredMultipleTimes() {
+        RetrievalStrategy firstHybrid = new DummyStrategy(StrategyTypeEnum.HYBRID);
+        RetrievalStrategy secondHybrid = new DummyStrategy(StrategyTypeEnum.HYBRID);
+        assertThatThrownBy(() -> new StrategyFactory(List.of(firstHybrid, secondHybrid), new SimpleMeterRegistry()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Duplicate strategy type registration detected");
+    }
+
+    private static class DummyStrategy implements RetrievalStrategy {
         private final StrategyTypeEnum type;
 
         private DummyStrategy(StrategyTypeEnum type) {

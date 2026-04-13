@@ -138,13 +138,13 @@ class SmartSearchServiceImplTest {
         assertThat(result.getVectorHitStatus()).isEqualTo("VECTOR_AND_TEXT");
         assertThat(result.getExplain()).isNotNull();
         assertThat(result.getExplain().getStrategyEffective()).isEqualTo("0");
-        assertThat(result.getExplain().getHitSources()).containsExactly("VECTOR", "FILENAME", "OCR", "TAG", "GRAPH");
+        assertThat(result.getExplain().getHitSources()).containsExactly("VECTOR");
         SearchExplainDTO.MatchedBy matchedBy = result.getExplain().getMatchedBy();
         assertThat(matchedBy.isVector()).isTrue();
-        assertThat(matchedBy.isFilename()).isTrue();
-        assertThat(matchedBy.isOcr()).isTrue();
-        assertThat(matchedBy.isTag()).isTrue();
-        assertThat(matchedBy.isGraph()).isTrue();
+        assertThat(matchedBy.isFilename()).isFalse();
+        assertThat(matchedBy.isOcr()).isFalse();
+        assertThat(matchedBy.isTag()).isFalse();
+        assertThat(matchedBy.isGraph()).isFalse();
     }
 
     @Test
@@ -233,6 +233,44 @@ class SmartSearchServiceImplTest {
         assertThat(result.getExplain().getMatchedBy().isFilename()).isTrue();
         assertThat(result.getExplain().getMatchedBy().isOcr()).isFalse();
         assertThat(result.getExplain().getMatchedBy().isTag()).isFalse();
+    }
+
+    @Test
+    void search_shouldMarkVectorExplainInNativeRrfWhenTextRecallIsFalse() {
+        ReflectionTestUtils.setField(service, "rrfNativeEnabled", true);
+        RetrievalStrategy strategy = mock(RetrievalStrategy.class);
+        SearchQueryDTO query = new SearchQueryDTO();
+        query.setKeyword("cat");
+        query.setSearchType("0");
+        query.setLimit(10);
+        query.setTopK(20);
+        query.setEnableOcr(true);
+
+        ImageDocument doc = new ImageDocument();
+        doc.setFileName("photo.jpg");
+        ImageSearchResultDTO source = ImageSearchResultDTO.builder()
+                .document(doc)
+                .rawScore(0.91)
+                .score(0.91)
+                .textRecallHit(false)
+                .build();
+        SearchResultDTO dto = SearchResultDTO.builder().build();
+
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(anyString())).thenReturn(List.of(0.1f, 0.2f));
+        when(strategyFactory.getStrategy("0")).thenReturn(strategy);
+        when(strategy.getType()).thenReturn(StrategyTypeEnum.HYBRID);
+        when(strategy.search(eq(query), anyList())).thenReturn(List.of(source));
+        when(imageDocConvertor.convert2SearchResultDTO(anyList())).thenReturn(List.of(dto));
+
+        List<SearchResultDTO> output = service.search(query);
+
+        assertThat(output).hasSize(1);
+        SearchResultDTO result = output.getFirst();
+        assertThat(result.getVectorHitStatus()).isEqualTo("VECTOR_ONLY_LIKE");
+        assertThat(result.getExplain()).isNotNull();
+        assertThat(result.getExplain().getHitSources()).containsExactly("VECTOR");
+        assertThat(result.getExplain().getMatchedBy().isVector()).isTrue();
     }
 
     @Test
