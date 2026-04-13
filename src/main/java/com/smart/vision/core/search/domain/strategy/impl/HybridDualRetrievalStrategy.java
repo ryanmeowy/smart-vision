@@ -1,13 +1,11 @@
 package com.smart.vision.core.search.domain.strategy.impl;
 
 import cn.hutool.core.collection.CollectionUtil;
-import com.smart.vision.core.search.domain.model.HybridSearchParamDTO;
 import com.smart.vision.core.search.domain.model.ImageSearchResultDTO;
 import com.smart.vision.core.search.domain.model.StrategyTypeEnum;
-import com.smart.vision.core.search.domain.port.QueryGraphParserPort;
 import com.smart.vision.core.search.domain.port.SearchRerankPort;
 import com.smart.vision.core.search.domain.port.SearchRerankPort.RerankItem;
-import com.smart.vision.core.search.domain.ranking.RrfFusionService;
+import com.smart.vision.core.search.domain.ranking.DualRouteRrfFusionService;
 import com.smart.vision.core.search.domain.strategy.RetrievalStrategy;
 import com.smart.vision.core.search.infrastructure.persistence.es.repository.ImageRepository;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchQueryDTO;
@@ -17,17 +15,16 @@ import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.smart.vision.core.common.constant.EmbeddingConstant.DEFAULT_TOP_K;
@@ -35,30 +32,24 @@ import static com.smart.vision.core.common.constant.SearchConstant.DEFAULT_RESUL
 import static com.smart.vision.core.search.domain.util.ScoreUtil.mapScoreToPercentage;
 
 /**
- * Hybrid retrieval strategy implementation that combines multiple search approaches
- * with RRF and cross-encoder rerank.
+ * New hybrid retrieval strategy: one vector query + one text query, then app-layer RRF fusion.
  */
 @Slf4j
+@Component
 @RequiredArgsConstructor
-@Deprecated(since = "2026-04", forRemoval = false)
-public class HybridRetrievalStrategy implements RetrievalStrategy {
+public class HybridDualRetrievalStrategy implements RetrievalStrategy {
 
     private final ImageRepository imageRepository;
-    private final QueryGraphParserPort queryGraphParserPort;
-    private final RrfFusionService rrfFusionService;
+    private final DualRouteRrfFusionService dualRouteRrfFusionService;
     private final SearchRerankPort searchRerankPort;
     private final MeterRegistry meterRegistry;
 
-    @Value("${app.search.rrf.enabled:true}")
-    private boolean rrfEnabled;
     @Value("${app.search.rrf.rank-constant:60}")
     private int rrfRankConstant;
     @Value("${app.search.rrf.candidate-multiplier:4}")
     private int rrfCandidateMultiplier;
     @Value("${app.search.rrf.max-candidates:200}")
     private int rrfMaxCandidates;
-    @Value("${app.search.rrf.native-enabled:false}")
-    private boolean rrfNativeEnabled;
     @Value("${app.search.rerank.enabled:true}")
     private boolean rerankEnabled;
     @Value("${app.search.rerank.max-doc-chars:1200}")
@@ -86,35 +77,27 @@ public class HybridRetrievalStrategy implements RetrievalStrategy {
         int requestTopK = Math.max(1, query.getTopK() == null ? DEFAULT_TOP_K : query.getTopK());
         int requestLimit = Math.max(1, query.getLimit() == null ? DEFAULT_RESULT_LIMIT : query.getLimit());
         boolean enableOcr = query.getEnableOcr() == null || query.getEnableOcr();
-        int fusionRecallSize = resolveRecallSize(requestTopK, requestLimit);
-        int hybridCandidateLimit = Math.max(requestLimit, fusionRecallSize);
+        int recallSize = resolveRecallSize(requestTopK, requestLimit);
 
-        HybridSearchParamDTO paramDTO = HybridSearchParamDTO.builder()
-                .queryVector(queryVector)
-                .topK(requestTopK)
-                .limit(hybridCandidateLimit)
-                .keyword(query.getKeyword())
-                .enableOcr(enableOcr)
-                .graphTriples(queryGraphParserPort.parseFromKeyword(query.getKeyword()))
-                .build();
-        List<ImageSearchResultDTO> candidates;
-        if (rrfEnabled && rrfNativeEnabled) {
-            // basic license not supported.
-            candidates = imageRepository.hybridSearchNativeRrf(paramDTO, rrfRankConstant, fusionRecallSize);
-            annotateNativeRecallSources(candidates, query, queryVector, fusionRecallSize, enableOcr);
-        } else {
-            List<ImageSearchResultDTO> hybridHits = imageRepository.hybridSearch(paramDTO);
-            candidates = rrfEnabled
-                    ? applyRrfFusion(hybridHits, query, queryVector, fusionRecallSize, enableOcr)
-                    : hybridHits;
-        }
+        List<ImageSearchResultDTO> vectorHits = CollectionUtil.isEmpty(queryVector)
+                ? List.of()
+                : imageRepository.vectorSearch(queryVector, recallSize);
+        List<ImageSearchResultDTO> textHits = StringUtils.hasText(query.getKeyword())
+                ? imageRepository.textSearch(query.getKeyword(), recallSize, enableOcr)
+                : List.of();
 
+        List<ImageSearchResultDTO> candidates = dualRouteRrfFusionService.fuse(
+                vectorHits,
+                textHits,
+                recallSize,
+                rrfRankConstant
+        );
         return applyCrossEncoderRerank(query.getKeyword(), candidates, requestLimit, enableOcr);
     }
 
     @Override
     public StrategyTypeEnum getType() {
-        return null;
+        return StrategyTypeEnum.HYBRID;
     }
 
     private int resolveRecallSize(int requestTopK, int requestLimit) {
@@ -122,47 +105,6 @@ public class HybridRetrievalStrategy implements RetrievalStrategy {
         int recallByLimit = Math.max(1, requestLimit) * multiplier;
         int recallSize = Math.max(Math.max(1, requestTopK), recallByLimit);
         return Math.min(recallSize, Math.max(1, rrfMaxCandidates));
-    }
-
-    private List<ImageSearchResultDTO> applyRrfFusion(List<ImageSearchResultDTO> hybridHits,
-                                                      SearchQueryDTO query,
-                                                      List<Float> queryVector,
-                                                      int recallSize,
-                                                      boolean enableOcr) {
-        List<List<ImageSearchResultDTO>> rankingLists = new ArrayList<>();
-        rankingLists.add(hybridHits);
-        List<ImageSearchResultDTO> vectorHits = List.of();
-        if (!CollectionUtil.isEmpty(queryVector)) {
-            vectorHits = imageRepository.vectorSearch(queryVector, recallSize);
-            rankingLists.add(vectorHits);
-        }
-        List<ImageSearchResultDTO> textHits = List.of();
-        if (StringUtils.hasText(query.getKeyword())) {
-            textHits = imageRepository.textSearch(query.getKeyword(), recallSize, enableOcr);
-            rankingLists.add(textHits);
-        }
-        List<ImageSearchResultDTO> fused = rrfFusionService.fuse(rankingLists, recallSize, rrfRankConstant);
-        annotateRecallSources(fused, vectorHits, textHits);
-        return fused;
-    }
-
-    private void annotateNativeRecallSources(List<ImageSearchResultDTO> candidates,
-                                             SearchQueryDTO query,
-                                             List<Float> queryVector,
-                                             int recallSize,
-                                             boolean enableOcr) {
-        if (CollectionUtil.isEmpty(candidates)) {
-            return;
-        }
-        List<ImageSearchResultDTO> vectorHits = List.of();
-        if (!CollectionUtil.isEmpty(queryVector)) {
-            vectorHits = imageRepository.vectorSearch(queryVector, recallSize);
-        }
-        List<ImageSearchResultDTO> textHits = List.of();
-        if (StringUtils.hasText(query.getKeyword())) {
-            textHits = imageRepository.textSearch(query.getKeyword(), recallSize, enableOcr);
-        }
-        annotateRecallSources(candidates, vectorHits, textHits);
     }
 
     private List<ImageSearchResultDTO> applyCrossEncoderRerank(String keyword,
@@ -228,46 +170,9 @@ public class HybridRetrievalStrategy implements RetrievalStrategy {
         merged.addAll(untouchedTail);
 
         List<ImageSearchResultDTO> reranked = merged.stream().limit(limit).collect(Collectors.toList());
-        log.debug("Cross-encoder rerank applied, candidates={}, window={}, scored={}, return={}, alpha={}, beta={}",
+        log.debug("Cross-encoder rerank applied in dual hybrid, candidates={}, window={}, scored={}, return={}, alpha={}, beta={}",
                 window.size(), windowSize, scoreByIndex.size(), reranked.size(), weights.alpha(), weights.beta());
         return reranked;
-    }
-
-    private void annotateRecallSources(List<ImageSearchResultDTO> fused,
-                                       List<ImageSearchResultDTO> vectorHits,
-                                       List<ImageSearchResultDTO> textHits) {
-        if (CollectionUtil.isEmpty(fused)) {
-            return;
-        }
-        Set<Long> vectorIds = collectDocIds(vectorHits);
-        Set<Long> textIds = collectDocIds(textHits);
-        for (ImageSearchResultDTO item : fused) {
-            if (item == null) {
-                continue;
-            }
-            Long id = item.getDocument() == null ? null : item.getDocument().getId();
-            if (id == null) {
-                item.setVectorRecallHit(false);
-                item.setTextRecallHit(false);
-                continue;
-            }
-            item.setVectorRecallHit(vectorIds.contains(id));
-            item.setTextRecallHit(textIds.contains(id));
-        }
-    }
-
-    private Set<Long> collectDocIds(List<ImageSearchResultDTO> items) {
-        Set<Long> ids = new HashSet<>();
-        if (CollectionUtil.isEmpty(items)) {
-            return ids;
-        }
-        for (ImageSearchResultDTO item : items) {
-            Long id = item == null || item.getDocument() == null ? null : item.getDocument().getId();
-            if (id != null) {
-                ids.add(id);
-            }
-        }
-        return ids;
     }
 
     private String buildRerankText(ImageSearchResultDTO item, boolean enableOcr) {
@@ -358,7 +263,7 @@ public class HybridRetrievalStrategy implements RetrievalStrategy {
                 .comparingDouble(WindowRankItem::fusionScore).reversed()
                 .thenComparing(Comparator.comparingDouble(WindowRankItem::retrievalScore).reversed())
                 .thenComparingLong(WindowRankItem::docId)
-                .thenComparingInt(WindowRankItem::originIndex));
+                .thenComparingInt(WindowRankItem::index));
         return items;
     }
 
@@ -366,10 +271,15 @@ public class HybridRetrievalStrategy implements RetrievalStrategy {
         if (dto == null) {
             return 0d;
         }
-        if (dto.getScore() != null) {
-            return clamp01(dto.getScore());
+        Double raw = dto.getRawScore();
+        if (raw != null && raw > 0d) {
+            return Math.min(raw, 1d);
         }
-        return clamp01(mapScoreToPercentage(dto.getRawScore()));
+        Double score = dto.getScore();
+        if (score == null || score <= 0d) {
+            return 0d;
+        }
+        return Math.min(score, 1d);
     }
 
     private long extractDocId(ImageSearchResultDTO dto) {
@@ -379,13 +289,23 @@ public class HybridRetrievalStrategy implements RetrievalStrategy {
         return dto.getDocument().getId();
     }
 
+    private double clamp01(double value) {
+        if (value < 0d) {
+            return 0d;
+        }
+        if (value > 1d) {
+            return 1d;
+        }
+        return value;
+    }
+
     private void recordWindowMetrics(int windowSize, int candidateSize) {
         DistributionSummary.builder("smartvision.search.rerank.window.size")
                 .description("Rerank window size")
                 .register(meterRegistry)
                 .record(windowSize);
 
-        double ratio = candidateSize <= 0 ? 0d : (double) windowSize / (double) candidateSize;
+        double ratio = candidateSize <= 0 ? 0d : ((double) windowSize) / candidateSize;
         DistributionSummary.builder("smartvision.search.rerank.window.ratio")
                 .description("Rerank window size / candidate size ratio")
                 .register(meterRegistry)
@@ -393,26 +313,18 @@ public class HybridRetrievalStrategy implements RetrievalStrategy {
 
         meterRegistry.counter(
                         "smartvision.search.rerank.window.hit",
-                        "hit", String.valueOf(windowSize < candidateSize))
+                        "window_size", String.valueOf(windowSize),
+                        "candidate_size", String.valueOf(candidateSize))
                 .increment();
-    }
-
-    private static double clamp01(double value) {
-        if (value <= 0d) {
-            return 0d;
-        }
-        if (value >= 1d) {
-            return 1d;
-        }
-        return value;
     }
 
     private record WeightPair(double alpha, double beta) {}
 
-    private record WindowRankItem(int originIndex,
+    private record WindowRankItem(int index,
                                   ImageSearchResultDTO dto,
                                   double retrievalScore,
                                   double rerankScore,
                                   double fusionScore,
-                                  long docId) {}
+                                  long docId) {
+    }
 }

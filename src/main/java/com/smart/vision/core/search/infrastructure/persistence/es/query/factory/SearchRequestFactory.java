@@ -35,6 +35,7 @@ public class SearchRequestFactory {
     @Value("${app.search.vector-min-score:0.6}")
     private double vectorMinScore;
 
+    @Deprecated(since = "2026-04", forRemoval = false)
     public SearchRequest buildHybrid(HybridSearchParamDTO paramDTO) {
         QuerySpec spec = new HybridQuerySpec(vectorConfig.getReadTargetName(), paramDTO, hybridSearchKeywordMatcher, graphTriplesMatcher);
         return spec.toSearchRequest();

@@ -19,6 +19,7 @@ public interface ImageRepositoryCustom {
      *
      * @return list of matching documents
      */
+    @Deprecated(since = "2026-04", forRemoval = false)
     List<ImageSearchResultDTO> hybridSearch(HybridSearchParamDTO paramDTO);
 
     /**

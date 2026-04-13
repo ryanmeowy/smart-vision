@@ -20,6 +20,7 @@ import java.util.stream.Collectors;
 /**
  * Hybrid (KNN + keyword + optional graph) SearchRequest spec.
  */
+@Deprecated(since = "2026-04", forRemoval = false)
 public class HybridQuerySpec implements QuerySpec {
 
     private final String indexName;

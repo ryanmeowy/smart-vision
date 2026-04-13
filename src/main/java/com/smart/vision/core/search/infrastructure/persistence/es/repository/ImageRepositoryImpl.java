@@ -31,6 +31,7 @@ public class ImageRepositoryImpl implements ImageRepositoryCustom {
     private final SearchResultConvertor converter;
     private final SearchRequestFactory searchRequestFactory;
 
+    @Deprecated(since = "2026-04", forRemoval = false)
     @Override
     public List<ImageSearchResultDTO> hybridSearch(HybridSearchParamDTO paramDTO) {
         try {

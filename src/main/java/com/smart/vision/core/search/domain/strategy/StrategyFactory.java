@@ -28,6 +28,9 @@ public class StrategyFactory {
         this.strategies = new EnumMap<>(StrategyTypeEnum.class);
         this.meterRegistry = meterRegistry;
         for (RetrievalStrategy strategy : strategyList) {
+            if (null == strategy || null == strategy.getType()) {
+                continue;
+            }
             this.strategies.put(strategy.getType(), strategy);
             log.info("Search strategy registered: {}", strategy.getType().getDesc());
         }
