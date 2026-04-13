@@ -25,11 +25,33 @@ public class RrfFusionService {
         if (CollectionUtil.isEmpty(rankingLists)) {
             return List.of();
         }
+        List<ImageSearchResultDTO> hybridRanking = rankingLists.getFirst();
+        if (CollectionUtil.isEmpty(hybridRanking)) {
+            return List.of();
+        }
         int safeLimit = Math.max(1, limit);
         int safeRankConstant = Math.max(1, rankConstant);
 
+        // First list (hybrid) is the only candidate source and metadata source.
+        // Other lists contribute ranking signal only.
         Map<Long, Accumulator> grouped = new HashMap<>();
-        for (List<ImageSearchResultDTO> rankingList : rankingLists) {
+        for (int i = 0; i < hybridRanking.size(); i++) {
+            ImageSearchResultDTO hit = hybridRanking.get(i);
+            ImageDocument doc = hit == null ? null : hit.getDocument();
+            Long id = doc == null ? null : doc.getId();
+            if (id == null) {
+                continue;
+            }
+            Accumulator accumulator = grouped.computeIfAbsent(id, ignored -> new Accumulator(id));
+            accumulator.hybridSource = hit;
+            double reciprocal = 1d / (safeRankConstant + i + 1d);
+            accumulator.rrfScore += reciprocal;
+            accumulator.hitCount += 1;
+            accumulator.captureBestScoreCandidate(hit);
+        }
+
+        for (int rankingListIndex = 1; rankingListIndex < rankingLists.size(); rankingListIndex++) {
+            List<ImageSearchResultDTO> rankingList = rankingLists.get(rankingListIndex);
             if (CollectionUtil.isEmpty(rankingList)) {
                 continue;
             }
@@ -40,16 +62,14 @@ public class RrfFusionService {
                 if (id == null) {
                     continue;
                 }
-                Accumulator accumulator = grouped.computeIfAbsent(id, ignored -> new Accumulator(id));
+                Accumulator accumulator = grouped.get(id);
+                if (accumulator == null) {
+                    continue;
+                }
                 double reciprocal = 1d / (safeRankConstant + i + 1d);
                 accumulator.rrfScore += reciprocal;
                 accumulator.hitCount += 1;
-
-                double currentDecisionScore = decisionScore(hit);
-                if (accumulator.primary == null || currentDecisionScore > accumulator.bestRawScore) {
-                    accumulator.primary = hit;
-                    accumulator.bestRawScore = currentDecisionScore;
-                }
+                accumulator.captureBestScoreCandidate(hit);
             }
         }
 
@@ -66,25 +86,25 @@ public class RrfFusionService {
             if (fused.size() >= safeLimit) {
                 break;
             }
-            if (accumulator.primary == null || accumulator.primary.getDocument() == null) {
+            if (accumulator.hybridSource == null || accumulator.hybridSource.getDocument() == null) {
                 continue;
             }
             double rawScore = accumulator.bestRawScore > 0 ? accumulator.bestRawScore : accumulator.rrfScore;
             fused.add(ImageSearchResultDTO.builder()
-                    .document(accumulator.primary.getDocument())
+                    .document(accumulator.hybridSource.getDocument())
                     .rawScore(rawScore)
                     .score(mapScoreToPercentage(rawScore))
-                    .sortValues(accumulator.primary.getSortValues())
-                    .highlights(accumulator.primary.getHighlights())
-                    .highlightFields(accumulator.primary.getHighlightFields())
-                    .vectorRecallHit(accumulator.primary.getVectorRecallHit())
-                    .textRecallHit(accumulator.primary.getTextRecallHit())
+                    .sortValues(accumulator.hybridSource.getSortValues())
+                    .highlights(accumulator.hybridSource.getHighlights())
+                    .highlightFields(accumulator.hybridSource.getHighlightFields())
+                    .vectorRecallHit(accumulator.hybridSource.getVectorRecallHit())
+                    .textRecallHit(accumulator.hybridSource.getTextRecallHit())
                     .build());
         }
         return fused;
     }
 
-    private double decisionScore(ImageSearchResultDTO result) {
+    private static double decisionScore(ImageSearchResultDTO result) {
         if (result == null) {
             return 0d;
         }
@@ -103,9 +123,21 @@ public class RrfFusionService {
         private int hitCount;
         private double bestRawScore;
         private ImageSearchResultDTO primary;
+        private ImageSearchResultDTO hybridSource;
 
         private Accumulator(long id) {
             this.id = id;
+        }
+
+        private void captureBestScoreCandidate(ImageSearchResultDTO hit) {
+            if (hit == null) {
+                return;
+            }
+            double currentDecisionScore = decisionScore(hit);
+            if (primary == null || currentDecisionScore > bestRawScore) {
+                primary = hit;
+                bestRawScore = currentDecisionScore;
+            }
         }
 
         private long getId() {

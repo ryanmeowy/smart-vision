@@ -62,7 +62,7 @@ class TextOnlyQuerySpecTest {
         assertThat(request.query()).isNotNull();
         assertThat(request.query().isMatch()).isTrue();
         assertThat(request.highlight()).isNotNull();
-        assertThat(request.highlight().fields().keySet()).contains("fileName", "tags", "ocrContent");
+        assertThat(request.highlight().fields().keySet()).contains("fileName", "tags", "ocrContent", "relations.s", "relations.p", "relations.o");
         verify(matcher).match("cat", true);
     }
 }

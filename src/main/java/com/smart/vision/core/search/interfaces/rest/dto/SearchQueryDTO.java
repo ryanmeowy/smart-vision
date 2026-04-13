@@ -10,7 +10,13 @@ import lombok.Data;
 import java.util.List;
 
 /**
- * image search request model
+ * Text search request model.
+ * <p>
+ * Parameter semantics:
+ * <ul>
+ *     <li>{@code limit}: final response size upper bound.</li>
+ *     <li>{@code topK}: vector recall size (KNN k), only effective for strategies with vector retrieval.</li>
+ * </ul>
  *
  * @author Ryan
  * @since 2025/12/15
@@ -24,7 +30,8 @@ public class SearchQueryDTO {
     @Size(max = 50, message = "keyword length cannot exceed 50")
     private String keyword;
     /**
-     * topK
+     * Vector recall size (KNN {@code k}).
+     * Effective for HYBRID(0) and VECTOR_ONLY(1), ignored for TEXT_ONLY(2).
      */
     @Min(value = 1, message = "topK must be greater than 0")
     @Max(value = 200, message = "topK cannot exceed 200")
@@ -51,7 +58,7 @@ public class SearchQueryDTO {
     private String searchType;
 
     /**
-     * Maximum number of results to return
+     * Final response size upper bound.
      */
     @Min(value = 1, message = "limit must be greater than 0")
     @Max(value = 200, message = "limit cannot exceed 200")

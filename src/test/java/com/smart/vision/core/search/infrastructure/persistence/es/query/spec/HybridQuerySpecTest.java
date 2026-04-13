@@ -46,7 +46,7 @@ class HybridQuerySpecTest {
         assertThat(request.knn()).hasSize(1);
         assertThat(request.query()).isNotNull();
         assertThat(request.highlight()).isNotNull();
-        assertThat(request.highlight().fields().keySet()).contains("fileName", "tags", "ocrContent");
+        assertThat(request.highlight().fields().keySet()).contains("fileName", "tags", "ocrContent", "relations.s", "relations.p", "relations.o");
     }
 
     @Test

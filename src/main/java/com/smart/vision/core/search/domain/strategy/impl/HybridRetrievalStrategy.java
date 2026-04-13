@@ -82,15 +82,16 @@ public class HybridRetrievalStrategy implements RetrievalStrategy {
         if (query == null) {
             return List.of();
         }
-        int requestTopK = query.getTopK() == null ? DEFAULT_TOP_K : query.getTopK();
-        int requestLimit = query.getLimit() == null ? DEFAULT_RESULT_LIMIT : query.getLimit();
+        int requestTopK = Math.max(1, query.getTopK() == null ? DEFAULT_TOP_K : query.getTopK());
+        int requestLimit = Math.max(1, query.getLimit() == null ? DEFAULT_RESULT_LIMIT : query.getLimit());
         boolean enableOcr = query.getEnableOcr() == null || query.getEnableOcr();
-        int recallSize = resolveRecallSize(requestTopK, requestLimit);
+        int fusionRecallSize = resolveRecallSize(requestTopK, requestLimit);
+        int hybridCandidateLimit = Math.max(requestLimit, fusionRecallSize);
 
         HybridSearchParamDTO paramDTO = HybridSearchParamDTO.builder()
                 .queryVector(queryVector)
-                .topK(recallSize)
-                .limit(recallSize)
+                .topK(requestTopK)
+                .limit(hybridCandidateLimit)
                 .keyword(query.getKeyword())
                 .enableOcr(enableOcr)
                 .graphTriples(queryGraphParserPort.parseFromKeyword(query.getKeyword()))
@@ -98,7 +99,7 @@ public class HybridRetrievalStrategy implements RetrievalStrategy {
         List<ImageSearchResultDTO> hybridHits = imageRepository.hybridSearch(paramDTO);
 
         List<ImageSearchResultDTO> candidates = rrfEnabled
-                ? applyRrfFusion(hybridHits, query, queryVector, recallSize, enableOcr)
+                ? applyRrfFusion(hybridHits, query, queryVector, fusionRecallSize, enableOcr)
                 : hybridHits;
 
         return applyCrossEncoderRerank(query.getKeyword(), candidates, requestLimit, enableOcr);

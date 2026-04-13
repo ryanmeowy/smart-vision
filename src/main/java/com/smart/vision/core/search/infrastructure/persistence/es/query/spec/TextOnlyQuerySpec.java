@@ -60,7 +60,10 @@ public class TextOnlyQuerySpec implements QuerySpec {
                 .postTags("</em>")
                 .requireFieldMatch(false)
                 .fields("fileName", field -> field.numberOfFragments(0))
-                .fields("tags", field -> field.numberOfFragments(0));
+                .fields("tags", field -> field.numberOfFragments(0))
+                .fields("relations.s", field -> field.numberOfFragments(0))
+                .fields("relations.p", field -> field.numberOfFragments(0))
+                .fields("relations.o", field -> field.numberOfFragments(0));
         if (ocrEnabled) {
             builder.fields("ocrContent", field -> field.fragmentSize(160).numberOfFragments(1));
         }

@@ -372,7 +372,7 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         int safeTopK = clamp(requestedTopK, 1, 200);
         int safeWindowCap = clamp(pageMaxWindow, 1, 200);
         int windowSize = Math.min(safeWindowCap, Math.max(pageSize, safeTopK));
-        query.setTopK(Math.max(safeTopK, windowSize));
+        query.setTopK(safeTopK);
         query.setLimit(windowSize);
         return query;
     }
@@ -497,21 +497,33 @@ public class SmartSearchServiceImpl implements SmartSearchService {
                                           StrategyTypeEnum strategyType) {
         boolean allowTextExplain = strategyType == StrategyTypeEnum.HYBRID || strategyType == StrategyTypeEnum.TEXT_ONLY;
         Set<String> highlightFields = allowTextExplain ? resolveHighlightFields(source) : Set.of();
-        boolean hasHighlightEvidence = !highlightFields.isEmpty();
-        boolean filenameHit = allowTextExplain && (
-                highlightFields.contains("fileName")
-                        || (!hasHighlightEvidence && hasFilenameHit(doc, normalizedKeyword))
+//        boolean hasHighlightEvidence = !highlightFields.isEmpty();
+//        boolean filenameHit = allowTextExplain && (
+//                highlightFields.contains("fileName")
+//                        || (!hasHighlightEvidence && hasFilenameHit(doc, normalizedKeyword))
+//        );
+        boolean filenameHit = allowTextExplain && highlightFields.contains("fileName");
+
+//        boolean ocrHit = allowTextExplain && (
+//                highlightFields.contains("ocrContent")
+//                        || (!hasHighlightEvidence && hasOcrHit(doc, normalizedKeyword, enableOcr))
+//        );
+        boolean ocrHit = allowTextExplain && highlightFields.contains("ocrContent");
+
+//        boolean tagHit = allowTextExplain && (
+//                highlightFields.contains("tags")
+//                        || (!hasHighlightEvidence && hasTagHit(doc, normalizedKeyword))
+//        );
+        boolean tagHit = allowTextExplain && highlightFields.contains("tags");
+
+        boolean graphHit = allowTextExplain && (
+                highlightFields.contains("relations.s")
+                        || highlightFields.contains("relations.p")
+                        || highlightFields.contains("relations.o")
         );
-        boolean ocrHit = allowTextExplain && (
-                highlightFields.contains("ocrContent")
-                        || (!hasHighlightEvidence && hasOcrHit(doc, normalizedKeyword, enableOcr))
-        );
-        boolean tagHit = allowTextExplain && (
-                highlightFields.contains("tags")
-                        || (!hasHighlightEvidence && hasTagHit(doc, normalizedKeyword))
-        );
-        boolean graphHit = allowTextExplain && !hasHighlightEvidence && hasGraphHit(doc, normalizedKeyword);
-        boolean textHit = filenameHit || ocrHit || tagHit || graphHit;
+//        boolean graphHit = graphHighlightHit
+//                || (allowTextExplain && !hasHighlightEvidence && hasGraphHit(doc, normalizedKeyword));
+
         boolean vectorHit = isVectorEvidenceHit(source, strategyType);
 
         LinkedHashSet<String> hitSources = new LinkedHashSet<>();

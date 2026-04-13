@@ -1,6 +1,7 @@
 package com.smart.vision.core.search.domain.strategy.impl;
 
 import com.smart.vision.core.search.domain.model.ImageSearchResultDTO;
+import com.smart.vision.core.search.domain.model.HybridSearchParamDTO;
 import com.smart.vision.core.search.domain.port.QueryGraphParserPort;
 import com.smart.vision.core.search.domain.port.SearchRerankPort;
 import com.smart.vision.core.search.domain.port.SearchRerankPort.RerankItem;
@@ -12,6 +13,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -24,6 +26,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.times;
 
 @ExtendWith(MockitoExtension.class)
 class HybridRetrievalStrategyTest {
@@ -195,6 +198,45 @@ class HybridRetrievalStrategyTest {
 
         assertThat(results).extracting(r -> r.getDocument().getId())
                 .containsExactly(2L, 10L);
+    }
+
+    @Test
+    void search_shouldRespectRequestTopKAndFinalLimitInHybridFlow() {
+        ReflectionTestUtils.setField(strategy, "rrfEnabled", true);
+        ReflectionTestUtils.setField(strategy, "rerankEnabled", false);
+        ReflectionTestUtils.setField(strategy, "rrfCandidateMultiplier", 4);
+        ReflectionTestUtils.setField(strategy, "rrfMaxCandidates", 200);
+        ReflectionTestUtils.setField(strategy, "rrfRankConstant", 60);
+
+        SearchQueryDTO query = new SearchQueryDTO();
+        query.setKeyword("cat");
+        query.setTopK(5);
+        query.setLimit(3);
+        query.setEnableOcr(true);
+
+        List<ImageSearchResultDTO> hybridHits = List.of(
+                hit(1L, 0.99d),
+                hit(2L, 0.98d),
+                hit(3L, 0.97d),
+                hit(4L, 0.96d),
+                hit(5L, 0.95d),
+                hit(6L, 0.94d)
+        );
+        when(queryGraphParserPort.parseFromKeyword("cat")).thenReturn(List.of());
+        when(imageRepository.hybridSearch(any())).thenReturn(hybridHits);
+        when(imageRepository.vectorSearch(anyList(), eq(12))).thenReturn(hybridHits);
+        when(imageRepository.textSearch(eq("cat"), eq(12), eq(true))).thenReturn(hybridHits);
+        when(rrfFusionService.fuse(anyList(), eq(12), eq(60))).thenReturn(hybridHits);
+
+        List<ImageSearchResultDTO> results = strategy.search(query, List.of(0.1f, 0.2f));
+
+        ArgumentCaptor<HybridSearchParamDTO> hybridCaptor = ArgumentCaptor.forClass(HybridSearchParamDTO.class);
+        verify(imageRepository).hybridSearch(hybridCaptor.capture());
+        assertThat(hybridCaptor.getValue().getTopK()).isEqualTo(5);
+        assertThat(hybridCaptor.getValue().getLimit()).isEqualTo(12);
+        verify(imageRepository, times(1)).vectorSearch(anyList(), eq(12));
+        verify(imageRepository, times(1)).textSearch(eq("cat"), eq(12), eq(true));
+        assertThat(results).hasSize(3);
     }
 
     private ImageSearchResultDTO hit(long id, double score) {

@@ -10,7 +10,11 @@ import lombok.Data;
 /**
  * Paged search request model.
  * <p>
- * `limit` represents page size for every page request.
+ * Parameter semantics:
+ * <ul>
+ *     <li>{@code limit}: page size and final returned item upper bound per page.</li>
+ *     <li>{@code topK}: vector recall size (KNN k) for first-page retrieval and only effective when vector retrieval is involved.</li>
+ * </ul>
  */
 @Data
 public class SearchPageQueryDTO {
@@ -19,6 +23,10 @@ public class SearchPageQueryDTO {
     @Size(max = 50, message = "keyword length cannot exceed 50")
     private String keyword;
 
+    /**
+     * Vector recall size (KNN {@code k}) for first-page retrieval.
+     * Effective for HYBRID(0) and VECTOR_ONLY(1), ignored for TEXT_ONLY(2).
+     */
     @Min(value = 1, message = "topK must be greater than 0")
     @Max(value = 200, message = "topK cannot exceed 200")
     private Integer topK;

@@ -58,7 +58,7 @@ def render_text_search_page(base_url: str) -> None:
     if strategy_widget_key not in st.session_state:
         st.session_state[strategy_widget_key] = st.session_state[strategy_store_key]
     if topk_store_key not in st.session_state:
-        st.session_state[topk_store_key] = 30
+        st.session_state[topk_store_key] = 20
     if topk_widget_key not in st.session_state:
         st.session_state[topk_widget_key] = int(st.session_state[topk_store_key])
     if limit_store_key not in st.session_state:
@@ -70,7 +70,7 @@ def render_text_search_page(base_url: str) -> None:
     if ocr_widget_key not in st.session_state:
         st.session_state[ocr_widget_key] = bool(st.session_state[ocr_store_key])
 
-    with st.form("text_search_form"):
+    with st.container(border=True):
         row1_col1, row1_col2 = st.columns([5, 2])
         keyword = row1_col1.text_input(
             "Keyword",
@@ -83,26 +83,56 @@ def render_text_search_page(base_url: str) -> None:
             help="0: hybrid, 1: vector, 2: text",
             key=strategy_widget_key,
         )
+        is_vector_strategy = str(strategy) == "1"
+        is_text_strategy = str(strategy) == "2"
+        if is_vector_strategy:
+            synced_limit = int(st.session_state[topk_widget_key])
+            st.session_state[limit_widget_key] = synced_limit
+            st.session_state[limit_store_key] = synced_limit
+
         row2_col1, row2_col2 = st.columns([2, 2])
-        top_k = row2_col1.number_input("TopK", min_value=1, max_value=200, key=topk_widget_key)
-        limit = row2_col2.number_input("Limit", min_value=1, max_value=100, key=limit_widget_key)
+        top_k = row2_col1.number_input(
+            "TopK",
+            min_value=1,
+            max_value=200,
+            key=topk_widget_key,
+            disabled=is_text_strategy,
+        )
+        limit = row2_col2.number_input(
+            "Limit",
+            min_value=1,
+            max_value=100,
+            key=limit_widget_key,
+            disabled=is_vector_strategy,
+        )
+        effective_top_k = int(top_k)
+        effective_limit = int(limit)
+        if is_vector_strategy:
+            effective_limit = effective_top_k
+        if is_text_strategy:
+            effective_top_k = None
         enable_ocr = st.checkbox("Enable OCR", key=ocr_widget_key)
         draft_payload = {
             "keyword": keyword.strip(),
             "searchType": str(strategy),
-            "limit": int(limit),
-            "topK": int(top_k),
+            "limit": int(effective_limit),
+            "topK": effective_top_k,
             "enableOcr": bool(enable_ocr),
         }
-        submitted = st.form_submit_button(
+        submitted = st.button(
             "Run Search",
+            key="text_search_run_btn",
             type="primary",
             disabled=_is_action_busy("text_search_first", draft_payload),
         )
+    if is_vector_strategy:
+        st.caption("Vector strategy: Limit is fixed to TopK.")
+    elif is_text_strategy:
+        st.caption("Text strategy: TopK is disabled, only Limit is used.")
     st.session_state[keyword_store_key] = keyword
     st.session_state[strategy_store_key] = str(strategy)
     st.session_state[topk_store_key] = int(top_k)
-    st.session_state[limit_store_key] = int(limit)
+    st.session_state[limit_store_key] = int(effective_limit)
     st.session_state[ocr_store_key] = bool(enable_ocr)
 
     if submitted:
@@ -113,8 +143,8 @@ def render_text_search_page(base_url: str) -> None:
         first_payload = {
             "keyword": keyword.strip(),
             "searchType": str(strategy),
-            "limit": int(limit),
-            "topK": int(top_k),
+            "limit": int(effective_limit),
+            "topK": effective_top_k,
             "enableOcr": bool(enable_ocr),
         }
         _queue_action("text_search_first", first_payload)
@@ -1888,7 +1918,7 @@ def _build_result_card_html(item: dict[str, Any], *, requested_strategy: str = "
     card_html.append(_meta_row("score", score))
     card_html.append(_meta_row_html("tags", tags_html))
     if relations_text:
-        card_html.append(_meta_row_single_line_html("spo", spo_html, relations_text))
+        card_html.append(_meta_row_single_line_html("graph", spo_html, relations_text))
     if _should_show_strategy_mismatch(strategy_effective, requested_strategy):
         card_html.append(_meta_row("strategy", strategy_effective))
     if ocr_text:

@@ -32,12 +32,23 @@ paths:
             schema:
               $ref: '#/components/schemas/SearchQueryDTO'
             examples:
-              default:
+              hybrid:
                 value:
                   keyword: "猫咪在沙发上"
                   topK: 30
                   limit: 20
                   searchType: "0"
+              vectorOnly:
+                value:
+                  keyword: "猫咪在沙发上"
+                  topK: 20
+                  limit: 20
+                  searchType: "1"
+              textOnly:
+                value:
+                  keyword: "猫咪在沙发上"
+                  limit: 20
+                  searchType: "2"
       responses:
         '200':
           description: Success
@@ -71,14 +82,27 @@ paths:
             schema:
               $ref: '#/components/schemas/SearchPageQueryDTO'
             examples:
-              firstPage:
+              hybridFirstPage:
                 value:
                   keyword: "猫咪在沙发上"
                   topK: 30
                   limit: 10
                   searchType: "0"
                   enableOcr: true
-              nextPage:
+              vectorOnlyFirstPage:
+                value:
+                  keyword: "猫咪在沙发上"
+                  topK: 10
+                  limit: 10
+                  searchType: "1"
+                  enableOcr: true
+              textOnlyFirstPage:
+                value:
+                  keyword: "猫咪在沙发上"
+                  limit: 10
+                  searchType: "2"
+                  enableOcr: true
+              hybridNextPage:
                 value:
                   keyword: "猫咪在沙发上"
                   topK: 30
@@ -463,6 +487,13 @@ components:
           description: Required by backend controller logic
         topK:
           type: integer
+          minimum: 1
+          maximum: 200
+          nullable: true
+          description: |
+            Vector recall size (KNN `k`).
+            Effective for HYBRID (`searchType=0`) and VECTOR_ONLY (`searchType=1`).
+            Ignored for TEXT_ONLY (`searchType=2`).
         pageNo:
           type: integer
         similarity:
@@ -477,6 +508,11 @@ components:
           enum: ["0", "1", "2", "3"]
         limit:
           type: integer
+          minimum: 1
+          maximum: 200
+          description: |
+            Maximum number of results returned by API.
+            For VECTOR_ONLY, keep `limit` equal to `topK`.
         searchAfter:
           type: array
           items: {}
@@ -489,6 +525,13 @@ components:
           maxLength: 50
         topK:
           type: integer
+          minimum: 1
+          maximum: 200
+          nullable: true
+          description: |
+            Vector recall size (KNN `k`) for first-page retrieval.
+            Effective for HYBRID (`searchType=0`) and VECTOR_ONLY (`searchType=1`).
+            Ignored for TEXT_ONLY (`searchType=2`).
         enableOcr:
           type: boolean
         searchType:
@@ -497,7 +540,11 @@ components:
           enum: ["0", "1", "2", "3"]
         limit:
           type: integer
-          description: Page size for each page request.
+          minimum: 1
+          maximum: 100
+          description: |
+            Page size and final returned item upper bound per page.
+            For VECTOR_ONLY, keep `limit` equal to `topK`.
         cursor:
           type: string
           description: Opaque cursor for next page; omit on first page.
