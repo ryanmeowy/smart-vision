@@ -64,9 +64,4 @@ public class SearchQueryDTO {
     @Max(value = 200, message = "limit cannot exceed 200")
     private Integer limit;
 
-    /**
-     * Search cursor for pagination
-     */
-    private List<Object> searchAfter;
-
 }

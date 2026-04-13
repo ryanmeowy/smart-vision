@@ -24,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.times;
@@ -237,6 +238,62 @@ class HybridRetrievalStrategyTest {
         verify(imageRepository, times(1)).vectorSearch(anyList(), eq(12));
         verify(imageRepository, times(1)).textSearch(eq("cat"), eq(12), eq(true));
         assertThat(results).hasSize(3);
+    }
+
+    @Test
+    void search_shouldRouteToNativeRrfWhenEnabled() {
+        ReflectionTestUtils.setField(strategy, "rrfEnabled", true);
+        ReflectionTestUtils.setField(strategy, "rrfNativeEnabled", true);
+        ReflectionTestUtils.setField(strategy, "rerankEnabled", false);
+        ReflectionTestUtils.setField(strategy, "rrfCandidateMultiplier", 4);
+        ReflectionTestUtils.setField(strategy, "rrfMaxCandidates", 200);
+        ReflectionTestUtils.setField(strategy, "rrfRankConstant", 60);
+
+        SearchQueryDTO query = new SearchQueryDTO();
+        query.setKeyword("cat");
+        query.setTopK(5);
+        query.setLimit(3);
+        query.setEnableOcr(true);
+
+        List<ImageSearchResultDTO> nativeHits = List.of(
+                hit(1L, 0.99d),
+                hit(2L, 0.98d),
+                hit(3L, 0.97d),
+                hit(4L, 0.96d)
+        );
+        List<ImageSearchResultDTO> vectorHits = List.of(
+                hit(1L, 0.90d),
+                hit(3L, 0.89d)
+        );
+        List<ImageSearchResultDTO> textHits = List.of(
+                hit(2L, 0.88d),
+                hit(3L, 0.87d)
+        );
+        when(queryGraphParserPort.parseFromKeyword("cat")).thenReturn(List.of());
+        when(imageRepository.hybridSearchNativeRrf(any(), eq(60), eq(12))).thenReturn(nativeHits);
+        when(imageRepository.vectorSearch(anyList(), eq(12))).thenReturn(vectorHits);
+        when(imageRepository.textSearch(eq("cat"), eq(12), eq(true))).thenReturn(textHits);
+
+        List<ImageSearchResultDTO> results = strategy.search(query, List.of(0.1f, 0.2f));
+
+        ArgumentCaptor<HybridSearchParamDTO> nativeCaptor = ArgumentCaptor.forClass(HybridSearchParamDTO.class);
+        verify(imageRepository).hybridSearchNativeRrf(nativeCaptor.capture(), eq(60), eq(12));
+        assertThat(nativeCaptor.getValue().getTopK()).isEqualTo(5);
+        assertThat(nativeCaptor.getValue().getLimit()).isEqualTo(12);
+        verify(imageRepository, never()).hybridSearch(any());
+        verify(imageRepository, times(1)).vectorSearch(anyList(), eq(12));
+        verify(imageRepository, times(1)).textSearch(eq("cat"), eq(12), eq(true));
+        verify(rrfFusionService, never()).fuse(anyList(), eq(12), eq(60));
+        assertThat(results).hasSize(3);
+        assertThat(results.get(0).getDocument().getId()).isEqualTo(1L);
+        assertThat(results.get(0).getVectorRecallHit()).isTrue();
+        assertThat(results.get(0).getTextRecallHit()).isFalse();
+        assertThat(results.get(1).getDocument().getId()).isEqualTo(2L);
+        assertThat(results.get(1).getVectorRecallHit()).isFalse();
+        assertThat(results.get(1).getTextRecallHit()).isTrue();
+        assertThat(results.get(2).getDocument().getId()).isEqualTo(3L);
+        assertThat(results.get(2).getVectorRecallHit()).isTrue();
+        assertThat(results.get(2).getTextRecallHit()).isTrue();
     }
 
     private ImageSearchResultDTO hit(long id, double score) {

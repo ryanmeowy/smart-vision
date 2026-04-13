@@ -58,6 +58,8 @@ public class HybridRetrievalStrategy implements RetrievalStrategy {
     private int rrfCandidateMultiplier;
     @Value("${app.search.rrf.max-candidates:200}")
     private int rrfMaxCandidates;
+    @Value("${app.search.rrf.native-enabled:false}")
+    private boolean rrfNativeEnabled;
     @Value("${app.search.rerank.enabled:true}")
     private boolean rerankEnabled;
     @Value("${app.search.rerank.max-doc-chars:1200}")
@@ -96,11 +98,17 @@ public class HybridRetrievalStrategy implements RetrievalStrategy {
                 .enableOcr(enableOcr)
                 .graphTriples(queryGraphParserPort.parseFromKeyword(query.getKeyword()))
                 .build();
-        List<ImageSearchResultDTO> hybridHits = imageRepository.hybridSearch(paramDTO);
-
-        List<ImageSearchResultDTO> candidates = rrfEnabled
-                ? applyRrfFusion(hybridHits, query, queryVector, fusionRecallSize, enableOcr)
-                : hybridHits;
+        List<ImageSearchResultDTO> candidates;
+        if (rrfEnabled && rrfNativeEnabled) {
+            // basic license not supported.
+            candidates = imageRepository.hybridSearchNativeRrf(paramDTO, rrfRankConstant, fusionRecallSize);
+            annotateNativeRecallSources(candidates, query, queryVector, fusionRecallSize, enableOcr);
+        } else {
+            List<ImageSearchResultDTO> hybridHits = imageRepository.hybridSearch(paramDTO);
+            candidates = rrfEnabled
+                    ? applyRrfFusion(hybridHits, query, queryVector, fusionRecallSize, enableOcr)
+                    : hybridHits;
+        }
 
         return applyCrossEncoderRerank(query.getKeyword(), candidates, requestLimit, enableOcr);
     }
@@ -137,6 +145,25 @@ public class HybridRetrievalStrategy implements RetrievalStrategy {
         List<ImageSearchResultDTO> fused = rrfFusionService.fuse(rankingLists, recallSize, rrfRankConstant);
         annotateRecallSources(fused, vectorHits, textHits);
         return fused;
+    }
+
+    private void annotateNativeRecallSources(List<ImageSearchResultDTO> candidates,
+                                             SearchQueryDTO query,
+                                             List<Float> queryVector,
+                                             int recallSize,
+                                             boolean enableOcr) {
+        if (CollectionUtil.isEmpty(candidates)) {
+            return;
+        }
+        List<ImageSearchResultDTO> vectorHits = List.of();
+        if (!CollectionUtil.isEmpty(queryVector)) {
+            vectorHits = imageRepository.vectorSearch(queryVector, recallSize);
+        }
+        List<ImageSearchResultDTO> textHits = List.of();
+        if (StringUtils.hasText(query.getKeyword())) {
+            textHits = imageRepository.textSearch(query.getKeyword(), recallSize, enableOcr);
+        }
+        annotateRecallSources(candidates, vectorHits, textHits);
     }
 
     private List<ImageSearchResultDTO> applyCrossEncoderRerank(String keyword,

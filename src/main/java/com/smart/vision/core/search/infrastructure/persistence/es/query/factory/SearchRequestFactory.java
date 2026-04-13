@@ -8,6 +8,7 @@ import com.smart.vision.core.search.infrastructure.persistence.es.query.HybridSe
 import com.smart.vision.core.search.infrastructure.persistence.es.query.SimilarSearchIdMatcher;
 import com.smart.vision.core.search.infrastructure.persistence.es.query.spec.DuplicateQuerySpec;
 import com.smart.vision.core.search.infrastructure.persistence.es.query.spec.HybridQuerySpec;
+import com.smart.vision.core.search.infrastructure.persistence.es.query.spec.HybridNativeRrfQuerySpec;
 import com.smart.vision.core.search.infrastructure.persistence.es.query.spec.QuerySpec;
 import com.smart.vision.core.search.infrastructure.persistence.es.query.spec.SimilarQuerySpec;
 import com.smart.vision.core.search.infrastructure.persistence.es.query.spec.TextOnlyQuerySpec;
@@ -36,6 +37,20 @@ public class SearchRequestFactory {
 
     public SearchRequest buildHybrid(HybridSearchParamDTO paramDTO) {
         QuerySpec spec = new HybridQuerySpec(vectorConfig.getReadTargetName(), paramDTO, hybridSearchKeywordMatcher, graphTriplesMatcher);
+        return spec.toSearchRequest();
+    }
+
+    public SearchRequest buildHybridNativeRrf(HybridSearchParamDTO paramDTO,
+                                              Integer rankConstant,
+                                              Integer rankWindowSize) {
+        QuerySpec spec = new HybridNativeRrfQuerySpec(
+                vectorConfig.getReadTargetName(),
+                paramDTO,
+                hybridSearchKeywordMatcher,
+                graphTriplesMatcher,
+                rankConstant,
+                rankWindowSize
+        );
         return spec.toSearchRequest();
     }
 

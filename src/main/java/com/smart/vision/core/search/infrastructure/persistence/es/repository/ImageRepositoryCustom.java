@@ -22,6 +22,16 @@ public interface ImageRepositoryCustom {
     List<ImageSearchResultDTO> hybridSearch(HybridSearchParamDTO paramDTO);
 
     /**
+     * Hybrid search powered by Elasticsearch native retriever RRF.
+     *
+     * @param paramDTO hybrid query parameters
+     * @param rankConstant RRF rank constant
+     * @param rankWindowSize RRF rank window size
+     * @return list of matching documents
+     */
+    List<ImageSearchResultDTO> hybridSearchNativeRrf(HybridSearchParamDTO paramDTO, Integer rankConstant, Integer rankWindowSize);
+
+    /**
      * Search for similar documents based on vector (supports excluding specific ID)
      * @param vector Array of vectors
      * @param topK Number of results
