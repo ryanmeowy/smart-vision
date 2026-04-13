@@ -40,6 +40,7 @@ public class TextOnlyQuerySpec implements QuerySpec {
         builder.index(indexName);
         builder.size(safeLimit);
         builder.sort(defaultSort());
+        builder.source(s -> s.filter(f -> f.excludes("imageEmbedding")));
 
         if (!StringUtils.hasText(keyword)) {
             builder.query(Query.of(q -> q.matchNone(m -> m)));

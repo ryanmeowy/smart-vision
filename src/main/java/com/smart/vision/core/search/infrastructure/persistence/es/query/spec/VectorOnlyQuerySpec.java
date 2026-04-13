@@ -30,6 +30,8 @@ public class VectorOnlyQuerySpec implements QuerySpec {
         builder.index(indexName);
         builder.size(safeTopK);
         builder.sort(defaultSort());
+        builder.source(s -> s.filter(f -> f.excludes("imageEmbedding")));
+
         if (minScore != null && minScore > 0) {
             builder.minScore(minScore);
         }

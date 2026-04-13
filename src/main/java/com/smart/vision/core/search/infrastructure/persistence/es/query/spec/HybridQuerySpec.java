@@ -8,6 +8,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.search.Highlight;
+import co.elastic.clients.elasticsearch.core.search.SourceConfig;
 import com.smart.vision.core.common.constant.EmbeddingConstant;
 import com.smart.vision.core.search.domain.model.HybridSearchParamDTO;
 import com.smart.vision.core.search.infrastructure.persistence.es.query.GraphTriplesMatcher;
@@ -41,6 +42,7 @@ public class HybridQuerySpec implements QuerySpec {
         SearchRequest.Builder builder = new SearchRequest.Builder();
         builder.index(indexName);
         builder.size(paramDTO.getLimit());
+        builder.source(s -> s.filter(f -> f.excludes("imageEmbedding")));
 
         if (CollectionUtil.isNotEmpty(paramDTO.getSearchAfter())) {
             builder.searchAfter(paramDTO.getSearchAfter().stream().map(FieldValue::of).collect(Collectors.toList()));
