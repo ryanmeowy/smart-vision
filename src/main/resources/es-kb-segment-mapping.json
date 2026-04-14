@@ -1,0 +1,60 @@
+{
+  "properties": {
+    "segmentId": {
+      "type": "keyword"
+    },
+    "assetId": {
+      "type": "keyword"
+    },
+    "assetType": {
+      "type": "keyword"
+    },
+    "segmentType": {
+      "type": "keyword"
+    },
+    "title": {
+      "type": "text",
+      "analyzer": "my_ik_analyzer",
+      "search_analyzer": "my_ik_search_analyzer",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
+        }
+      }
+    },
+    "contentText": {
+      "type": "text",
+      "analyzer": "my_ik_analyzer",
+      "search_analyzer": "my_ik_search_analyzer"
+    },
+    "ocrText": {
+      "type": "text",
+      "analyzer": "my_ik_analyzer",
+      "search_analyzer": "my_ik_search_analyzer"
+    },
+    "pageNo": {
+      "type": "integer"
+    },
+    "chunkOrder": {
+      "type": "integer"
+    },
+    "embedding": {
+      "type": "dense_vector",
+      "dims": "@DIMS@",
+      "index": true,
+      "similarity": "dot_product",
+      "index_options": {
+        "type": "hnsw",
+        "m": 16,
+        "ef_construction": 100
+      }
+    },
+    "sourceRef": {
+      "type": "keyword"
+    },
+    "createdAt": {
+      "type": "long"
+    }
+  }
+}
