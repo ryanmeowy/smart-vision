@@ -1,0 +1,33 @@
+package com.smart.vision.core.ingestion.infrastructure.parser;
+
+import com.smart.vision.core.ingestion.domain.model.TextAssetMetadata;
+import com.smart.vision.core.ingestion.domain.model.TextParseResult;
+import com.smart.vision.core.ingestion.domain.port.TextParserPort;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
+
+/**
+ * No-op fallback parser for Phase 1.
+ * <p>
+ * Concrete PDF/TXT/MD parser implementations will be introduced in M2+.
+ */
+@Component
+@Order(Ordered.LOWEST_PRECEDENCE)
+public class NoopTextParser implements TextParserPort {
+
+    @Override
+    public boolean supports(TextAssetMetadata metadata) {
+        return metadata != null;
+    }
+
+    @Override
+    public TextParseResult parse(TextAssetMetadata metadata) {
+        return TextParseResult.placeholder(name());
+    }
+
+    @Override
+    public String name() {
+        return "noop";
+    }
+}

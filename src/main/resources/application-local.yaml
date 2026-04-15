@@ -6,6 +6,12 @@ app:
     write-alias: smart_gallery_local_write
     dimension: 512
     model-type: LOCAL
+  kb-segment:
+    index-name: kb_segment_local
+    indexVersion: v1
+    read-alias: kb_segment_local_read
+    write-alias: kb_segment_local_write
+    dimension: 512
   embedding:
     image-input-mode: auto
 

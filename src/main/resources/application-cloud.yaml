@@ -6,5 +6,11 @@ app:
     write-alias: smart_gallery_cloud_write
     dimension: 1024
     model-type: CLOUD
+  kb-segment:
+    index-name: kb_segment_cloud
+    indexVersion: v1
+    read-alias: kb_segment_cloud_read
+    write-alias: kb_segment_cloud_write
+    dimension: 1024
   embedding:
     image-input-mode: url

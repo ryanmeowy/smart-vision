@@ -9,6 +9,8 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.smart.vision.core.search.domain.model.StrategyTypeEnum.HYBRID;
+
 /**
  * Strategy factory for retrieving appropriate retrieval strategies by type
  * This factory provides type-safe access to registered strategies and handles
@@ -57,11 +59,11 @@ public class StrategyFactory {
         try {
             StrategyTypeEnum strategyType = StrategyTypeEnum.getByCode(searchType);
             if (strategyType == null) {
-                return fallbackWithObservability(requested, "HYBRID", "invalid_strategy_code");
+                return fallbackWithObservability(requested, HYBRID.name(), "invalid_strategy_code");
             }
             RetrievalStrategy retrievalStrategy = strategies.get(strategyType);
             if (retrievalStrategy == null) {
-                return fallbackWithObservability(requested, "HYBRID", "strategy_not_registered");
+                return fallbackWithObservability(requested, HYBRID.name(), "strategy_not_registered");
             }
             meterRegistry.counter("smartvision.strategy.selection",
                     "requested", requested,
@@ -77,7 +79,7 @@ public class StrategyFactory {
             return retrievalStrategy;
         } catch (Exception e) {
             log.error("Failed to get search strategy, requested={}", requested, e);
-            return fallbackWithObservability(requested, "HYBRID", "strategy_resolve_exception");
+            return fallbackWithObservability(requested, HYBRID.name(), "strategy_resolve_exception");
         }
     }
 
@@ -98,6 +100,6 @@ public class StrategyFactory {
                 .reason(reason)
                 .build());
         log.warn("Strategy fallback happened, requested={}, effective={}, reason={}", requested, effective, reason);
-        return strategies.get(StrategyTypeEnum.HYBRID);
+        return strategies.get(HYBRID);
     }
 }
