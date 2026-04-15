@@ -3,7 +3,7 @@
 ## 1. 测试概览
 
 - 报告日期：`2026-04-15`
-- 结果文件：`/private/tmp/ab_vector_report_business_hard_expanded.json`
+- 结果文件：`docs/lite_knowledge_search_engine_prd/model_ab_spec/ab_vector_report_business_hard_expanded.json`
 - 测试集：`docs/lite_knowledge_search_engine_prd/model_ab_spec/test_cases.business_hard_expanded.json`
 - 向量设置：稠密向量，`dimension=1024`
 - 总用例：`27`
