@@ -205,7 +205,7 @@ class DoubaoProvider(EmbeddingProvider):
         self.endpoint = "https://ark.cn-beijing.volces.com/api/v3/embeddings/multimodal"
 
     def name(self) -> str:
-        return "doubao-embedding-vision"
+        return "doubao-embedding-vision-251215"
 
     def _call(self, input_item: Dict[str, Any]) -> Dict[str, Any]:
         payload = {
@@ -479,7 +479,7 @@ def main() -> int:
     parser.add_argument("--disable-doubao", action="store_true", help="disable doubao provider")
 
     parser.add_argument("--qwen-model", default="qwen3-vl-embedding", help="qwen model id")
-    parser.add_argument("--doubao-model", default="doubao-embedding-vision-250615", help="doubao model id")
+    parser.add_argument("--doubao-model", default="doubao-embedding-vision-251215", help="doubao model id")
     parser.add_argument("--qwen-api-key", default="", help="qwen api key; if empty, read DASHSCOPE_API_KEY")
     parser.add_argument("--doubao-api-key", default="", help="doubao api key; if empty, read ARK_API_KEY")
     args = parser.parse_args()

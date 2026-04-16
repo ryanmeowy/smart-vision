@@ -1,5 +1,6 @@
 package com.smart.vision.core.search.application.impl;
 
+import com.smart.vision.core.common.config.VectorConfig;
 import com.smart.vision.core.search.application.support.HotSearchManager;
 import com.smart.vision.core.search.application.support.SearchCursorCodec;
 import com.smart.vision.core.search.application.support.SearchCursorPayload;
@@ -35,6 +36,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
@@ -61,6 +63,8 @@ class SmartSearchServiceImplPageTest {
     private SearchSessionManager searchSessionManager;
     @Mock
     private SearchCursorCodec searchCursorCodec;
+    @Mock
+    private VectorConfig vectorConfig;
 
     private SmartSearchServiceImpl service;
 
@@ -75,10 +79,13 @@ class SmartSearchServiceImplPageTest {
                 redisTemplate,
                 objectStoragePort,
                 searchSessionManager,
-                searchCursorCodec
+                searchCursorCodec,
+                vectorConfig
         );
         ReflectionTestUtils.setField(service, "defaultPageSize", 10);
         ReflectionTestUtils.setField(service, "pageMaxWindow", 100);
+        ReflectionTestUtils.setField(service, "aiProvider", "local");
+        lenient().when(vectorConfig.getVectorProfileId()).thenReturn("test-profile");
     }
 
     @Test

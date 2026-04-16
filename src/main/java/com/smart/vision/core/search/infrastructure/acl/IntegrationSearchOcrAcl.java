@@ -1,6 +1,6 @@
 package com.smart.vision.core.search.infrastructure.acl;
 
-import com.smart.vision.core.integration.ai.port.ImageOcrService;
+import com.smart.vision.core.integration.ai.port.OcrService;
 import com.smart.vision.core.search.domain.port.SearchOcrPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -12,10 +12,10 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class IntegrationSearchOcrAcl implements SearchOcrPort {
 
-    private final ImageOcrService imageOcrService;
+    private final OcrService ocrService;
 
     @Override
     public String extractText(String imageInput) {
-        return imageOcrService.extractText(imageInput);
+        return ocrService.extractText(imageInput);
     }
 }

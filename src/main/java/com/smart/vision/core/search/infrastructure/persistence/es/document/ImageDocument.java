@@ -1,6 +1,6 @@
 package com.smart.vision.core.search.infrastructure.persistence.es.document;
 
-import com.smart.vision.core.common.model.GraphTriple;
+import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
@@ -78,5 +78,5 @@ public class ImageDocument {
      * Graph triples (subject, predicate, object)
      */
     @Field(type = FieldType.Nested)
-    private List<GraphTriple> relations;
+    private List<GraphTripleDTO> relations;
 }

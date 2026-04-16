@@ -3,42 +3,36 @@ package com.smart.vision.core.integration.ai.adapter.local;
 
 import com.google.common.collect.Lists;
 import com.smart.vision.core.common.model.GraphTriple;
-import com.smart.vision.core.integration.ai.port.ContentGenerationService;
 import com.smart.vision.core.grpc.VisionProto;
 import com.smart.vision.core.grpc.VisionServiceGrpc;
 import com.smart.vision.core.integration.ai.domain.model.PromptEnum;
+import com.smart.vision.core.integration.ai.port.ContentGenerationService;
+import io.grpc.StatusRuntimeException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.client.inject.GrpcClient;
-import org.springframework.context.annotation.Profile;
-import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-
-import io.grpc.StatusRuntimeException;
 
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import static com.smart.vision.core.common.constant.CommonConstant.DEFAULT_IMAGE_NAME;
-import static com.smart.vision.core.common.constant.CommonConstant.SSE_TIMEOUT;
 
 @Slf4j
 @Service
-@Profile("local")
 @RequiredArgsConstructor
+@ConditionalOnProperty(prefix = "app.capability-provider", name = "gen", havingValue = "local")
 public class LocalGenImpl implements ContentGenerationService {
 
     @SuppressWarnings("unused")
     @GrpcClient("vision-python-service")
     private VisionServiceGrpc.VisionServiceBlockingStub visionStub;
-    private final Executor imageGenTaskExecutor;
 
     @Value("${grpc.deadline.stream-caption-ms:20000}")
     private long streamCaptionDeadlineMs;
@@ -50,60 +44,6 @@ public class LocalGenImpl implements ContentGenerationService {
     private long generateGraphDeadlineMs;
     @Value("${grpc.deadline.parse-graph-ms:8000}")
     private long parseGraphDeadlineMs;
-
-    @Override
-    public SseEmitter streamGenerateCopy(String imageUrl, String promptType) {
-        SseEmitter emitter = new SseEmitter(SSE_TIMEOUT);
-        try {
-            AtomicBoolean cancelled = new AtomicBoolean(false);
-            emitter.onCompletion(() -> cancelled.set(true));
-            emitter.onTimeout(() -> cancelled.set(true));
-
-            VisionProto.GenRequest request = VisionProto.GenRequest.newBuilder()
-                    .setImageUrl(imageUrl)
-                    .setPrompt(PromptEnum.getPromptByType(promptType))
-                    .build();
-            long startNs = System.nanoTime();
-            Iterator<VisionProto.StringResponse> stringResponseIterator;
-            try {
-                stringResponseIterator = visionStub
-                        .withDeadlineAfter(streamCaptionDeadlineMs, TimeUnit.MILLISECONDS)
-                        .generateCaption(request);
-            } catch (StatusRuntimeException e) {
-                long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNs);
-                log.error("gRPC generateCaption failed: statusCode={}, deadlineMs={}, elapsedMs={}", e.getStatus().getCode(), streamCaptionDeadlineMs, elapsedMs, e);
-                emitter.completeWithError(e);
-                return emitter;
-            }
-
-            Iterator<VisionProto.StringResponse> finalIterator = stringResponseIterator;
-            imageGenTaskExecutor.execute(() -> {
-                long workerStartNs = System.nanoTime();
-                try {
-                    while (!cancelled.get() && finalIterator.hasNext()) {
-                        VisionProto.StringResponse response = finalIterator.next();
-                        emitter.send(response.getContent());
-                    }
-                    if (!cancelled.get()) {
-                        emitter.complete();
-                    }
-                } catch (StatusRuntimeException e) {
-                    if (cancelled.get()) return;
-                    long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - workerStartNs);
-                    log.error("gRPC generateCaption stream iteration failed: statusCode={}, deadlineMs={}, elapsedMs={}", e.getStatus().getCode(), streamCaptionDeadlineMs, elapsedMs, e);
-                    emitter.completeWithError(e);
-                } catch (Exception e) {
-                    if (cancelled.get()) return;
-                    log.error("gRPC stream generate worker failed: {}", e.getMessage(), e);
-                    emitter.completeWithError(e);
-                }
-            });
-        } catch (Exception e) {
-            log.error("gRPC stream generate call failed: {}", e.getMessage(), e);
-            emitter.completeWithError(e);
-        }
-        return emitter;
-    }
 
     @Override
     public String generateSummary(String imageUrl) {

@@ -4,7 +4,7 @@
 
 对两家云端 embedding 模型做真实调用，并验证向量可用性与相关性表现：
 
-- `doubao-embedding-vision`（Doubao）
+- `doubao-embedding-vision-251215`（Doubao）
 - `qwen3-vl-embedding`（Qwen）
 
 固定要求：

@@ -1,25 +1,25 @@
 
 package com.smart.vision.core.integration.ai.adapter.local;
 
-import com.smart.vision.core.integration.ai.port.ImageOcrService;
 import com.smart.vision.core.grpc.VisionProto;
 import com.smart.vision.core.grpc.VisionServiceGrpc;
 import com.smart.vision.core.integration.ai.domain.model.PromptEnum;
+import com.smart.vision.core.integration.ai.port.OcrService;
+import io.grpc.StatusRuntimeException;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.apache.logging.log4j.util.Strings;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Profile;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
-import io.grpc.StatusRuntimeException;
 
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
-@Profile("local")
-public class LocalOcrImpl implements ImageOcrService {
+@ConditionalOnProperty(prefix = "app.capability-provider", name = "ocr", havingValue = "local")
+public class LocalOcrImpl implements OcrService {
 
     @SuppressWarnings("unused")
     @GrpcClient("vision-python-service")

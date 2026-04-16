@@ -1,5 +1,6 @@
 package com.smart.vision.core.search.application.impl;
 
+import com.smart.vision.core.common.config.VectorConfig;
 import com.smart.vision.core.common.exception.ApiError;
 import com.smart.vision.core.common.exception.InfraException;
 import com.smart.vision.core.search.domain.port.SearchEmbeddingPort;
@@ -46,6 +47,8 @@ public class VectorCompareServiceImpl implements VectorCompareService {
 
     @Value("${app.embedding.image-input-mode:auto}")
     private String imageInputMode;
+    @Value("${app.capability.ai.provider:local}")
+    private String aiProvider;
 
     private final SearchEmbeddingPort embeddingPort;
     private final RedisTemplate<String, List<Float>> redisTemplate;
@@ -194,8 +197,7 @@ public class VectorCompareServiceImpl implements VectorCompareService {
     }
 
     private String activeProfile() {
-        String profile = System.getenv(PROFILE_KEY_NAME);
-        return StringUtils.hasText(profile) ? profile : "default";
+        return System.getenv(PROFILE_KEY_NAME);
     }
 
     private boolean shouldUseBytesInput() {
@@ -206,7 +208,7 @@ public class VectorCompareServiceImpl implements VectorCompareService {
         if ("url".equals(mode)) {
             return false;
         }
-        return "local".equalsIgnoreCase(activeProfile());
+        return "local".equalsIgnoreCase(aiProvider);
     }
 
     private double normalizePercent(double cosine) {

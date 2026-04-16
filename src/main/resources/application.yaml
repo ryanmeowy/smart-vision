@@ -15,20 +15,13 @@ spring:
       max-file-size: 10MB
       max-request-size: 10MB
 
-aliyun:
-  oss:
-    endpoint: ${OSS_ENDPOINT}
-    public-endpoint: ${OSS_PUBLIC_ENDPOINT}
-    access-key-id: ${ALIYUN_ACCESS_KEY_ID}
-    access-key-secret: ${ALIYUN_ACCESS_KEY_SECRET}
-    bucket-name: ${ALIYUN_OSS_BUCKET_NAME}
-    role-arn: ${ALIYUN_OSS_ROLE_ARN}
-  ocr:
-    access-key-id: ${ALIYUN_ACCESS_KEY_ID}
-    access-key-secret: ${ALIYUN_ACCESS_KEY_SECRET}
-    endpoint: ${OCR_ENDPOINT}
-
 app:
+  capability-provider:
+    embedding: aliyun
+    rerank: aliyun
+    gen: aliyun
+    ocr: aliyun
+    object-storage: aliyun
   security:
     admin-secret: ${APP_ADMIN_SECRET}
     encrypt-key: ${APP_ENCRYPT_KEY}

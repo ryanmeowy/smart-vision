@@ -5,6 +5,13 @@ import com.smart.vision.core.grpc.VisionProto;
 import com.smart.vision.core.grpc.VisionServiceGrpc;
 import com.smart.vision.core.integration.ai.port.CrossEncoderRerankService;
 import io.grpc.StatusRuntimeException;
+import lombok.extern.slf4j.Slf4j;
+import net.devh.boot.grpc.client.inject.GrpcClient;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -12,12 +19,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import lombok.extern.slf4j.Slf4j;
-import net.devh.boot.grpc.client.inject.GrpcClient;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Profile;
-import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
 /**
  * Local cross-encoder rerank implementation backed by gRPC Python inference service.
@@ -25,7 +26,7 @@ import org.springframework.util.StringUtils;
  */
 @Slf4j
 @Service
-@Profile("local")
+@ConditionalOnProperty(prefix = "app.capability-provider", name = "rerank", havingValue = "local")
 public class LocalCrossEncoderRerankImpl implements CrossEncoderRerankService {
 
     @SuppressWarnings("unused")

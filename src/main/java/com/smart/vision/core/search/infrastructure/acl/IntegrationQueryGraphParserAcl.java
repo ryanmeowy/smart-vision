@@ -4,6 +4,7 @@ import cn.hutool.core.collection.CollectionUtil;
 import com.smart.vision.core.common.model.GraphTriple;
 import com.smart.vision.core.integration.ai.port.ContentGenerationService;
 import com.smart.vision.core.search.domain.port.QueryGraphParserPort;
+import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -22,7 +23,7 @@ public class IntegrationQueryGraphParserAcl implements QueryGraphParserPort {
     private final ContentGenerationService contentGenerationService;
 
     @Override
-    public List<GraphTriple> parseFromKeyword(String keyword) {
+    public List<GraphTripleDTO> parseFromKeyword(String keyword) {
         try {
             List<GraphTriple> triples = contentGenerationService.praseTriplesFromKeyword(keyword);
             if (CollectionUtil.isEmpty(triples)) {

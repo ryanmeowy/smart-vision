@@ -1,7 +1,6 @@
 package com.smart.vision.core.integration.ai.port;
 
 import com.smart.vision.core.common.model.GraphTriple;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 
@@ -9,14 +8,6 @@ import java.util.List;
  * AIGC Generation Service Interface
  */
 public interface ContentGenerationService {
-
-    /**
-     * Generate copywriting in a streaming manner (SSE)
-     * @param imageUrl Image URL
-     * @param promptType Prompt type/style
-     * @return SSE Emitter
-     */
-    SseEmitter streamGenerateCopy(String imageUrl, String promptType);
 
     /**
      * Generate one-shot summary for the image.

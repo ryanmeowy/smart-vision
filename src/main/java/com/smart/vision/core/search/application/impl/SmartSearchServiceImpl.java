@@ -1,29 +1,30 @@
 package com.smart.vision.core.search.application.impl;
 
-import com.smart.vision.core.search.domain.model.HitSourceEnum;
-import com.smart.vision.core.search.interfaces.assembler.ImageDocConvertor;
+import com.smart.vision.core.common.config.VectorConfig;
 import com.smart.vision.core.common.exception.ApiError;
 import com.smart.vision.core.common.exception.InfraException;
+import com.smart.vision.core.search.application.SmartSearchService;
+import com.smart.vision.core.search.application.support.HotSearchManager;
 import com.smart.vision.core.search.application.support.SearchCursorCodec;
 import com.smart.vision.core.search.application.support.SearchCursorPayload;
-import com.smart.vision.core.search.application.support.HotSearchManager;
 import com.smart.vision.core.search.application.support.SearchPageSession;
 import com.smart.vision.core.search.application.support.SearchSessionManager;
+import com.smart.vision.core.search.domain.model.HitSourceEnum;
 import com.smart.vision.core.search.domain.model.ImageSearchResultDTO;
-import com.smart.vision.core.common.model.GraphTriple;
+import com.smart.vision.core.search.domain.model.StrategyTypeEnum;
 import com.smart.vision.core.search.domain.port.SearchEmbeddingPort;
 import com.smart.vision.core.search.domain.port.SearchObjectStoragePort;
+import com.smart.vision.core.search.domain.strategy.RetrievalStrategy;
+import com.smart.vision.core.search.domain.strategy.StrategyFactory;
+import com.smart.vision.core.search.infrastructure.persistence.es.document.ImageDocument;
+import com.smart.vision.core.search.infrastructure.persistence.es.repository.ImageRepository;
+import com.smart.vision.core.search.interfaces.assembler.ImageDocConvertor;
+import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
+import com.smart.vision.core.search.interfaces.rest.dto.SearchExplainDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchPageDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchPageQueryDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchQueryDTO;
-import com.smart.vision.core.search.interfaces.rest.dto.SearchExplainDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchResultDTO;
-import com.smart.vision.core.search.infrastructure.persistence.es.document.ImageDocument;
-import com.smart.vision.core.search.domain.model.StrategyTypeEnum;
-import com.smart.vision.core.search.infrastructure.persistence.es.repository.ImageRepository;
-import com.smart.vision.core.search.application.SmartSearchService;
-import com.smart.vision.core.search.domain.strategy.RetrievalStrategy;
-import com.smart.vision.core.search.domain.strategy.StrategyFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -74,6 +75,8 @@ public class SmartSearchServiceImpl implements SmartSearchService {
     private int pageMaxWindow;
     @Value("${app.search.rrf.native-enabled:false}")
     private boolean rrfNativeEnabled;
+    @Value("${app.capability.ai.provider:local}")
+    private String aiProvider;
 
     private final SearchEmbeddingPort embeddingPort;
     private final ImageRepository imageRepository;
@@ -84,6 +87,7 @@ public class SmartSearchServiceImpl implements SmartSearchService {
     private final SearchObjectStoragePort objectStoragePort;
     private final SearchSessionManager searchSessionManager;
     private final SearchCursorCodec searchCursorCodec;
+    private final VectorConfig vectorConfig;
 
     public List<SearchResultDTO> search(SearchQueryDTO query) {
         if (StringUtils.hasText(query.getKeyword())) {
@@ -180,7 +184,7 @@ public class SmartSearchServiceImpl implements SmartSearchService {
     public List<SearchResultDTO> searchByImage(MultipartFile file, int limit) {
         try (InputStream is = file.getInputStream()) {
             String md5 = DigestUtils.md5DigestAsHex(is);
-            String cacheKey = String.format("%s%s:%s", IMAGE_MD5_CACHE_PREFIX, System.getenv(PROFILE_KEY_NAME), md5);
+            String cacheKey = String.format("%s%s:%s", IMAGE_MD5_CACHE_PREFIX, PROFILE_KEY_NAME, md5);
             List<Float> vector = redisTemplate.opsForValue().get(cacheKey);
             if (vector != null) {
                 log.info("Cache hit, MD5: {}", md5);
@@ -311,8 +315,7 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         if ("url".equals(mode)) {
             return false;
         }
-        String profile = System.getenv(PROFILE_KEY_NAME);
-        return "local".equalsIgnoreCase(profile);
+        return "local".equalsIgnoreCase(aiProvider);
     }
 
     private List<Float> getOrCreateQueryVector(String keyword) {
@@ -622,7 +625,7 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         if (doc == null || CollectionUtils.isEmpty(doc.getRelations())) {
             return false;
         }
-        for (GraphTriple triple : doc.getRelations()) {
+        for (GraphTripleDTO triple : doc.getRelations()) {
             if (triple == null) {
                 continue;
             }

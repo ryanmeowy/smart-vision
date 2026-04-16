@@ -1,23 +1,23 @@
 package com.smart.vision.core.integration.ai.adapter.local;
 
-import com.smart.vision.core.integration.ai.port.MultiModalEmbeddingService;
+import com.google.protobuf.ByteString;
 import com.smart.vision.core.grpc.VisionProto;
 import com.smart.vision.core.grpc.VisionServiceGrpc;
-import com.google.protobuf.ByteString;
+import com.smart.vision.core.integration.ai.port.MultiModelEmbeddingService;
+import io.grpc.StatusRuntimeException;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.client.inject.GrpcClient;
-import org.springframework.context.annotation.Profile;
-import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Value;
-import io.grpc.StatusRuntimeException;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
-@Profile("local")
-public class LocalEmbeddingImpl implements MultiModalEmbeddingService {
+@ConditionalOnProperty(prefix = "app.capability-provider", name = "embedding", havingValue = "local")
+public class LocalEmbeddingImpl implements MultiModelEmbeddingService {
 
     @SuppressWarnings("unused")
     @GrpcClient("vision-python-service")

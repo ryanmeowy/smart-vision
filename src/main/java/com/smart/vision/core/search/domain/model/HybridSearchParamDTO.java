@@ -1,6 +1,6 @@
 package com.smart.vision.core.search.domain.model;
 
-import com.smart.vision.core.common.model.GraphTriple;
+import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
 import lombok.Builder;
 import lombok.Data;
 
@@ -22,7 +22,7 @@ public class HybridSearchParamDTO {
     /**
      * Graph triples associated with the search query.
      */
-    private List<GraphTriple> graphTriples;
+    private List<GraphTripleDTO> graphTriples;
 
     /**
      * Keyword used in the search.

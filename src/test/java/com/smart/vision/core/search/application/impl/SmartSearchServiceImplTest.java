@@ -1,22 +1,23 @@
 package com.smart.vision.core.search.application.impl;
 
-import com.smart.vision.core.search.interfaces.assembler.ImageDocConvertor;
+import com.smart.vision.core.common.config.VectorConfig;
 import com.smart.vision.core.common.exception.InfraException;
-import com.smart.vision.core.search.application.support.SearchCursorCodec;
 import com.smart.vision.core.search.application.support.HotSearchManager;
+import com.smart.vision.core.search.application.support.SearchCursorCodec;
 import com.smart.vision.core.search.application.support.SearchSessionManager;
-import com.smart.vision.core.common.model.GraphTriple;
 import com.smart.vision.core.search.domain.model.ImageSearchResultDTO;
+import com.smart.vision.core.search.domain.model.StrategyTypeEnum;
 import com.smart.vision.core.search.domain.port.SearchEmbeddingPort;
 import com.smart.vision.core.search.domain.port.SearchObjectStoragePort;
+import com.smart.vision.core.search.domain.strategy.RetrievalStrategy;
+import com.smart.vision.core.search.domain.strategy.StrategyFactory;
+import com.smart.vision.core.search.infrastructure.persistence.es.document.ImageDocument;
+import com.smart.vision.core.search.infrastructure.persistence.es.repository.ImageRepository;
+import com.smart.vision.core.search.interfaces.assembler.ImageDocConvertor;
+import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchExplainDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchQueryDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchResultDTO;
-import com.smart.vision.core.search.infrastructure.persistence.es.document.ImageDocument;
-import com.smart.vision.core.search.domain.model.StrategyTypeEnum;
-import com.smart.vision.core.search.infrastructure.persistence.es.repository.ImageRepository;
-import com.smart.vision.core.search.domain.strategy.RetrievalStrategy;
-import com.smart.vision.core.search.domain.strategy.StrategyFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,6 +40,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -64,6 +66,8 @@ class SmartSearchServiceImplTest {
     @Mock
     private SearchCursorCodec searchCursorCodec;
     @Mock
+    private VectorConfig vectorConfig;
+    @Mock
     private MultipartFile multipartFile;
     @Mock
     private ValueOperations<String, List<Float>> valueOperations;
@@ -81,9 +85,12 @@ class SmartSearchServiceImplTest {
                 redisTemplate,
                 objectStoragePort,
                 searchSessionManager,
-                searchCursorCodec
+                searchCursorCodec,
+                vectorConfig
         );
         ReflectionTestUtils.setField(service, "qualityAbsoluteMinScore", 0.72d);
+        ReflectionTestUtils.setField(service, "aiProvider", "local");
+        lenient().when(vectorConfig.getVectorProfileId()).thenReturn("test-profile");
     }
 
     @AfterEach
@@ -114,7 +121,7 @@ class SmartSearchServiceImplTest {
         doc.setFileName("cat-photo.jpg");
         doc.setOcrContent("a cute cat on sofa");
         doc.setTags(List.of("cat", "home"));
-        doc.setRelations(List.of(new GraphTriple("cat", "on", "sofa")));
+        doc.setRelations(List.of(new GraphTripleDTO("cat", "on", "sofa")));
         ImageSearchResultDTO source = ImageSearchResultDTO.builder()
                 .document(doc)
                 .rawScore(0.95)

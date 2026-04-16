@@ -7,19 +7,18 @@ import com.aliyuncs.auth.sts.AssumeRoleResponse;
 import com.aliyuncs.exceptions.ClientException;
 import com.aliyuncs.profile.DefaultProfile;
 import com.google.gson.Gson;
-import com.smart.vision.core.common.config.OSSConfig;
+import com.smart.vision.core.integration.config.aliyun.AliyunOSSConfig;
 import com.smart.vision.core.auth.infrastructure.aliyun.dto.StsTokenDTO;
 import com.smart.vision.core.auth.application.OssService;
 import com.smart.vision.core.common.security.AesUtil;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
-import static com.smart.vision.core.common.constant.AliyunConstant.DEFAULT_REGION;
-import static com.smart.vision.core.common.constant.AliyunConstant.DEFAULT_ROLE_SESSION_NAME;
-import static com.smart.vision.core.common.constant.AliyunConstant.DEFAULT_STS_DURATION_SECONDS;
+import static com.smart.vision.core.integration.constant.AliyunConstant.DEFAULT_REGION;
+import static com.smart.vision.core.integration.constant.AliyunConstant.DEFAULT_ROLE_SESSION_NAME;
+import static com.smart.vision.core.integration.constant.AliyunConstant.DEFAULT_STS_DURATION_SECONDS;
 
 /**
  * OSS Service Implementation of OssService interface that handles Alibaba Cloud OSS operations
@@ -33,15 +32,14 @@ import static com.smart.vision.core.common.constant.AliyunConstant.DEFAULT_STS_D
 @RequiredArgsConstructor
 public class OssServiceImpl implements OssService {
 
-    @Qualifier("OSSConfig")
-    private final OSSConfig ossConfig;
+    private final AliyunOSSConfig aliyunOssConfig;
     private final Gson gson;
     private final AesUtil aesUtil;
 
     @Override
     public String fetchStsToken() throws ClientException {
-        String roleArn = ossConfig.getRoleArn();
-        DefaultProfile profile = DefaultProfile.getProfile(DEFAULT_REGION, ossConfig.getAccessKeyId(), ossConfig.getAccessKeySecret());
+        String roleArn = aliyunOssConfig.getRoleArn();
+        DefaultProfile profile = DefaultProfile.getProfile(DEFAULT_REGION, aliyunOssConfig.getAccessKeyId(), aliyunOssConfig.getAccessKeySecret());
         IAcsClient client = new DefaultAcsClient(profile);
 
         AssumeRoleRequest request = new AssumeRoleRequest();
