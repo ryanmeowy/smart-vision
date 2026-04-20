@@ -27,3 +27,5 @@ app:
     dimension: 1024
   embedding:
     image-input-mode: url
+    model: multimodal-embedding-v1
+    preprocess-version: v1

@@ -8,8 +8,6 @@ package com.smart.vision.core.common.constant;
  */
 public class CommonConstant {
 
-    public static final Long SSE_TIMEOUT = 60_000L;
-
     public static final String ALGORITHM = "AES/CBC/PKCS5Padding";
 
     public static final long ID_GEN_MIN_ID = 1_000_000_000L;

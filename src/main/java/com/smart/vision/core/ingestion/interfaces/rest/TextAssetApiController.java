@@ -1,6 +1,6 @@
 package com.smart.vision.core.ingestion.interfaces.rest;
 
-import com.smart.vision.core.common.api.Result;
+import com.smart.vision.core.common.model.Result;
 import com.smart.vision.core.common.security.RequireAuth;
 import com.smart.vision.core.ingestion.application.TextAssetIngestionService;
 import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchTaskStatusDTO;

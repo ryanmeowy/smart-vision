@@ -1,14 +1,14 @@
 package com.smart.vision.core.search.infrastructure.acl;
 
-import com.smart.vision.core.integration.os.port.ObjectStoragePort;
+import com.smart.vision.core.integration.storage.port.ObjectStoragePort;
 import com.smart.vision.core.search.domain.port.SearchObjectStoragePort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
-import static com.smart.vision.core.integration.os.domain.model.PresignedValidityEnum.LONG_TERM_VALIDITY;
-import static com.smart.vision.core.integration.os.domain.model.PresignedValidityEnum.MEDIUM_TERM_VALIDITY;
-import static com.smart.vision.core.integration.os.domain.model.PresignedValidityEnum.SHORT_TERM_VALIDITY;
+import static com.smart.vision.core.integration.storage.domain.model.PresignedValidityEnum.LONG_TERM_VALIDITY;
+import static com.smart.vision.core.integration.storage.domain.model.PresignedValidityEnum.MEDIUM_TERM_VALIDITY;
+import static com.smart.vision.core.integration.storage.domain.model.PresignedValidityEnum.SHORT_TERM_VALIDITY;
 
 /**
  * ACL adapter from search storage port to integration OSS manager.

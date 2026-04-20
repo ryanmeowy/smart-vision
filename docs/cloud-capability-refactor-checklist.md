@@ -34,11 +34,11 @@
 
 ## Phase 3：索引与 Embedding 强绑定
 
-- [ ] 定义 `VectorProfile = provider + model + dimension + preprocessVersion`。
-- [ ] 向量索引名称/别名必须自动带 `vectorProfile`。
-- [ ] 向量缓存 key 必须自动带 `vectorProfile`。
-- [ ] 启动时校验当前 Embedding 配置与索引 mapping 维度一致，不一致直接失败。
-- [ ] 模型切换使用“新 profile 新索引 + 回填 + 别名切换”，禁止手工裸切。
+- [x] 定义 `VectorProfile = provider + model + dimension + preprocessVersion`。
+- [x] 向量索引名称/别名必须自动带 `vectorProfile`。
+- [x] 向量缓存 key 必须自动带 `vectorProfile`。
+- [x] 启动时校验当前 Embedding 配置与索引 mapping 维度一致，不一致直接失败。
+- [x] 模型切换使用“新 profile 新索引 + 回填 + 别名切换”，禁止手工裸切。
 
 ## Phase 4：配置与装配治理
 

@@ -2,7 +2,7 @@ package com.smart.vision.core.ingestion.infrastructure.acl;
 
 import com.smart.vision.core.common.model.GraphTriple;
 import com.smart.vision.core.ingestion.domain.port.IngestionContentPort;
-import com.smart.vision.core.integration.ai.port.GenPort;
+import com.smart.vision.core.integration.multimodal.port.GenPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

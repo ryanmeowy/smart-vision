@@ -24,7 +24,6 @@ import java.util.concurrent.TimeUnit;
 
 import static com.smart.vision.core.common.constant.CacheConstant.COMPARE_IMAGE_CACHE_PREFIX;
 import static com.smart.vision.core.common.constant.CacheConstant.COMPARE_TEXT_CACHE_PREFIX;
-import static com.smart.vision.core.common.constant.CommonConstant.PROFILE_KEY_NAME;
 import static com.smart.vision.core.common.constant.SearchConstant.IMAGE_MAX_SIZE;
 
 @Slf4j
@@ -53,6 +52,7 @@ public class VectorCompareServiceImpl implements VectorCompareService {
     private final SearchEmbeddingPort embeddingPort;
     private final RedisTemplate<String, List<Float>> redisTemplate;
     private final SearchObjectStoragePort objectStoragePort;
+    private final VectorConfig vectorConfig;
 
     @Override
     public VectorCompareResultDTO compare(String leftType,
@@ -187,17 +187,13 @@ public class VectorCompareServiceImpl implements VectorCompareService {
     }
 
     private String buildTextCacheKey(String text) {
-        String profile = activeProfile();
+        String profile = vectorConfig.getVectorProfile();
         String textHash = DigestUtils.md5DigestAsHex(text.toLowerCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8));
         return String.format("%s%s:%s", COMPARE_TEXT_CACHE_PREFIX, profile, textHash);
     }
 
     private String buildImageCacheKey(String md5) {
-        return String.format("%s%s:%s", COMPARE_IMAGE_CACHE_PREFIX, activeProfile(), md5);
-    }
-
-    private String activeProfile() {
-        return System.getenv(PROFILE_KEY_NAME);
+        return String.format("%s%s:%s", COMPARE_IMAGE_CACHE_PREFIX, vectorConfig.getVectorProfile(), md5);
     }
 
     private boolean shouldUseBytesInput() {

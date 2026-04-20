@@ -1,8 +1,8 @@
 package com.smart.vision.core.search.infrastructure.acl;
 
 import cn.hutool.core.collection.CollectionUtil;
-import com.smart.vision.core.integration.ai.port.RerankPort;
-import com.smart.vision.core.integration.ai.port.RerankPort.RerankResult;
+import com.smart.vision.core.integration.multimodal.port.RerankPort;
+import com.smart.vision.core.integration.multimodal.port.RerankPort.RerankResult;
 import com.smart.vision.core.search.domain.port.SearchRerankPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

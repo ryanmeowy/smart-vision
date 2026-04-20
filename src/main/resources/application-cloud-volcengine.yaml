@@ -16,3 +16,5 @@ app:
     dimension: 1024
   embedding:
     image-input-mode: url
+    model: doubao-embedding-vision-251215
+    preprocess-version: v1

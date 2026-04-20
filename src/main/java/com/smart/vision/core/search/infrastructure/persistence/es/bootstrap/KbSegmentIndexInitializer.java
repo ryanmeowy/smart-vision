@@ -5,7 +5,6 @@ import co.elastic.clients.elasticsearch._types.mapping.TypeMapping;
 import co.elastic.clients.elasticsearch.indices.IndexSettings;
 import co.elastic.clients.transport.endpoints.BooleanResponse;
 import com.smart.vision.core.common.config.KbSegmentConfig;
-import com.smart.vision.core.common.config.VectorConfig;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +30,6 @@ public class KbSegmentIndexInitializer {
 
     private final ElasticsearchClient esClient;
     private final KbSegmentConfig kbSegmentConfig;
-    private final VectorConfig vectorConfig;
 
     @PostConstruct
     public void init() {
@@ -62,11 +60,9 @@ public class KbSegmentIndexInitializer {
     }
 
     private int resolveDimension() {
-        if (kbSegmentConfig.getDimension() != null && kbSegmentConfig.getDimension() > 0) {
-            return kbSegmentConfig.getDimension();
-        }
-        if (vectorConfig.getDimension() != null && vectorConfig.getDimension() > 0) {
-            return vectorConfig.getDimension();
+        Integer resolved = kbSegmentConfig.getResolvedDimension();
+        if (resolved != null && resolved > 0) {
+            return resolved;
         }
         throw new IllegalStateException("kb segment vector dimension is missing");
     }

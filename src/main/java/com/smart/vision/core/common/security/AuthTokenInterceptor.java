@@ -1,7 +1,7 @@
 package com.smart.vision.core.common.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.smart.vision.core.common.api.Result;
+import com.smart.vision.core.common.model.Result;
 import com.smart.vision.core.common.exception.ApiError;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

@@ -48,7 +48,6 @@ import java.util.stream.Collectors;
 
 import static com.smart.vision.core.common.constant.CacheConstant.IMAGE_MD5_CACHE_PREFIX;
 import static com.smart.vision.core.common.constant.CacheConstant.VECTOR_CACHE_PREFIX;
-import static com.smart.vision.core.common.constant.CommonConstant.PROFILE_KEY_NAME;
 import static com.smart.vision.core.common.constant.EmbeddingConstant.DEFAULT_TOP_K;
 import static com.smart.vision.core.common.constant.EmbeddingConstant.QUALITY_MIN_RESULTS;
 import static com.smart.vision.core.common.constant.EmbeddingConstant.QUALITY_RATIO_CUTOFF;
@@ -177,14 +176,15 @@ public class SmartSearchServiceImpl implements SmartSearchService {
     }
 
     private String buildVectorCacheKey(String text) {
-        return String.format("%s%s:%s", VECTOR_CACHE_PREFIX, System.getenv(PROFILE_KEY_NAME), DigestUtils.md5DigestAsHex(text.trim().toLowerCase().getBytes()));
+        String profile = vectorConfig.getVectorProfile();
+        return String.format("%s%s:%s", VECTOR_CACHE_PREFIX, profile, DigestUtils.md5DigestAsHex(text.trim().toLowerCase().getBytes()));
     }
 
     @Override
     public List<SearchResultDTO> searchByImage(MultipartFile file, int limit) {
         try (InputStream is = file.getInputStream()) {
             String md5 = DigestUtils.md5DigestAsHex(is);
-            String cacheKey = String.format("%s%s:%s", IMAGE_MD5_CACHE_PREFIX, PROFILE_KEY_NAME, md5);
+            String cacheKey = String.format("%s%s:%s", IMAGE_MD5_CACHE_PREFIX, vectorConfig.getVectorProfile(), md5);
             List<Float> vector = redisTemplate.opsForValue().get(cacheKey);
             if (vector != null) {
                 log.info("Cache hit, MD5: {}", md5);

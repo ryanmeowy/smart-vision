@@ -1,6 +1,6 @@
 package com.smart.vision.core.search.interfaces.rest;
 
-import com.smart.vision.core.common.api.Result;
+import com.smart.vision.core.common.model.Result;
 import com.smart.vision.core.common.exception.ApiError;
 import com.smart.vision.core.common.exception.BusinessException;
 import com.smart.vision.core.search.application.SmartSearchService;

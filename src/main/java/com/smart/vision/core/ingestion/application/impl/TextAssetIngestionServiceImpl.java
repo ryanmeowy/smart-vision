@@ -13,7 +13,7 @@ import com.smart.vision.core.ingestion.domain.model.BatchTaskItemStatus;
 import com.smart.vision.core.ingestion.domain.model.TextAssetMetadata;
 import com.smart.vision.core.ingestion.domain.model.TextAssetType;
 import com.smart.vision.core.ingestion.domain.model.TextParseResult;
-import com.smart.vision.core.ingestion.infrastructure.id.IdGen;
+import com.smart.vision.core.common.util.IdGen;
 import com.smart.vision.core.ingestion.infrastructure.parser.TextParserRouter;
 import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchTaskStatusDTO;
 import com.smart.vision.core.ingestion.interfaces.rest.dto.TextBatchProcessDTO;

@@ -1,6 +1,6 @@
 package com.smart.vision.core.search.infrastructure.acl;
 
-import com.smart.vision.core.integration.ai.port.OcrPort;
+import com.smart.vision.core.integration.multimodal.port.OcrPort;
 import com.smart.vision.core.search.domain.port.SearchOcrPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

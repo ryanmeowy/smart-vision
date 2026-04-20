@@ -1,7 +1,7 @@
 package com.smart.vision.core.ingestion.infrastructure.acl;
 
 import com.smart.vision.core.ingestion.domain.port.IngestionEmbeddingPort;
-import com.smart.vision.core.integration.ai.port.EmbeddingPort;
+import com.smart.vision.core.integration.multimodal.port.EmbeddingPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

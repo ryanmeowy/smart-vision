@@ -2,7 +2,7 @@ package com.smart.vision.core.search.infrastructure.acl;
 
 import cn.hutool.core.collection.CollectionUtil;
 import com.smart.vision.core.common.model.GraphTriple;
-import com.smart.vision.core.integration.ai.port.GenPort;
+import com.smart.vision.core.integration.multimodal.port.GenPort;
 import com.smart.vision.core.search.domain.port.SearchContentPort;
 import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
 import lombok.RequiredArgsConstructor;
