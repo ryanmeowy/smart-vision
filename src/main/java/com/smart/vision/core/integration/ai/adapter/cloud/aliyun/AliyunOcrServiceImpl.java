@@ -2,7 +2,7 @@
 package com.smart.vision.core.integration.ai.adapter.cloud.aliyun;
 
 import com.alibaba.dashscope.exception.NoApiKeyException;
-import com.smart.vision.core.integration.ai.port.OcrService;
+import com.smart.vision.core.integration.ai.port.OcrPort;
 import com.smart.vision.core.integration.ai.client.aliyun.AliyunOcrManager;
 import com.smart.vision.core.integration.ai.domain.model.AliyunErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "app.capability-provider", name = "ocr", havingValue = "aliyun")
-public class AliyunOcrServiceImpl implements OcrService {
+public class AliyunOcrServiceImpl implements OcrPort {
 
     private final AliyunOcrManager ocrManager;
 

@@ -2,11 +2,14 @@
 package com.smart.vision.core.integration.ai.adapter.local;
 
 import com.google.common.collect.Lists;
+import com.smart.vision.core.common.exception.ApiError;
+import com.smart.vision.core.common.exception.BusinessException;
+import com.smart.vision.core.common.exception.InfraException;
 import com.smart.vision.core.common.model.GraphTriple;
 import com.smart.vision.core.grpc.VisionProto;
 import com.smart.vision.core.grpc.VisionServiceGrpc;
 import com.smart.vision.core.integration.ai.domain.model.PromptEnum;
-import com.smart.vision.core.integration.ai.port.ContentGenerationService;
+import com.smart.vision.core.integration.ai.port.GenPort;
 import io.grpc.StatusRuntimeException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,7 +31,7 @@ import static com.smart.vision.core.common.constant.CommonConstant.DEFAULT_IMAGE
 @Service
 @RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "app.capability-provider", name = "gen", havingValue = "local")
-public class LocalGenImpl implements ContentGenerationService {
+public class LocalGenImpl implements GenPort {
 
     @SuppressWarnings("unused")
     @GrpcClient("vision-python-service")
@@ -47,7 +50,9 @@ public class LocalGenImpl implements ContentGenerationService {
 
     @Override
     public String generateSummary(String imageUrl) {
-        if (!StringUtils.hasText(imageUrl)) return "";
+        if (!StringUtils.hasText(imageUrl)) {
+            throw new BusinessException(ApiError.INVALID_REQUEST, "imageUrl cannot be blank.");
+        }
         VisionProto.GenRequest request = VisionProto.GenRequest.newBuilder()
                 .setImageUrl(imageUrl)
                 .setPrompt(PromptEnum.DEFAULT.getPrompt())
@@ -66,7 +71,7 @@ public class LocalGenImpl implements ContentGenerationService {
             }
             String result = sb.toString().trim();
             if (result.isEmpty()) {
-                return "";
+                throw new InfraException(ApiError.INTERNAL_ERROR, "Local summary result is empty.");
             }
             return result.lines().collect(Collectors.joining(System.lineSeparator())).trim();
         } catch (StatusRuntimeException e) {
@@ -105,7 +110,9 @@ public class LocalGenImpl implements ContentGenerationService {
 
     @Override
     public List<String> generateTags(String imageUrl) {
-        if (!StringUtils.hasText(imageUrl)) return Lists.newArrayList();
+        if (!StringUtils.hasText(imageUrl)) {
+            throw new BusinessException(ApiError.INVALID_REQUEST, "imageUrl cannot be blank.");
+        }
         try {
             VisionProto.GenRequest request = VisionProto.GenRequest.newBuilder()
                     .setImageUrl(imageUrl)
@@ -131,7 +138,9 @@ public class LocalGenImpl implements ContentGenerationService {
      */
     @Override
     public List<GraphTriple> generateGraph(String imageUrl) {
-        if (!StringUtils.hasText(imageUrl)) return Lists.newArrayList();
+        if (!StringUtils.hasText(imageUrl)) {
+            throw new BusinessException(ApiError.INVALID_REQUEST, "imageUrl cannot be blank.");
+        }
         try {
             VisionProto.GenRequest request = VisionProto.GenRequest.newBuilder()
                     .setImageUrl(imageUrl)
@@ -152,7 +161,9 @@ public class LocalGenImpl implements ContentGenerationService {
 
     @Override
     public List<GraphTriple> praseTriplesFromKeyword(String keyword) {
-        if (!StringUtils.hasText(keyword)) return Lists.newArrayList();
+        if (!StringUtils.hasText(keyword)) {
+            throw new BusinessException(ApiError.INVALID_REQUEST, "keyword cannot be blank.");
+        }
         try {
             VisionProto.TextRequest request = VisionProto.TextRequest.newBuilder().setText(keyword).build();
             VisionProto.GraphTriplesResponse response = visionStub

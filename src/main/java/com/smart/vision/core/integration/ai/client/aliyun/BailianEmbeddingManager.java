@@ -13,6 +13,7 @@ import com.alibaba.dashscope.exception.UploadFileException;
 import com.google.common.collect.Lists;
 import com.smart.vision.core.common.exception.ApiError;
 import com.smart.vision.core.common.exception.BusinessException;
+import com.smart.vision.core.common.exception.InfraException;
 import com.smart.vision.core.common.util.VectorUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +23,6 @@ import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -54,7 +54,7 @@ public class BailianEmbeddingManager {
     )
     public List<Float> embedImage(String imageUrl) throws NoApiKeyException, UploadFileException, ApiException {
         if (imageUrl == null || imageUrl.trim().isEmpty()) {
-            return Collections.emptyList();
+            throw new BusinessException(ApiError.INVALID_REQUEST, "imageUrl cannot be blank.");
         }
         MultiModalEmbeddingItemBase item = new MultiModalEmbeddingItemImage(imageUrl);
         return VectorUtil.l2Normalize(callSdk(Lists.newArrayList(item)));
@@ -66,7 +66,7 @@ public class BailianEmbeddingManager {
     )
     public List<Float> embedText(String text) throws NoApiKeyException, UploadFileException {
         if (text == null || text.trim().isEmpty()) {
-            return Collections.emptyList();
+            throw new BusinessException(ApiError.INVALID_REQUEST, "text cannot be blank.");
         }
         MultiModalEmbeddingItemBase item = new MultiModalEmbeddingItemText(text);
         return VectorUtil.l2Normalize(callSdk(Lists.newArrayList(item)));
@@ -83,14 +83,15 @@ public class BailianEmbeddingManager {
         MultiModalEmbeddingResult result = embedder.call(param);
 
         if (result.getOutput() == null || CollectionUtils.isEmpty(result.getOutput().getEmbeddings())) {
-            throw new RuntimeException("Aliyun returned an empty result");
+            throw new InfraException(ApiError.EMBEDDING_RESULT_EMPTY, "Aliyun returned empty embedding result.");
         }
 
-        return result.getOutput().getEmbeddings().stream()
+        List<Double> rawEmbedding = result.getOutput().getEmbeddings().stream()
                 .findFirst()
                 .map(MultiModalEmbeddingResultItem::getEmbedding)
-                .orElse(Collections.emptyList())
-                .stream()
+                .orElseThrow(() -> new InfraException(ApiError.EMBEDDING_RESULT_EMPTY, "Aliyun returned empty embedding vector."));
+
+        return rawEmbedding.stream()
                 .map(Double::floatValue)
                 .collect(Collectors.toList());
     }

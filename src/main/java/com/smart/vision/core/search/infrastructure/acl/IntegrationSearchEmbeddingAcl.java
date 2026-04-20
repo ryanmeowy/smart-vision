@@ -1,6 +1,6 @@
 package com.smart.vision.core.search.infrastructure.acl;
 
-import com.smart.vision.core.integration.ai.port.MultiModelEmbeddingService;
+import com.smart.vision.core.integration.ai.port.EmbeddingPort;
 import com.smart.vision.core.search.domain.port.SearchEmbeddingPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -14,7 +14,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class IntegrationSearchEmbeddingAcl implements SearchEmbeddingPort {
 
-    private final MultiModelEmbeddingService embeddingService;
+    private final EmbeddingPort embeddingService;
 
     @Override
     public List<Float> embedText(String text) {

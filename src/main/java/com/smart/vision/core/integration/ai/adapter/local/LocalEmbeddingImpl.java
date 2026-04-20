@@ -3,7 +3,7 @@ package com.smart.vision.core.integration.ai.adapter.local;
 import com.google.protobuf.ByteString;
 import com.smart.vision.core.grpc.VisionProto;
 import com.smart.vision.core.grpc.VisionServiceGrpc;
-import com.smart.vision.core.integration.ai.port.MultiModelEmbeddingService;
+import com.smart.vision.core.integration.ai.port.EmbeddingPort;
 import io.grpc.StatusRuntimeException;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.client.inject.GrpcClient;
@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Service
 @ConditionalOnProperty(prefix = "app.capability-provider", name = "embedding", havingValue = "local")
-public class LocalEmbeddingImpl implements MultiModelEmbeddingService {
+public class LocalEmbeddingImpl implements EmbeddingPort {
 
     @SuppressWarnings("unused")
     @GrpcClient("vision-python-service")

@@ -1,24 +1,8 @@
 package com.smart.vision.core.integration.ai.port;
 
-import java.util.List;
-
 /**
- * Cross-encoder rerank service abstraction.
+ * @deprecated use {@link RerankPort}
  */
-public interface CrossEncoderRerankService {
-
-    /**
-     * Rerank query-document pairs and return ranked indexes with relevance score.
-     *
-     * @param query user query
-     * @param documents candidate documents
-     * @param topN number of ranked candidates expected
-     * @return rerank results in descending order
-     */
-    List<RerankResult> rerank(String query, List<String> documents, Integer topN);
-
-    /**
-     * Rerank result tuple.
-     */
-    record RerankResult(int index, double score) {}
+@Deprecated(since = "2026-04", forRemoval = false)
+public interface CrossEncoderRerankService extends RerankPort {
 }

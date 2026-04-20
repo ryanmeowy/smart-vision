@@ -2,14 +2,8 @@
 package com.smart.vision.core.integration.ai.port;
 
 /**
- * OCR Recognition Service Interface
+ * @deprecated use {@link OcrPort}
  */
-public interface OcrService {
-
-  /**
-     * Extract text from image
-     * @param imageUrl Image URL
-     * @return Recognized text content
-     */
-    String extractText(String imageUrl);
+@Deprecated(since = "2026-04", forRemoval = false)
+public interface OcrService extends OcrPort {
 }

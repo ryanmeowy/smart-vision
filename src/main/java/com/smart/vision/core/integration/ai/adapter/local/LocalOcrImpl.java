@@ -1,14 +1,15 @@
 
 package com.smart.vision.core.integration.ai.adapter.local;
 
+import com.smart.vision.core.common.exception.ApiError;
+import com.smart.vision.core.common.exception.BusinessException;
 import com.smart.vision.core.grpc.VisionProto;
 import com.smart.vision.core.grpc.VisionServiceGrpc;
 import com.smart.vision.core.integration.ai.domain.model.PromptEnum;
-import com.smart.vision.core.integration.ai.port.OcrService;
+import com.smart.vision.core.integration.ai.port.OcrPort;
 import io.grpc.StatusRuntimeException;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.client.inject.GrpcClient;
-import org.apache.logging.log4j.util.Strings;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
@@ -19,7 +20,7 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Service
 @ConditionalOnProperty(prefix = "app.capability-provider", name = "ocr", havingValue = "local")
-public class LocalOcrImpl implements OcrService {
+public class LocalOcrImpl implements OcrPort {
 
     @SuppressWarnings("unused")
     @GrpcClient("vision-python-service")
@@ -31,7 +32,9 @@ public class LocalOcrImpl implements OcrService {
 
     @Override
     public String extractText(String imageUrl) {
-        if (!StringUtils.hasText(imageUrl)) return Strings.EMPTY;
+        if (!StringUtils.hasText(imageUrl)) {
+            throw new BusinessException(ApiError.INVALID_REQUEST, "imageUrl cannot be blank.");
+        }
         long startNs = System.nanoTime();
         try {
             VisionProto.GenRequest request = VisionProto.GenRequest.newBuilder()

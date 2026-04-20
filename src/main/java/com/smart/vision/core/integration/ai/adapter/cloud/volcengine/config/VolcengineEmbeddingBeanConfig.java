@@ -1,9 +1,8 @@
-package com.smart.vision.core.integration.config.volcengine;
+package com.smart.vision.core.integration.ai.adapter.cloud.volcengine.config;
 
 import com.smart.vision.core.common.exception.ApiError;
 import com.smart.vision.core.common.exception.BusinessException;
 import com.volcengine.ark.runtime.service.ArkService;
-import lombok.RequiredArgsConstructor;
 import okhttp3.ConnectionPool;
 import okhttp3.Dispatcher;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -15,9 +14,11 @@ import java.util.concurrent.TimeUnit;
 
 import static com.smart.vision.core.integration.constant.VolcengineConstant.ARK_API_KEY_ENV_NAME;
 
+/**
+ * Volcengine embedding sdk bean configuration.
+ */
 @Configuration
-@RequiredArgsConstructor
-public class VolcengineBeanConfig {
+public class VolcengineEmbeddingBeanConfig {
 
     @Bean(destroyMethod = "shutdown")
     @ConditionalOnProperty(prefix = "app.capability-provider", name = "embedding", havingValue = "volcengine")
@@ -34,3 +35,4 @@ public class VolcengineBeanConfig {
                 .orElseThrow(() -> new BusinessException(ApiError.INVALID_API_KEY));
     }
 }
+

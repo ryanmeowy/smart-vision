@@ -1,6 +1,6 @@
 package com.smart.vision.core.integration.os.task;
 
-import com.smart.vision.core.integration.os.port.ObjectStorageService;
+import com.smart.vision.core.integration.os.port.ObjectStoragePort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class FileDeletionTask {
 
-    private final ObjectStorageService objectStorageService;
+    private final ObjectStoragePort objectStorageService;
 
     /**
      * Scheduled task to delete all files in a specified folder of a specified bucket every day at midnight

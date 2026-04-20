@@ -2,7 +2,7 @@ package com.smart.vision.core.ingestion.infrastructure.acl;
 
 import com.smart.vision.core.common.model.GraphTriple;
 import com.smart.vision.core.ingestion.domain.port.IngestionContentPort;
-import com.smart.vision.core.integration.ai.port.ContentGenerationService;
+import com.smart.vision.core.integration.ai.port.GenPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -17,7 +17,7 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class ContentIngestionAcl implements IngestionContentPort {
 
-    private final ContentGenerationService contentGenerationService;
+    private final GenPort contentGenerationService;
 
     @Override
     public String generateFileName(String imageInput) {

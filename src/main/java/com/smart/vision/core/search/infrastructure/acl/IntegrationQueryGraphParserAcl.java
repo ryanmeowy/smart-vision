@@ -2,7 +2,7 @@ package com.smart.vision.core.search.infrastructure.acl;
 
 import cn.hutool.core.collection.CollectionUtil;
 import com.smart.vision.core.common.model.GraphTriple;
-import com.smart.vision.core.integration.ai.port.ContentGenerationService;
+import com.smart.vision.core.integration.ai.port.GenPort;
 import com.smart.vision.core.search.domain.port.QueryGraphParserPort;
 import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +20,7 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class IntegrationQueryGraphParserAcl implements QueryGraphParserPort {
 
-    private final ContentGenerationService contentGenerationService;
+    private final GenPort contentGenerationService;
 
     @Override
     public List<GraphTripleDTO> parseFromKeyword(String keyword) {
@@ -31,6 +31,7 @@ public class IntegrationQueryGraphParserAcl implements QueryGraphParserPort {
             }
             return triples.stream()
                     .filter(Objects::nonNull)
+                    .map(t -> new GraphTripleDTO(t.getS(), t.getP(), t.getO()))
                     .toList();
         } catch (Exception e) {
             log.warn("Graph parse via integration failed, fallback to empty triples: {}", e.getMessage());

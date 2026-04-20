@@ -1,11 +1,11 @@
 
 package com.smart.vision.core.auth.interfaces.rest;
 
-import com.aliyuncs.exceptions.ClientException;
-import com.smart.vision.core.common.security.RequireAuth;
+import com.smart.vision.core.auth.application.OssService;
 import com.smart.vision.core.common.api.Result;
 import com.smart.vision.core.common.exception.ApiError;
-import com.smart.vision.core.auth.application.OssService;
+import com.smart.vision.core.common.exception.BusinessException;
+import com.smart.vision.core.common.security.RequireAuth;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -101,12 +101,12 @@ public class AuthApiController {
     public Result<String> getStsToken() {
         try {
             return Result.success(ossService.fetchStsToken());
-        } catch (ClientException e) {
-            log.error("Failed to fetch STS token", e);
-            return Result.error(ApiError.AUTH_STS_FETCH_FAILED);
+        } catch (BusinessException e) {
+            log.warn("Upload credential issue denied: {}", e.getMessage());
+            return Result.error(e.getCode(), e.getMessage());
         } catch (Exception e) {
             log.error("Unexpected error fetching STS token", e);
-            return Result.error(ApiError.INTERNAL_ERROR);
+            return Result.error(ApiError.AUTH_STS_FETCH_FAILED);
         }
     }
 }

@@ -1,7 +1,7 @@
 package com.smart.vision.core.integration.ai.adapter.cloud.volcengine;
 
 import com.smart.vision.core.integration.ai.client.volcengine.VolcengineEmbeddingManager;
-import com.smart.vision.core.integration.ai.port.MultiModelEmbeddingService;
+import com.smart.vision.core.integration.ai.port.EmbeddingPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -14,7 +14,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "app.capability-provider", name = "embedding", havingValue = "volcengine")
-public class VolcengineEmbeddingImpl implements MultiModelEmbeddingService {
+public class VolcengineEmbeddingImpl implements EmbeddingPort {
 
     private final VolcengineEmbeddingManager volcengineEmbeddingManager;
     /**

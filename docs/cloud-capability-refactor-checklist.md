@@ -9,28 +9,28 @@
 
 ## Phase 0：边界止血（先拉直分层）
 
-- [ ] 将厂商配置类从 `common` 迁移到 `integration/<capability>/<vendor>/config`。
-- [ ] 将厂商常量从 `common` 迁移到 `integration`，`common` 禁止出现厂商词。
-- [ ] 主配置 `application.yaml` 仅保留能力选择器与平台通用配置。
-- [ ] 厂商参数仅放在 `application-cloud-<vendor>.yaml` 中，避免回流主配置。
-- [ ] 删除所有“空实现返回空字符串/空列表”的逻辑，改为明确异常。
+- [x] 将厂商配置类从 `common` 迁移到 `integration/<capability>/<vendor>/config`。
+- [x] 将厂商常量从 `common` 迁移到 `integration`，`common` 禁止出现厂商词。
+- [x] 主配置 `application.yaml` 仅保留能力选择器与平台通用配置。
+- [x] 厂商参数仅放在 `application-cloud-<vendor>.yaml` 中，避免回流主配置。
+- [x] 删除所有“空实现返回空字符串/空列表”的逻辑，改为明确异常。
 
 ## Phase 1：能力统一收敛到 integration
 
-- [ ] 统一 Port：`EmbeddingPort`、`RerankPort`、`GenPort`、`OcrPort`、`ObjectStoragePort`、`CredentialIssuePort`。
-- [ ] 所有 SDK 调用仅允许出现在 `integration` 实现层。
-- [ ] 应用层与其他域只依赖 Port，禁止直接依赖厂商配置类/SDK。
-- [ ] 对象存储能力无 fallback；未命中实现时启动失败（Fail Fast）。
-- [ ] AI 能力无 fallback；未命中实现时启动失败（Fail Fast）。
-- [ ] 能力选择器按能力维度独立：`embedding/rerank/gen/ocr/object-storage`。
+- [x] 统一 Port：`EmbeddingPort`、`RerankPort`、`GenPort`、`OcrPort`、`ObjectStoragePort`、`CredentialIssuePort`。
+- [x] 所有 SDK 调用仅允许出现在 `integration` 实现层。
+- [x] 应用层与其他域只依赖 Port，禁止直接依赖厂商配置类/SDK。
+- [x] 对象存储能力无 fallback；未命中实现时启动失败（Fail Fast）。
+- [x] AI 能力无 fallback；未命中实现时启动失败（Fail Fast）。
+- [x] 能力选择器按能力维度独立：`embedding/rerank/gen/ocr/object-storage`。
 
 ## Phase 2：auth 鉴权解耦
 
-- [ ] 在 `auth` 定义 `UploadAuthPolicyPort`（只负责是否允许签发）。
-- [ ] 在 `integration` 定义 `CredentialIssuePort`（只负责签发厂商凭据）。
-- [ ] `auth` 调用链固定：先策略校验，再凭据签发。
-- [ ] `auth` 禁止出现厂商 SDK、签名细节和厂商配置字段。
-- [ ] 前端直传接口返回统一 DTO，屏蔽厂商字段差异。
+- [x] 在 `auth` 定义 `UploadAuthPolicyPort`（只负责是否允许签发）。
+- [x] 在 `integration` 定义 `CredentialIssuePort`（只负责签发厂商凭据）。
+- [x] `auth` 调用链固定：先策略校验，再凭据签发。
+- [x] `auth` 禁止出现厂商 SDK、签名细节和厂商配置字段。
+- [x] 前端直传接口返回统一 DTO，屏蔽厂商字段差异。
 
 ## Phase 3：索引与 Embedding 强绑定
 
@@ -61,4 +61,3 @@
 - [ ] 切换任一能力厂商时，不需要改业务代码，仅改配置。
 - [ ] Embedding 切换不再依赖人工同步索引名。
 - [ ] 任一能力缺失实现时，应用启动阶段直接失败并报出可读原因。
-

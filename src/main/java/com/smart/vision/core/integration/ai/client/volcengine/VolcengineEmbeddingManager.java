@@ -1,6 +1,7 @@
 package com.smart.vision.core.integration.ai.client.volcengine;
 
 import com.smart.vision.core.common.exception.ApiError;
+import com.smart.vision.core.common.exception.BusinessException;
 import com.smart.vision.core.common.exception.InfraException;
 import com.volcengine.ark.runtime.model.multimodalembeddings.MultimodalEmbeddingInput;
 import com.volcengine.ark.runtime.model.multimodalembeddings.MultimodalEmbeddingRequest;
@@ -13,7 +14,6 @@ import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -33,7 +33,7 @@ public class VolcengineEmbeddingManager {
     )
     public List<Float> embedImage(String imageUrl) {
         if (imageUrl == null || imageUrl.trim().isEmpty()) {
-            return Collections.emptyList();
+            throw new BusinessException(ApiError.INVALID_REQUEST, "imageUrl cannot be blank.");
         }
         MultimodalEmbeddingInput input = MultimodalEmbeddingInput.builder()
                 .type("image_url")
@@ -48,7 +48,7 @@ public class VolcengineEmbeddingManager {
     )
     public List<Float> embedText(String text) {
         if (text == null || text.trim().isEmpty()) {
-            return Collections.emptyList();
+            throw new BusinessException(ApiError.INVALID_REQUEST, "text cannot be blank.");
         }
         MultimodalEmbeddingInput input = MultimodalEmbeddingInput.builder()
                 .text(text)
@@ -69,7 +69,10 @@ public class VolcengineEmbeddingManager {
             throw new InfraException(ApiError.EMBEDDING_FAILED);
         }
 
-        List<Double> rawEmbeddingList = CollectionUtils.isEmpty(res.getData().getEmbedding()) ? Collections.emptyList() : res.getData().getEmbedding();
+        if (CollectionUtils.isEmpty(res.getData().getEmbedding())) {
+            throw new InfraException(ApiError.EMBEDDING_RESULT_EMPTY, "Volcengine returned empty embedding.");
+        }
+        List<Double> rawEmbeddingList = res.getData().getEmbedding();
 
         return rawEmbeddingList.stream()
                 .filter(Objects::nonNull)

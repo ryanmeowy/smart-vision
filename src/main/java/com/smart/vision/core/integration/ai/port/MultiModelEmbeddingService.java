@@ -1,35 +1,8 @@
 package com.smart.vision.core.integration.ai.port;
 
-import java.util.List;
-
 /**
- * Multimodel Vectorization Service Interface
- * Abstracts the differences between Aliyun DashScope and local Python/CLIP implementations
+ * @deprecated use {@link EmbeddingPort}
  */
-public interface MultiModelEmbeddingService {
-
-    /**
-     * Get multimodal vector (image)
-     *
-     * @param imageUrl Image URL
-     * @return vector
-     */
-    List<Float> embedImage(String imageUrl);
-
-    /**
-     * Get multimodal vector (image bytes).
-     *
-     * @param imageBytes image bytes
-     * @param mimeType image mime type, e.g. image/jpeg
-     * @return vector
-     */
-    List<Float> embedImage(byte[] imageBytes, String mimeType);
-
-    /**
-     * Get multimodal vector (text)
-     *
-     * @param text Text
-     * @return vector
-     */
-    List<Float> embedText(String text);
+@Deprecated(since = "2026-04", forRemoval = false)
+public interface MultiModelEmbeddingService extends EmbeddingPort {
 }

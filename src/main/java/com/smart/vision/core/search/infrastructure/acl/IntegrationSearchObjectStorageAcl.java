@@ -1,12 +1,11 @@
 package com.smart.vision.core.search.infrastructure.acl;
 
-import com.smart.vision.core.integration.os.port.ObjectStorageService;
+import com.smart.vision.core.integration.os.port.ObjectStoragePort;
 import com.smart.vision.core.search.domain.port.SearchObjectStoragePort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
-import static com.smart.vision.core.integration.constant.AliyunConstant.X_OSS_PROCESS_EMBEDDING;
 import static com.smart.vision.core.integration.os.domain.model.PresignedValidityEnum.LONG_TERM_VALIDITY;
 import static com.smart.vision.core.integration.os.domain.model.PresignedValidityEnum.MEDIUM_TERM_VALIDITY;
 import static com.smart.vision.core.integration.os.domain.model.PresignedValidityEnum.SHORT_TERM_VALIDITY;
@@ -18,7 +17,7 @@ import static com.smart.vision.core.integration.os.domain.model.PresignedValidit
 @RequiredArgsConstructor
 public class IntegrationSearchObjectStorageAcl implements SearchObjectStoragePort {
 
-    private final ObjectStorageService objectStorageService;
+    private final ObjectStoragePort objectStorageService;
 
     @Override
     public String uploadFile(MultipartFile file) {
@@ -31,7 +30,7 @@ public class IntegrationSearchObjectStorageAcl implements SearchObjectStoragePor
             case MEDIUM -> MEDIUM_TERM_VALIDITY.getValidity();
             case SHORT -> SHORT_TERM_VALIDITY.getValidity();
         };
-        return objectStorageService.buildAiPresignedUrl(objectKey, effectiveValidity, X_OSS_PROCESS_EMBEDDING);
+        return objectStorageService.buildAiPresignedUrl(objectKey, effectiveValidity);
     }
 
     @Override

@@ -2,7 +2,7 @@ package com.smart.vision.core.integration.ai.adapter.cloud.aliyun;
 
 import com.alibaba.dashscope.exception.ApiException;
 import com.alibaba.dashscope.exception.NoApiKeyException;
-import com.smart.vision.core.integration.ai.port.MultiModelEmbeddingService;
+import com.smart.vision.core.integration.ai.port.EmbeddingPort;
 import com.smart.vision.core.integration.ai.client.aliyun.BailianEmbeddingManager;
 import com.smart.vision.core.integration.ai.domain.model.AliyunErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +17,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "app.capability-provider", name = "embedding", havingValue = "aliyun")
-public class AliyunMultiModelEmbeddingServiceImpl implements MultiModelEmbeddingService {
+public class AliyunMultiModelEmbeddingServiceImpl implements EmbeddingPort {
 
     private final BailianEmbeddingManager bailianManager;
 

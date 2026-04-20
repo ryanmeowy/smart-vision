@@ -4,7 +4,7 @@ import com.alibaba.dashscope.exception.InputRequiredException;
 import com.alibaba.dashscope.exception.NoApiKeyException;
 import com.alibaba.dashscope.exception.UploadFileException;
 import com.smart.vision.core.common.model.GraphTriple;
-import com.smart.vision.core.integration.ai.port.ContentGenerationService;
+import com.smart.vision.core.integration.ai.port.GenPort;
 import com.smart.vision.core.integration.ai.client.aliyun.AliyunGenManager;
 import com.smart.vision.core.integration.ai.domain.model.AliyunErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +18,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "app.capability-provider", name = "gen", havingValue = "aliyun")
-public class AliyunGenImpl implements ContentGenerationService {
+public class AliyunGenImpl implements GenPort {
 
     private final AliyunGenManager genManager;
 

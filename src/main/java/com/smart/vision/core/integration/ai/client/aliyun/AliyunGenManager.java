@@ -20,6 +20,7 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.smart.vision.core.common.exception.ApiError;
 import com.smart.vision.core.common.exception.BusinessException;
+import com.smart.vision.core.common.exception.InfraException;
 import com.smart.vision.core.common.model.GraphTriple;
 import com.smart.vision.core.integration.ai.domain.model.PromptEnum;
 import lombok.RequiredArgsConstructor;
@@ -32,7 +33,6 @@ import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Type;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -208,18 +208,30 @@ public class AliyunGenManager {
     }
 
     private <T> List<T> parseMdJson(String content, Class<T> clazz) {
-        if (StringUtils.isBlank(content)) return Collections.emptyList();
+        if (StringUtils.isBlank(content)) {
+            throw new InfraException(ApiError.INTERNAL_ERROR, "Model returned empty content.");
+        }
         try {
             Matcher matcher = MD_JSON_PATTERN.matcher(content);
             if (matcher.find()) {
                 String jsonArray = matcher.group(1);
                 Type type = TypeToken.getParameterized(List.class, clazz).getType();
-                return gson.fromJson(jsonArray, type);
+                List<T> parsed = gson.fromJson(jsonArray, type);
+                if (parsed == null || parsed.isEmpty()) {
+                    throw new InfraException(ApiError.INTERNAL_ERROR, "Parsed JSON array is empty.");
+                }
+                return parsed;
             }
-            return gson.fromJson(content, TypeToken.getParameterized(List.class, clazz).getType());
+            List<T> parsed = gson.fromJson(content, TypeToken.getParameterized(List.class, clazz).getType());
+            if (parsed == null || parsed.isEmpty()) {
+                throw new InfraException(ApiError.INTERNAL_ERROR, "Parsed JSON payload is empty.");
+            }
+            return parsed;
+        } catch (InfraException e) {
+            throw e;
         } catch (Exception e) {
             log.warn("md json parsing failed, original content: {}", content);
-            return Collections.emptyList();
+            throw new InfraException(ApiError.INTERNAL_ERROR, "Failed to parse model json payload.", e);
         }
     }
 
