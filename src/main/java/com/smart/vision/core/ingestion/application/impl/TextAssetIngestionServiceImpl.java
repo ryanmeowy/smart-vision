@@ -10,6 +10,7 @@ import com.smart.vision.core.ingestion.application.assembler.BatchTaskAssembler;
 import com.smart.vision.core.ingestion.domain.model.BatchTask;
 import com.smart.vision.core.ingestion.domain.model.BatchTaskItem;
 import com.smart.vision.core.ingestion.domain.model.BatchTaskItemStatus;
+import com.smart.vision.core.ingestion.domain.model.AssetType;
 import com.smart.vision.core.ingestion.domain.model.TextAssetMetadata;
 import com.smart.vision.core.ingestion.domain.model.TextAssetType;
 import com.smart.vision.core.ingestion.domain.model.TextParseResult;
@@ -86,6 +87,7 @@ public class TextAssetIngestionServiceImpl implements TextAssetIngestionService 
 
             BatchTaskItem taskItem = new BatchTaskItem();
             taskItem.setItemId(assetId);
+            taskItem.setAssetType(AssetType.TEXT);
             taskItem.setKey(item.getKey());
             taskItem.setFileName(fileName);
             taskItem.setFileHash(item.getFileHash());

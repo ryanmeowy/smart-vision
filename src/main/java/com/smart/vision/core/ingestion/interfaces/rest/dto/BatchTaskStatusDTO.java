@@ -40,6 +40,7 @@ public class BatchTaskStatusDTO implements Serializable {
     @NoArgsConstructor
     public static class ItemStatus implements Serializable {
         private String itemId;
+        private String assetType;
         private String key;
         private String fileName;
         private String fileHash;

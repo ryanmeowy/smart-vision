@@ -4,6 +4,7 @@ import com.smart.vision.core.ingestion.domain.model.BatchTask;
 import com.smart.vision.core.ingestion.domain.model.BatchTaskItem;
 import com.smart.vision.core.ingestion.domain.model.BatchTaskItemStatus;
 import com.smart.vision.core.ingestion.domain.model.BatchTaskStatus;
+import com.smart.vision.core.ingestion.domain.model.AssetType;
 import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchProcessDTO;
 import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchTaskStatusDTO;
 import org.springframework.stereotype.Component;
@@ -59,6 +60,7 @@ public class BatchTaskAssembler {
     private BatchTaskStatusDTO.ItemStatus toTaskItemDto(BatchTaskItem item) {
         BatchTaskStatusDTO.ItemStatus dto = new BatchTaskStatusDTO.ItemStatus();
         dto.setItemId(item.getItemId());
+        dto.setAssetType(item.getAssetType() == null ? null : item.getAssetType().name());
         dto.setKey(item.getKey());
         dto.setFileName(item.getFileName());
         dto.setFileHash(item.getFileHash());
@@ -72,6 +74,7 @@ public class BatchTaskAssembler {
     private BatchTaskItem toTaskItemDomain(BatchTaskStatusDTO.ItemStatus dto) {
         BatchTaskItem item = new BatchTaskItem();
         item.setItemId(dto.getItemId());
+        item.setAssetType(parseAssetType(dto.getAssetType()));
         item.setKey(dto.getKey());
         item.setFileName(dto.getFileName());
         item.setFileHash(dto.getFileHash());
@@ -101,6 +104,17 @@ public class BatchTaskAssembler {
             return BatchTaskItemStatus.valueOf(value);
         } catch (IllegalArgumentException e) {
             return BatchTaskItemStatus.PENDING;
+        }
+    }
+
+    private AssetType parseAssetType(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        try {
+            return AssetType.valueOf(value);
+        } catch (IllegalArgumentException e) {
+            return null;
         }
     }
 }

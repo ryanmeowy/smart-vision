@@ -33,6 +33,18 @@ public class TextAssetApiController {
     private final TextAssetIngestionService textAssetIngestionService;
 
     @RequireAuth
+    @PostMapping
+    public Result<BatchTaskStatusDTO> createTextAsset(
+            @RequestBody @Valid
+            @Size(
+                    max = MAX_BATCH_ITEMS,
+                    message = "The number of items processed per request cannot exceed 20"
+            )
+            List<@Valid TextBatchProcessDTO> items) {
+        return submitTask(items);
+    }
+
+    @RequireAuth
     @PostMapping("/batch-tasks")
     public Result<BatchTaskStatusDTO> createBatchTask(
             @RequestBody @Valid
@@ -41,7 +53,7 @@ public class TextAssetApiController {
                     message = "The number of items processed per request cannot exceed 20"
             )
             List<@Valid TextBatchProcessDTO> items) {
-        return Result.success(textAssetIngestionService.submitBatchTask(items));
+        return submitTask(items);
     }
 
     @RequireAuth
@@ -61,5 +73,9 @@ public class TextAssetApiController {
     @PostMapping("/batch-tasks/{taskId}/retry-failed")
     public Result<BatchTaskStatusDTO> retryAllFailed(@PathVariable @NotBlank String taskId) {
         return Result.success(textAssetIngestionService.retryAllFailedBatchTaskItems(taskId));
+    }
+
+    private Result<BatchTaskStatusDTO> submitTask(List<@Valid TextBatchProcessDTO> items) {
+        return Result.success(textAssetIngestionService.submitBatchTask(items));
     }
 }
