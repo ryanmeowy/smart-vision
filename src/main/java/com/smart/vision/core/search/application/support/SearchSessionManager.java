@@ -2,10 +2,10 @@ package com.smart.vision.core.search.application.support;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smart.vision.core.search.config.AppSearchProperties;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchResultDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -27,12 +27,11 @@ public class SearchSessionManager {
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
-
-    @Value("${app.search.page.session-ttl-seconds:900}")
-    private long sessionTtlSeconds;
+    private final AppSearchProperties appSearchProperties;
 
     public SearchPageSession create(String queryFingerprint, List<SearchResultDTO> orderedResults) {
         long now = System.currentTimeMillis();
+        long sessionTtlSeconds = appSearchProperties.getPage().getSessionTtlSeconds();
         long expireAt = now + TimeUnit.SECONDS.toMillis(Math.max(60, sessionTtlSeconds));
         SearchPageSession session = new SearchPageSession(
                 UUID.randomUUID().toString(),
@@ -69,6 +68,7 @@ public class SearchSessionManager {
 
     private void save(SearchPageSession session) {
         try {
+            long sessionTtlSeconds = appSearchProperties.getPage().getSessionTtlSeconds();
             redisTemplate.opsForValue().set(
                     buildKey(session.getSessionId()),
                     objectMapper.writeValueAsString(session),

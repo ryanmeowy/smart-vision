@@ -3,12 +3,13 @@ package com.smart.vision.core.search.application.impl;
 import com.smart.vision.core.common.config.VectorConfig;
 import com.smart.vision.core.common.exception.ApiError;
 import com.smart.vision.core.common.exception.InfraException;
-import com.smart.vision.core.search.application.SmartSearchService;
+import com.smart.vision.core.search.application.SearchService;
 import com.smart.vision.core.search.application.support.HotSearchManager;
 import com.smart.vision.core.search.application.support.SearchCursorCodec;
 import com.smart.vision.core.search.application.support.SearchCursorPayload;
 import com.smart.vision.core.search.application.support.SearchPageSession;
 import com.smart.vision.core.search.application.support.SearchSessionManager;
+import com.smart.vision.core.search.config.AppSearchProperties;
 import com.smart.vision.core.search.domain.model.HitSourceEnum;
 import com.smart.vision.core.search.domain.model.ImageSearchResultDTO;
 import com.smart.vision.core.search.domain.model.StrategyTypeEnum;
@@ -27,7 +28,7 @@ import com.smart.vision.core.search.interfaces.rest.dto.SearchQueryDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchResultDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
+import jakarta.annotation.PostConstruct;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
@@ -63,19 +64,10 @@ import static com.smart.vision.core.search.domain.util.ScoreUtil.mapScoreForSimi
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class SmartSearchServiceImpl implements SmartSearchService {
-    @Value("${app.embedding.image-input-mode:auto}")
-    private String imageInputMode;
-    @Value("${app.search.quality-absolute-min-score:0.72}")
-    private double qualityAbsoluteMinScore;
-    @Value("${app.search.page.default-page-size:10}")
+public class SearchServiceImpl implements SearchService {
     private int defaultPageSize;
-    @Value("${app.search.page.max-window:100}")
     private int pageMaxWindow;
-    @Value("${app.search.rrf.native-enabled:false}")
     private boolean rrfNativeEnabled;
-    @Value("${app.capability.ai.provider:local}")
-    private String aiProvider;
 
     private final SearchEmbeddingPort embeddingPort;
     private final ImageRepository imageRepository;
@@ -87,11 +79,17 @@ public class SmartSearchServiceImpl implements SmartSearchService {
     private final SearchSessionManager searchSessionManager;
     private final SearchCursorCodec searchCursorCodec;
     private final VectorConfig vectorConfig;
+    private final AppSearchProperties appSearchProperties;
+
+    @PostConstruct
+    void initSearchConfig() {
+        this.defaultPageSize = appSearchProperties.getPage().getDefaultPageSize();
+        this.pageMaxWindow = appSearchProperties.getPage().getMaxWindow();
+        this.rrfNativeEnabled = appSearchProperties.getRrf().isNativeEnabled();
+    }
 
     public List<SearchResultDTO> search(SearchQueryDTO query) {
-        if (StringUtils.hasText(query.getKeyword())) {
-            hotSearchManager.incrementScore(query.getKeyword());
-        }
+        hotSearchManager.incrementScore(query.getKeyword());
         RetrievalStrategy strategy = strategyFactory.getStrategy(query.getSearchType());
         StrategyTypeEnum effectiveStrategy = strategy.getType();
         List<Float> queryVector = requiresTextEmbedding(effectiveStrategy) ? getOrCreateQueryVector(query.getKeyword()) : null;
@@ -139,7 +137,7 @@ public class SmartSearchServiceImpl implements SmartSearchService {
             ImageSearchResultDTO current = results.get(i);
             double currScore = decisionScore(current);
 
-            if (currScore < qualityAbsoluteMinScore) {
+            if (currScore < appSearchProperties.getQualityAbsoluteMinScore()) {
                 break;
             }
 
@@ -190,14 +188,9 @@ public class SmartSearchServiceImpl implements SmartSearchService {
                 log.info("Cache hit, MD5: {}", md5);
             } else {
                 log.info("Cache missed, processing new image, MD5: {}", md5);
-                if (shouldUseBytesInput()) {
-                    vector = embeddingPort.embedImage(file.getBytes(), file.getContentType());
-                } else {
-                    String objectKey = objectStoragePort.uploadFile(file);
-                    String tempAiUrl = objectStoragePort.buildAiImageInput(objectKey, SearchObjectStoragePort.AiInputValidity.SHORT);
-                    vector = embeddingPort.embedImage(tempAiUrl);
-                }
-
+                String objectKey = objectStoragePort.uploadFile(file);
+                String tempAiUrl = objectStoragePort.buildAiImageInput(objectKey, SearchObjectStoragePort.AiInputValidity.SHORT);
+                vector = embeddingPort.embedImage(tempAiUrl);
                 redisTemplate.opsForValue().set(cacheKey, vector, 24, TimeUnit.HOURS);
             }
             RetrievalStrategy strategy = strategyFactory.getStrategy(StrategyTypeEnum.IMAGE_TO_IMAGE.getCode());
@@ -305,17 +298,6 @@ public class SmartSearchServiceImpl implements SmartSearchService {
         }
         Double fallbackScore = result.getScore();
         return fallbackScore == null ? 0 : fallbackScore;
-    }
-
-    private boolean shouldUseBytesInput() {
-        String mode = imageInputMode == null ? "auto" : imageInputMode.trim().toLowerCase(Locale.ROOT);
-        if ("bytes".equals(mode)) {
-            return true;
-        }
-        if ("url".equals(mode)) {
-            return false;
-        }
-        return "local".equalsIgnoreCase(aiProvider);
     }
 
     private List<Float> getOrCreateQueryVector(String keyword) {

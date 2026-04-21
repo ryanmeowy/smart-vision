@@ -1,6 +1,7 @@
 package com.smart.vision.core.search.application.support;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smart.vision.core.search.config.AppSearchProperties;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,9 +29,7 @@ public class SearchCursorCodec {
     private static final Base64.Decoder URL_DECODER = Base64.getUrlDecoder();
 
     private final ObjectMapper objectMapper;
-
-    @Value("${app.search.page.cursor-secret:}")
-    private String configuredCursorSecret;
+    private final AppSearchProperties appSearchProperties;
 
     @Value("${app.security.admin-secret:}")
     private String adminSecret;
@@ -39,6 +38,7 @@ public class SearchCursorCodec {
 
     @PostConstruct
     public void init() {
+        String configuredCursorSecret = appSearchProperties.getPage().getCursorSecret();
         String secret = StringUtils.hasText(configuredCursorSecret) ? configuredCursorSecret : adminSecret;
         if (!StringUtils.hasText(secret)) {
             byte[] randomKey = new byte[32];

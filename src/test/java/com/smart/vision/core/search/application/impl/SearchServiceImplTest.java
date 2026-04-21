@@ -5,6 +5,7 @@ import com.smart.vision.core.common.exception.InfraException;
 import com.smart.vision.core.search.application.support.HotSearchManager;
 import com.smart.vision.core.search.application.support.SearchCursorCodec;
 import com.smart.vision.core.search.application.support.SearchSessionManager;
+import com.smart.vision.core.search.config.AppSearchProperties;
 import com.smart.vision.core.search.domain.model.ImageSearchResultDTO;
 import com.smart.vision.core.search.domain.model.StrategyTypeEnum;
 import com.smart.vision.core.search.domain.port.SearchEmbeddingPort;
@@ -45,7 +46,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class SmartSearchServiceImplTest {
+class SearchServiceImplTest {
 
     @Mock
     private SearchEmbeddingPort embeddingPort;
@@ -68,15 +69,17 @@ class SmartSearchServiceImplTest {
     @Mock
     private VectorConfig vectorConfig;
     @Mock
+    private AppSearchProperties appSearchProperties;
+    @Mock
     private MultipartFile multipartFile;
     @Mock
     private ValueOperations<String, List<Float>> valueOperations;
 
-    private SmartSearchServiceImpl service;
+    private SearchServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new SmartSearchServiceImpl(
+        service = new SearchServiceImpl(
                 embeddingPort,
                 imageRepository,
                 imageDocConvertor,
@@ -86,7 +89,8 @@ class SmartSearchServiceImplTest {
                 objectStoragePort,
                 searchSessionManager,
                 searchCursorCodec,
-                vectorConfig
+                vectorConfig,
+                appSearchProperties
         );
         ReflectionTestUtils.setField(service, "qualityAbsoluteMinScore", 0.72d);
         ReflectionTestUtils.setField(service, "aiProvider", "local");

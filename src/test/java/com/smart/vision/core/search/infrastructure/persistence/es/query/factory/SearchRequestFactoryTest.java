@@ -4,6 +4,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import com.smart.vision.core.common.config.VectorConfig;
 import com.smart.vision.core.common.model.GraphTriple;
+import com.smart.vision.core.search.config.AppSearchProperties;
 import com.smart.vision.core.search.domain.model.HybridSearchParamDTO;
 import com.smart.vision.core.search.infrastructure.persistence.es.query.GraphTriplesMatcher;
 import com.smart.vision.core.search.infrastructure.persistence.es.query.HybridSearchKeywordMatcher;
@@ -38,7 +39,8 @@ class SearchRequestFactoryTest {
                 vectorConfig,
                 keywordMatcher,
                 similarSearchIdMatcher,
-                graphTriplesMatcher
+                graphTriplesMatcher,
+                new AppSearchProperties()
         );
 
         SearchRequest request = factory.buildTextOnly("cat", 5, true);
@@ -66,7 +68,8 @@ class SearchRequestFactoryTest {
                 vectorConfig,
                 keywordMatcher,
                 similarSearchIdMatcher,
-                graphTriplesMatcher
+                graphTriplesMatcher,
+                new AppSearchProperties()
         );
 
         HybridSearchParamDTO param = HybridSearchParamDTO.builder()

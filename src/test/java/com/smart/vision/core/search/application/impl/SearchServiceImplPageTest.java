@@ -6,6 +6,7 @@ import com.smart.vision.core.search.application.support.SearchCursorCodec;
 import com.smart.vision.core.search.application.support.SearchCursorPayload;
 import com.smart.vision.core.search.application.support.SearchPageSession;
 import com.smart.vision.core.search.application.support.SearchSessionManager;
+import com.smart.vision.core.search.config.AppSearchProperties;
 import com.smart.vision.core.search.domain.port.SearchEmbeddingPort;
 import com.smart.vision.core.search.domain.port.SearchObjectStoragePort;
 import com.smart.vision.core.search.domain.strategy.StrategyFactory;
@@ -32,7 +33,6 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
@@ -43,7 +43,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class SmartSearchServiceImplPageTest {
+class SearchServiceImplPageTest {
 
     @Mock
     private SearchEmbeddingPort embeddingPort;
@@ -65,12 +65,14 @@ class SmartSearchServiceImplPageTest {
     private SearchCursorCodec searchCursorCodec;
     @Mock
     private VectorConfig vectorConfig;
+    @Mock
+    private AppSearchProperties appSearchProperties;
 
-    private SmartSearchServiceImpl service;
+    private SearchServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new SmartSearchServiceImpl(
+        service = new SearchServiceImpl(
                 embeddingPort,
                 imageRepository,
                 imageDocConvertor,
@@ -80,7 +82,8 @@ class SmartSearchServiceImplPageTest {
                 objectStoragePort,
                 searchSessionManager,
                 searchCursorCodec,
-                vectorConfig
+                vectorConfig,
+                appSearchProperties
         );
         ReflectionTestUtils.setField(service, "defaultPageSize", 10);
         ReflectionTestUtils.setField(service, "pageMaxWindow", 100);
@@ -90,7 +93,7 @@ class SmartSearchServiceImplPageTest {
 
     @Test
     void searchPage_shouldReturnFirstPage_whenNoCursor() {
-        SmartSearchServiceImpl spyService = spy(service);
+        SearchServiceImpl spyService = spy(service);
         List<SearchResultDTO> fullResults = mockResults(25);
         doReturn(fullResults).when(spyService).search(any(SearchQueryDTO.class));
 
@@ -117,7 +120,7 @@ class SmartSearchServiceImplPageTest {
 
     @Test
     void searchPage_shouldReturnNextPage_whenCursorProvided() {
-        SmartSearchServiceImpl spyService = spy(service);
+        SearchServiceImpl spyService = spy(service);
         List<SearchResultDTO> fullResults = mockResults(25);
         String fingerprint = pageFingerprint("cat", "0", 20, true, 10);
         SearchCursorPayload cursorPayload = new SearchCursorPayload(

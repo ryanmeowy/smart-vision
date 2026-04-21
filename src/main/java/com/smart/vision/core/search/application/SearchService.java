@@ -16,7 +16,7 @@ import java.util.List;
  * @author Ryan
  * @since 2025/12/15
  */
-public interface SmartSearchService {
+public interface SearchService {
 
     /**
      * Perform intelligent search based on the provided search parameters

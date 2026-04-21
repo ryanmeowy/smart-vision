@@ -1,6 +1,7 @@
 package com.smart.vision.core.search.domain.strategy.impl;
 
 import cn.hutool.core.collection.CollectionUtil;
+import com.smart.vision.core.search.config.AppSearchProperties;
 import com.smart.vision.core.search.domain.model.ImageSearchResultDTO;
 import com.smart.vision.core.search.domain.model.StrategyTypeEnum;
 import com.smart.vision.core.search.domain.port.SearchRerankPort;
@@ -12,9 +13,9 @@ import com.smart.vision.core.search.interfaces.rest.dto.SearchQueryDTO;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -43,31 +44,36 @@ public class HybridDualRetrievalStrategy implements RetrievalStrategy {
     private final DualRouteRrfFusionService dualRouteRrfFusionService;
     private final SearchRerankPort searchRerankPort;
     private final MeterRegistry meterRegistry;
+    private final AppSearchProperties appSearchProperties;
 
-    @Value("${app.search.rrf.rank-constant:60}")
     private int rrfRankConstant;
-    @Value("${app.search.rrf.candidate-multiplier:4}")
     private int rrfCandidateMultiplier;
-    @Value("${app.search.rrf.max-candidates:200}")
     private int rrfMaxCandidates;
-    @Value("${app.search.rerank.enabled:true}")
     private boolean rerankEnabled;
-    @Value("${app.search.rerank.max-doc-chars:1200}")
     private int rerankMaxDocChars;
-    @Value("${app.search.rerank.window-enabled:true}")
     private boolean rerankWindowEnabled;
-    @Value("${app.search.rerank.window-size:40}")
     private int rerankWindowSize;
-    @Value("${app.search.rerank.window-factor:3}")
     private int rerankWindowFactor;
-    @Value("${app.search.rerank.window-min:20}")
     private int rerankWindowMin;
-    @Value("${app.search.rerank.window-max:80}")
     private int rerankWindowMax;
-    @Value("${app.search.rerank.fusion-alpha:0.6}")
     private double rerankFusionAlpha;
-    @Value("${app.search.rerank.fusion-beta:0.4}")
     private double rerankFusionBeta;
+
+    @PostConstruct
+    void initSearchConfig() {
+        rrfRankConstant = appSearchProperties.getRrf().getRankConstant();
+        rrfCandidateMultiplier = appSearchProperties.getRrf().getCandidateMultiplier();
+        rrfMaxCandidates = appSearchProperties.getRrf().getMaxCandidates();
+        rerankEnabled = appSearchProperties.getRerank().isEnabled();
+        rerankMaxDocChars = appSearchProperties.getRerank().getMaxDocChars();
+        rerankWindowEnabled = appSearchProperties.getRerank().isWindowEnabled();
+        rerankWindowSize = appSearchProperties.getRerank().getWindowSize();
+        rerankWindowFactor = appSearchProperties.getRerank().getWindowFactor();
+        rerankWindowMin = appSearchProperties.getRerank().getWindowMin();
+        rerankWindowMax = appSearchProperties.getRerank().getWindowMax();
+        rerankFusionAlpha = appSearchProperties.getRerank().getFusionAlpha();
+        rerankFusionBeta = appSearchProperties.getRerank().getFusionBeta();
+    }
 
     @Override
     public List<ImageSearchResultDTO> search(SearchQueryDTO query, List<Float> queryVector) {

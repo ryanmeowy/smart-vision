@@ -1,6 +1,7 @@
 package com.smart.vision.core.search.application.support;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smart.vision.core.search.config.AppSearchProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -14,8 +15,9 @@ class SearchCursorCodecTest {
 
     @BeforeEach
     void setUp() {
-        codec = new SearchCursorCodec(new ObjectMapper());
-        ReflectionTestUtils.setField(codec, "configuredCursorSecret", "test-cursor-secret");
+        AppSearchProperties properties = new AppSearchProperties();
+        properties.getPage().setCursorSecret("test-cursor-secret");
+        codec = new SearchCursorCodec(new ObjectMapper(), properties);
         ReflectionTestUtils.setField(codec, "adminSecret", "");
         codec.init();
     }
