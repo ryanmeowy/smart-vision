@@ -39,6 +39,7 @@
         <hutool.version>5.8.40</hutool.version>
         <aspectjrt.version>1.9.21</aspectjrt.version>
         <aspectjweaver.version>1.9.21</aspectjweaver.version>
+        <pdfbox.version>3.0.5</pdfbox.version>
     </properties>
     <dependencyManagement>
         <dependencies>
@@ -155,6 +156,11 @@
             <groupId>cn.hutool</groupId>
             <artifactId>hutool-all</artifactId>
             <version>${hutool.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>${pdfbox.version}</version>
         </dependency>
         <dependency>
             <groupId>org.aspectj</groupId>

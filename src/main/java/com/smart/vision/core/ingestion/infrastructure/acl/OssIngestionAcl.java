@@ -17,6 +17,11 @@ public class OssIngestionAcl implements IngestionObjectStoragePort {
     private final ObjectStoragePort objectStorageService;
 
     @Override
+    public String buildDownloadUrl(String objectKey) {
+        return objectStorageService.buildPresignedUrl(objectKey, SHORT_TERM_VALIDITY.getValidity());
+    }
+
+    @Override
     public String buildAiImageInput(String objectKey) {
         return objectStorageService.buildAiPresignedUrl(objectKey, SHORT_TERM_VALIDITY.getValidity());
     }
