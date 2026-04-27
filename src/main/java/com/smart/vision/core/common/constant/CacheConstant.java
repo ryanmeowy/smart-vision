@@ -2,7 +2,7 @@ package com.smart.vision.core.common.constant;
 
 public class CacheConstant {
 
-    public static final String TOKEN_CACHE_PREFIX = "sys:config:upload-token";
+    public static final String TOKEN_CACHE_PREFIX = "sys:config:auth-token";
 
     public static final String HOT_WORDS_CACHE_PREFIX = "search:hot:ranking";
 

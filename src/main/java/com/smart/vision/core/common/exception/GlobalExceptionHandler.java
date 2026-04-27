@@ -1,6 +1,6 @@
 package com.smart.vision.core.common.exception;
 
-import com.smart.vision.core.common.api.Result;
+import com.smart.vision.core.common.model.Result;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;

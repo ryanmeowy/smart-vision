@@ -8,9 +8,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 /**
- * No-op fallback parser for Phase 1.
- * <p>
- * Concrete PDF/TXT/MD parser implementations will be introduced in M2+.
+ * No-op fallback parser when no concrete parser matches.
  */
 @Component
 @Order(Ordered.LOWEST_PRECEDENCE)

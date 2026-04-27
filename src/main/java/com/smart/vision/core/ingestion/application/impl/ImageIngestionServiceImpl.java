@@ -11,6 +11,7 @@ import com.smart.vision.core.ingestion.domain.model.BatchTask;
 import com.smart.vision.core.ingestion.domain.model.BatchTaskItem;
 import com.smart.vision.core.ingestion.domain.model.BatchTaskItemStatus;
 import com.smart.vision.core.ingestion.domain.model.BulkSaveResult;
+import com.smart.vision.core.ingestion.domain.model.AssetType;
 import com.smart.vision.core.ingestion.domain.model.ImageHashAcquireOutcome;
 import com.smart.vision.core.ingestion.domain.model.ImageHashAcquireOutcomeType;
 import com.smart.vision.core.ingestion.domain.model.ImageHashStatePolicy;
@@ -21,7 +22,7 @@ import com.smart.vision.core.ingestion.domain.port.IngestionContentPort;
 import com.smart.vision.core.ingestion.domain.port.IngestionEmbeddingPort;
 import com.smart.vision.core.ingestion.domain.port.IngestionObjectStoragePort;
 import com.smart.vision.core.ingestion.domain.port.IngestionOcrPort;
-import com.smart.vision.core.ingestion.infrastructure.id.IdGen;
+import com.smart.vision.core.common.util.IdGen;
 import com.smart.vision.core.ingestion.infrastructure.persistence.es.document.IngestionImageDocument;
 import com.smart.vision.core.ingestion.infrastructure.persistence.es.EsBatchTemplate;
 import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchProcessDTO;
@@ -157,6 +158,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         for (BatchProcessDTO item : items) {
             BatchTaskItem taskItem = new BatchTaskItem();
             taskItem.setItemId(UUID.randomUUID().toString());
+            taskItem.setAssetType(AssetType.IMAGE);
             taskItem.setKey(item.getKey());
             taskItem.setFileName(item.getFileName());
             taskItem.setFileHash(item.getFileHash());

@@ -1,8 +1,8 @@
 package com.smart.vision.core.search.infrastructure.acl;
 
 import cn.hutool.core.collection.CollectionUtil;
-import com.smart.vision.core.integration.ai.port.CrossEncoderRerankService;
-import com.smart.vision.core.integration.ai.port.CrossEncoderRerankService.RerankResult;
+import com.smart.vision.core.integration.multimodal.port.RerankPort;
+import com.smart.vision.core.integration.multimodal.port.RerankPort.RerankResult;
 import com.smart.vision.core.search.domain.port.SearchRerankPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,7 +20,7 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class IntegrationSearchRerankAcl implements SearchRerankPort {
 
-    private final CrossEncoderRerankService crossEncoderRerankService;
+    private final RerankPort crossEncoderRerankService;
 
     @Override
     public List<RerankItem> rerank(String query, List<String> documents, Integer topN) {

@@ -13,6 +13,7 @@ import lombok.NoArgsConstructor;
 public class BatchTaskItem {
 
     private String itemId;
+    private AssetType assetType;
     private String key;
     private String fileName;
     private String fileHash;

@@ -9,7 +9,7 @@ import com.smart.vision.core.ingestion.domain.port.IngestionEmbeddingPort;
 import com.smart.vision.core.ingestion.domain.port.IngestionObjectStoragePort;
 import com.smart.vision.core.ingestion.domain.port.IngestionOcrPort;
 import com.smart.vision.core.ingestion.infrastructure.persistence.es.EsBatchTemplate;
-import com.smart.vision.core.ingestion.infrastructure.id.IdGen;
+import com.smart.vision.core.common.util.IdGen;
 import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchTaskStatusDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

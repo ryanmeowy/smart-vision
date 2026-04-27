@@ -1,9 +1,9 @@
 package com.smart.vision.core.search.interfaces.rest;
 
-import com.smart.vision.core.common.api.Result;
+import com.smart.vision.core.common.model.Result;
 import com.smart.vision.core.common.exception.ApiError;
 import com.smart.vision.core.common.exception.BusinessException;
-import com.smart.vision.core.search.application.SmartSearchService;
+import com.smart.vision.core.search.application.SearchService;
 import com.smart.vision.core.search.application.VectorCompareService;
 import com.smart.vision.core.search.application.support.HotSearchManager;
 import com.smart.vision.core.search.domain.port.SearchContentPort;
@@ -61,7 +61,7 @@ public class SearchApiController {
     @Value("${app.debug.strategy-header-enabled:false}")
     private boolean strategyHeaderEnabled;
 
-    private final SmartSearchService searchService;
+    private final SearchService searchService;
     private final HotSearchManager hotSearchManager;
     private final SearchContentPort searchContentPort;
     private final SearchOcrPort searchOcrPort;

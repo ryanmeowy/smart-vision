@@ -1,6 +1,6 @@
 package com.smart.vision.core.search.domain.port;
 
-import com.smart.vision.core.common.model.GraphTriple;
+import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
 
 import java.util.List;
 
@@ -15,5 +15,5 @@ public interface QueryGraphParserPort {
      * @param keyword user query keyword
      * @return parsed triples, empty when nothing matched
      */
-    List<GraphTriple> parseFromKeyword(String keyword);
+    List<GraphTripleDTO> parseFromKeyword(String keyword);
 }

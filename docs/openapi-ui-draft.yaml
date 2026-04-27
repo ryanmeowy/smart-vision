@@ -451,7 +451,8 @@ paths:
       tags: [Auth]
       summary: Get encrypted STS token payload
       description: |
-        Returns encrypted JSON string in `data`, not plaintext credentials.
+        Returns unified DTO in `data` with encrypted credential payload,
+        not plaintext credentials.
         Frontend should treat decrypt material as sensitive and never auto-load from `.env`.
       operationId: authGetSts
       security:
@@ -462,7 +463,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StringEnvelope'
+                $ref: '#/components/schemas/UploadCredentialEnvelope'
         '401':
           description: Access token invalid or expired
 
@@ -741,6 +742,21 @@ components:
         code: { type: integer, example: 200 }
         message: { type: string, example: Success }
         data: { type: string }
+        timestamp: { type: integer, format: int64 }
+
+    UploadCredentialDTO:
+      type: object
+      properties:
+        encryptedCredential:
+          type: string
+
+    UploadCredentialEnvelope:
+      type: object
+      properties:
+        code: { type: integer, example: 200 }
+        message: { type: string, example: Success }
+        data:
+          $ref: '#/components/schemas/UploadCredentialDTO'
         timestamp: { type: integer, format: int64 }
 
     StringListEnvelope:

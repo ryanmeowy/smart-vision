@@ -2,6 +2,7 @@ package com.smart.vision.core.search.infrastructure.persistence.es.query.factory
 
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import com.smart.vision.core.common.config.VectorConfig;
+import com.smart.vision.core.search.config.AppSearchProperties;
 import com.smart.vision.core.search.infrastructure.persistence.es.query.GraphTriplesMatcher;
 import com.smart.vision.core.search.domain.model.HybridSearchParamDTO;
 import com.smart.vision.core.search.infrastructure.persistence.es.query.HybridSearchKeywordMatcher;
@@ -14,7 +15,6 @@ import com.smart.vision.core.search.infrastructure.persistence.es.query.spec.Sim
 import com.smart.vision.core.search.infrastructure.persistence.es.query.spec.TextOnlyQuerySpec;
 import com.smart.vision.core.search.infrastructure.persistence.es.query.spec.VectorOnlyQuerySpec;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -32,8 +32,7 @@ public class SearchRequestFactory {
     private final HybridSearchKeywordMatcher hybridSearchKeywordMatcher;
     private final SimilarSearchIdMatcher similarSearchIdMatcher;
     private final GraphTriplesMatcher graphTriplesMatcher;
-    @Value("${app.search.vector-min-score:0.6}")
-    private double vectorMinScore;
+    private final AppSearchProperties appSearchProperties;
 
     @Deprecated(since = "2026-04", forRemoval = false)
     public SearchRequest buildHybrid(HybridSearchParamDTO paramDTO) {
@@ -66,7 +65,12 @@ public class SearchRequestFactory {
     }
 
     public SearchRequest buildVectorOnly(List<Float> vector, Integer topK) {
-        QuerySpec spec = new VectorOnlyQuerySpec(vectorConfig.getReadTargetName(), vector, topK, vectorMinScore);
+        QuerySpec spec = new VectorOnlyQuerySpec(
+                vectorConfig.getReadTargetName(),
+                vector,
+                topK,
+                appSearchProperties.getVectorMinScore()
+        );
         return spec.toSearchRequest();
     }
 

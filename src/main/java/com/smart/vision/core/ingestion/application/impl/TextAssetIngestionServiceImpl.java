@@ -10,10 +10,14 @@ import com.smart.vision.core.ingestion.application.assembler.BatchTaskAssembler;
 import com.smart.vision.core.ingestion.domain.model.BatchTask;
 import com.smart.vision.core.ingestion.domain.model.BatchTaskItem;
 import com.smart.vision.core.ingestion.domain.model.BatchTaskItemStatus;
+import com.smart.vision.core.ingestion.domain.model.AssetType;
 import com.smart.vision.core.ingestion.domain.model.TextAssetMetadata;
+import com.smart.vision.core.ingestion.domain.model.TextChunk;
 import com.smart.vision.core.ingestion.domain.model.TextAssetType;
 import com.smart.vision.core.ingestion.domain.model.TextParseResult;
-import com.smart.vision.core.ingestion.infrastructure.id.IdGen;
+import com.smart.vision.core.ingestion.domain.port.TextSegmentRepository;
+import com.smart.vision.core.common.util.IdGen;
+import com.smart.vision.core.ingestion.infrastructure.parser.TextChunkSplitter;
 import com.smart.vision.core.ingestion.infrastructure.parser.TextParserRouter;
 import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchTaskStatusDTO;
 import com.smart.vision.core.ingestion.interfaces.rest.dto.TextBatchProcessDTO;
@@ -47,6 +51,8 @@ public class TextAssetIngestionServiceImpl implements TextAssetIngestionService 
     @Qualifier("ingestionTaskExecutor")
     private final Executor ingestionTaskExecutor;
     private final TextParserRouter textParserRouter;
+    private final TextChunkSplitter textChunkSplitter;
+    private final TextSegmentRepository textSegmentRepository;
     private final BatchTaskAssembler batchTaskAssembler;
     private final StringRedisTemplate redisTemplate;
     private final IdGen idGen;
@@ -86,6 +92,7 @@ public class TextAssetIngestionServiceImpl implements TextAssetIngestionService 
 
             BatchTaskItem taskItem = new BatchTaskItem();
             taskItem.setItemId(assetId);
+            taskItem.setAssetType(AssetType.TEXT);
             taskItem.setKey(item.getKey());
             taskItem.setFileName(fileName);
             taskItem.setFileHash(item.getFileHash());
@@ -200,6 +207,9 @@ public class TextAssetIngestionServiceImpl implements TextAssetIngestionService 
             if (parseResult == null) {
                 throw new BusinessException(ApiError.TEXT_PARSE_FAILED);
             }
+
+            List<TextChunk> chunks = textChunkSplitter.split(metadata, parseResult);
+            textSegmentRepository.save(metadata.getAssetId(), chunks);
 
             metadata.setUpdatedAt(System.currentTimeMillis());
             saveAssetMetadata(metadata);

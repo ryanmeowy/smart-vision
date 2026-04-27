@@ -1,7 +1,7 @@
 package com.smart.vision.core.ingestion.infrastructure.acl;
 
 import com.smart.vision.core.ingestion.domain.port.IngestionOcrPort;
-import com.smart.vision.core.integration.ai.port.ImageOcrService;
+import com.smart.vision.core.integration.multimodal.port.OcrPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -12,10 +12,10 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class OcrIngestionAcl implements IngestionOcrPort {
 
-    private final ImageOcrService imageOcrService;
+    private final OcrPort ocrService;
 
     @Override
     public String extractText(String imageInput) {
-        return imageOcrService.extractText(imageInput);
+        return ocrService.extractText(imageInput);
     }
 }

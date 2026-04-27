@@ -1,7 +1,7 @@
 package com.smart.vision.core.ingestion.infrastructure.acl;
 
 import com.smart.vision.core.ingestion.domain.port.IngestionEmbeddingPort;
-import com.smart.vision.core.integration.ai.port.MultiModalEmbeddingService;
+import com.smart.vision.core.integration.multimodal.port.EmbeddingPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -14,7 +14,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class EmbeddingIngestionAcl implements IngestionEmbeddingPort {
 
-    private final MultiModalEmbeddingService embeddingService;
+    private final EmbeddingPort embeddingService;
 
     @Override
     public List<Float> embedImage(String imageInput) {

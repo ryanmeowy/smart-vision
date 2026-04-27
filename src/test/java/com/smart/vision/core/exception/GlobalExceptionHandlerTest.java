@@ -1,6 +1,6 @@
 package com.smart.vision.core.common.exception;
 
-import com.smart.vision.core.common.api.Result;
+import com.smart.vision.core.common.model.Result;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 

@@ -3,6 +3,7 @@ package com.smart.vision.core.search.domain.strategy.impl;
 import com.smart.vision.core.search.domain.model.ImageSearchResultDTO;
 import com.smart.vision.core.search.domain.port.SearchRerankPort;
 import com.smart.vision.core.search.domain.ranking.DualRouteRrfFusionService;
+import com.smart.vision.core.search.config.AppSearchProperties;
 import com.smart.vision.core.search.infrastructure.persistence.es.document.ImageDocument;
 import com.smart.vision.core.search.infrastructure.persistence.es.repository.ImageRepository;
 import com.smart.vision.core.search.interfaces.rest.dto.SearchQueryDTO;
@@ -42,7 +43,8 @@ class HybridDualRetrievalStrategyTest {
                 imageRepository,
                 new DualRouteRrfFusionService(),
                 searchRerankPort,
-                new SimpleMeterRegistry()
+                new SimpleMeterRegistry(),
+                new AppSearchProperties()
         );
         ReflectionTestUtils.setField(strategy, "rrfRankConstant", 60);
         ReflectionTestUtils.setField(strategy, "rrfCandidateMultiplier", 4);
@@ -99,4 +101,3 @@ class HybridDualRetrievalStrategyTest {
                 .build();
     }
 }
-
