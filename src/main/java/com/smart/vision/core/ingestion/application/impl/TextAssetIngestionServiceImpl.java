@@ -15,6 +15,7 @@ import com.smart.vision.core.ingestion.domain.model.TextAssetMetadata;
 import com.smart.vision.core.ingestion.domain.model.TextChunk;
 import com.smart.vision.core.ingestion.domain.model.TextAssetType;
 import com.smart.vision.core.ingestion.domain.model.TextParseResult;
+import com.smart.vision.core.ingestion.domain.port.IngestionEmbeddingPort;
 import com.smart.vision.core.ingestion.domain.port.TextSegmentRepository;
 import com.smart.vision.core.common.util.IdGen;
 import com.smart.vision.core.ingestion.infrastructure.parser.TextChunkSplitter;
@@ -52,6 +53,7 @@ public class TextAssetIngestionServiceImpl implements TextAssetIngestionService 
     private final Executor ingestionTaskExecutor;
     private final TextParserRouter textParserRouter;
     private final TextChunkSplitter textChunkSplitter;
+    private final IngestionEmbeddingPort embeddingPort;
     private final TextSegmentRepository textSegmentRepository;
     private final BatchTaskAssembler batchTaskAssembler;
     private final StringRedisTemplate redisTemplate;
@@ -209,6 +211,7 @@ public class TextAssetIngestionServiceImpl implements TextAssetIngestionService 
             }
 
             List<TextChunk> chunks = textChunkSplitter.split(metadata, parseResult);
+            enrichChunkEmbeddings(chunks);
             textSegmentRepository.save(metadata.getAssetId(), chunks);
 
             metadata.setUpdatedAt(System.currentTimeMillis());
@@ -305,5 +308,21 @@ public class TextAssetIngestionServiceImpl implements TextAssetIngestionService 
             return "text-asset-" + System.currentTimeMillis();
         }
         return fileName.trim();
+    }
+
+    private void enrichChunkEmbeddings(List<TextChunk> chunks) {
+        if (chunks == null || chunks.isEmpty()) {
+            return;
+        }
+        for (TextChunk chunk : chunks) {
+            if (chunk == null || !StringUtils.hasText(chunk.getChunkText())) {
+                continue;
+            }
+            List<Float> embedding = embeddingPort.embedText(chunk.getChunkText());
+            if (embedding == null || embedding.isEmpty()) {
+                throw new BusinessException(ApiError.EMBEDDING_RESULT_EMPTY);
+            }
+            chunk.setEmbedding(embedding);
+        }
     }
 }

@@ -19,6 +19,7 @@ SUCCESS_CODE = 200
 MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024
 RESULT_STATE_KEYS = {
     "text": "result_state_text",
+    "kb": "result_state_kb",
     "image": "result_state_image",
     "similar": "result_state_similar",
 }
@@ -231,6 +232,90 @@ def render_text_search_page(base_url: str) -> None:
                     st.rerun()
 
 
+def render_kb_search_page(base_url: str) -> None:
+    st.subheader("KB Search")
+    st.caption("Endpoint: POST /api/v1/search/kb")
+
+    state = _get_result_state("kb")
+    query_store_key = "kb_search_query_store"
+    query_widget_key = "kb_search_query_widget"
+    topk_store_key = "kb_search_topk_store"
+    topk_widget_key = "kb_search_topk_widget"
+    limit_store_key = "kb_search_limit_store"
+    limit_widget_key = "kb_search_limit_widget"
+
+    if query_store_key not in st.session_state:
+        st.session_state[query_store_key] = ""
+    if query_widget_key not in st.session_state:
+        st.session_state[query_widget_key] = st.session_state[query_store_key]
+    if topk_store_key not in st.session_state:
+        st.session_state[topk_store_key] = 20
+    if topk_widget_key not in st.session_state:
+        st.session_state[topk_widget_key] = int(st.session_state[topk_store_key])
+    if limit_store_key not in st.session_state:
+        st.session_state[limit_store_key] = 10
+    if limit_widget_key not in st.session_state:
+        st.session_state[limit_widget_key] = int(st.session_state[limit_store_key])
+
+    with st.container(border=True):
+        query = st.text_input(
+            "Query",
+            placeholder="e.g. innodb buffer pool",
+            key=query_widget_key,
+        )
+        col1, col2 = st.columns(2)
+        top_k = col1.number_input("TopK", min_value=1, max_value=200, key=topk_widget_key)
+        limit = col2.number_input("Limit", min_value=1, max_value=200, key=limit_widget_key)
+        payload = {
+            "query": query.strip(),
+            "topK": int(top_k),
+            "limit": int(limit),
+        }
+        submitted = st.button(
+            "Run KB Search",
+            type="primary",
+            key="kb_search_run_btn",
+            disabled=_is_action_busy("kb_search_run", payload),
+        )
+
+    st.session_state[query_store_key] = query
+    st.session_state[topk_store_key] = int(top_k)
+    st.session_state[limit_store_key] = int(limit)
+
+    if submitted:
+        if not query.strip():
+            st.warning("Query is required.")
+            return
+        _queue_action("kb_search_run", payload)
+        st.rerun()
+
+    if _consume_queued_action("kb_search_run", payload):
+        try:
+            with st.spinner("Searching KB..."):
+                response_payload = _request_json(
+                    method="POST",
+                    url=f"{_normalize_base_url(base_url)}/api/v1/search/kb",
+                    json=payload,
+                )
+            if response_payload is None:
+                return
+            data, headers, status_code = response_payload
+            state["results"] = data
+            state["headers"] = headers
+            state["status_code"] = status_code
+            state["payload_text"] = _pretty_json(payload)
+            state["has_searched"] = True
+        finally:
+            _complete_action("kb_search_run")
+            st.rerun()
+
+    if state["has_searched"]:
+        _render_response_meta(state["status_code"], state["headers"])
+        if state["payload_text"]:
+            st.code(state["payload_text"], language="json")
+        _render_kb_search_results(state["results"])
+
+
 def render_image_search_page(base_url: str) -> None:
     st.subheader("Search By Image")
     st.caption("Endpoint: POST /api/v1/vision/search-by-image")
@@ -300,6 +385,53 @@ def render_image_search_page(base_url: str) -> None:
         if state["payload_text"]:
             st.code(state["payload_text"], language="bash")
         _render_search_results(state["results"], layout_key="image")
+
+
+def _render_kb_search_results(results: list[Any]) -> None:
+    st.markdown("### KB Results")
+    if not results:
+        st.info("No results found.")
+        return
+    normalized = [item for item in results if isinstance(item, dict)]
+    if not normalized:
+        st.error("Unexpected response shape: result items are not objects.")
+        return
+
+    for idx, item in enumerate(normalized, start=1):
+        result_type = _safe_str(item.get("resultType")) or "-"
+        asset_type = _safe_str(item.get("assetType")) or "-"
+        snippet = _safe_str(item.get("snippet")) or "-"
+        score = item.get("score")
+        page_no = item.get("pageNo")
+        source_ref = _safe_str(item.get("sourceRef"))
+        segment_id = _safe_str(item.get("segmentId"))
+        asset_id = _safe_str(item.get("assetId"))
+        explain = item.get("explain") if isinstance(item.get("explain"), dict) else {}
+        hit_sources = explain.get("hitSources") if isinstance(explain.get("hitSources"), list) else []
+        hit_sources_text = ", ".join(_safe_str(source).upper() for source in hit_sources if _safe_str(source))
+
+        with st.container(border=True):
+            left, right = st.columns([5, 1])
+            left.markdown(f"**{idx}. {asset_type} · {result_type}**")
+            right.markdown(f"**{float(score):.4f}**" if isinstance(score, (int, float)) else "**-**")
+            if asset_type.upper() == "TEXT":
+                if isinstance(page_no, int):
+                    st.caption(f"pageNo: {page_no}")
+                st.write(snippet)
+            else:
+                st.caption("image summary")
+                st.write(snippet)
+            if hit_sources_text:
+                st.caption(f"hitSources: {hit_sources_text}")
+            id_parts = []
+            if segment_id:
+                id_parts.append(f"segmentId={segment_id}")
+            if asset_id:
+                id_parts.append(f"assetId={asset_id}")
+            if id_parts:
+                st.caption(" | ".join(id_parts))
+            if source_ref:
+                st.caption(f"sourceRef: {source_ref}")
 
 
 def render_image_analyze_page(base_url: str) -> None:

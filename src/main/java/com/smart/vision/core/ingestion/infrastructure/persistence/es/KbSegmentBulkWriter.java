@@ -6,48 +6,42 @@ import co.elastic.clients.elasticsearch.core.bulk.BulkResponseItem;
 import com.smart.vision.core.common.config.KbSegmentConfig;
 import com.smart.vision.core.common.exception.ApiError;
 import com.smart.vision.core.common.exception.InfraException;
-import com.smart.vision.core.ingestion.domain.model.TextChunk;
-import com.smart.vision.core.ingestion.domain.port.TextSegmentRepository;
-import com.smart.vision.core.search.domain.model.KbAssetTypeEnum;
-import com.smart.vision.core.search.domain.model.KbSegmentTypeEnum;
+import com.smart.vision.core.search.domain.model.Segment;
 import com.smart.vision.core.search.infrastructure.persistence.es.document.KbSegmentDocument;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Repository;
+import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
 
 /**
- * Elasticsearch persistence for text chunks in kb_segment index.
+ * Shared bulk writer for kb_segment index.
  */
 @Slf4j
-@Repository
+@Component
 @RequiredArgsConstructor
-public class EsTextSegmentRepository implements TextSegmentRepository {
+public class KbSegmentBulkWriter {
 
     private final ElasticsearchClient esClient;
     private final KbSegmentConfig kbSegmentConfig;
 
-    @Override
-    public void save(String assetId, List<TextChunk> chunks) {
-        if (!StringUtils.hasText(assetId) || chunks == null || chunks.isEmpty()) {
+    public void write(List<Segment> segments) {
+        if (segments == null || segments.isEmpty()) {
             return;
         }
         String indexName = kbSegmentConfig.getWriteTargetName();
-        long now = System.currentTimeMillis();
         try {
             var requestBuilder = new co.elastic.clients.elasticsearch.core.BulkRequest.Builder();
             int operationCount = 0;
-            for (TextChunk chunk : chunks) {
-                if (chunk == null || !StringUtils.hasText(chunk.getSegmentId())) {
+            for (Segment segment : segments) {
+                if (segment == null || !StringUtils.hasText(segment.getSegmentId())) {
                     continue;
                 }
-                KbSegmentDocument document = toDocument(chunk, now);
                 requestBuilder.operations(op -> op.index(i -> i
                         .index(indexName)
-                        .id(chunk.getSegmentId())
-                        .document(document)
+                        .id(segment.getSegmentId())
+                        .document(toDocument(segment))
                 ));
                 operationCount++;
             }
@@ -68,23 +62,25 @@ public class EsTextSegmentRepository implements TextSegmentRepository {
         } catch (InfraException e) {
             throw e;
         } catch (Exception e) {
-            log.error("Failed to persist text segments to index [{}], assetId={}", indexName, assetId, e);
-            throw new InfraException(ApiError.SEARCH_BACKEND_UNAVAILABLE, "Failed to persist text segments", e);
+            log.error("Failed to persist segments to index [{}]", indexName, e);
+            throw new InfraException(ApiError.SEARCH_BACKEND_UNAVAILABLE, "Failed to persist segments", e);
         }
     }
 
-    private KbSegmentDocument toDocument(TextChunk chunk, long now) {
+    private KbSegmentDocument toDocument(Segment segment) {
         KbSegmentDocument document = new KbSegmentDocument();
-        document.setSegmentId(chunk.getSegmentId());
-        document.setAssetId(chunk.getAssetId());
-        document.setAssetType(KbAssetTypeEnum.TEXT.name());
-        document.setSegmentType(KbSegmentTypeEnum.TEXT_CHUNK.name());
-        document.setTitle(chunk.getTitle());
-        document.setContentText(chunk.getChunkText());
-        document.setPageNo(chunk.getPageNo());
-        document.setChunkOrder(chunk.getChunkOrder());
-        document.setSourceRef(chunk.getSourceRef());
-        document.setCreatedAt(now);
+        document.setSegmentId(segment.getSegmentId());
+        document.setAssetId(segment.getAssetId());
+        document.setAssetType(segment.getAssetType() == null ? null : segment.getAssetType().name());
+        document.setSegmentType(segment.getSegmentType() == null ? null : segment.getSegmentType().name());
+        document.setTitle(segment.getTitle());
+        document.setContentText(segment.getContentText());
+        document.setOcrText(segment.getOcrText());
+        document.setPageNo(segment.getPageNo());
+        document.setChunkOrder(segment.getChunkOrder());
+        document.setEmbedding(segment.getEmbedding());
+        document.setSourceRef(segment.getSourceRef());
+        document.setCreatedAt(segment.getCreatedAt());
         return document;
     }
 }

@@ -20,4 +20,9 @@ public class EmbeddingIngestionAcl implements IngestionEmbeddingPort {
     public List<Float> embedImage(String imageInput) {
         return embeddingService.embedImage(imageInput);
     }
+
+    @Override
+    public List<Float> embedText(String text) {
+        return embeddingService.embedText(text);
+    }
 }

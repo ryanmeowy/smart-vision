@@ -25,6 +25,7 @@ import com.smart.vision.core.ingestion.domain.port.IngestionOcrPort;
 import com.smart.vision.core.common.util.IdGen;
 import com.smart.vision.core.ingestion.infrastructure.persistence.es.document.IngestionImageDocument;
 import com.smart.vision.core.ingestion.infrastructure.persistence.es.EsBatchTemplate;
+import com.smart.vision.core.ingestion.infrastructure.persistence.es.ImageSegmentIndexWriter;
 import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchProcessDTO;
 import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchTaskStatusDTO;
 import com.smart.vision.core.ingestion.interfaces.rest.dto.BatchUploadResultDTO;
@@ -76,6 +77,7 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
     private final IngestionEmbeddingPort embeddingPort;
     private final IngestionOcrPort ocrPort;
     private final IngestionContentPort contentPort;
+    private final ImageSegmentIndexWriter imageSegmentIndexWriter;
     private final ImageHashStateRepository imageHashStateRepository;
     private final BatchTaskAssembler batchTaskAssembler;
     private final StringRedisTemplate redisTemplate;
@@ -115,9 +117,9 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
         if (!successDocs.isEmpty()) {
             try {
                 BulkSaveResult bulkResult = esBatchTemplate.bulkSave(successDocs);
-                savedCount = bulkResult.getSuccessCount();
-
-                Set<String> failedIdSet = bulkResult.getFailedIds();
+                Set<String> failedIdSet = bulkResult.getFailedIds() == null
+                        ? Collections.emptySet()
+                        : bulkResult.getFailedIds();
                 for (IngestionImageDocument doc : successDocs) {
                     if (failedIdSet.contains(String.valueOf(doc.getId()))) {
                         markHashStatus(doc.getFileHash(), ImageHashStatus.FAILED, HASH_FAILED_TTL_MINUTES, TimeUnit.MINUTES);
@@ -126,8 +128,21 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
                                 .filename(doc.getRawFilename())
                                 .errorMessage("Database writes failed")
                                 .build());
-                    } else {
+                        continue;
+                    }
+
+                    try {
+                        imageSegmentIndexWriter.write(doc);
                         markHashStatus(doc.getFileHash(), ImageHashStatus.SUCCESS, HASH_SUCCESS_TTL_DAYS, TimeUnit.DAYS);
+                        savedCount++;
+                    } catch (Exception e) {
+                        log.error("kb_segment writes failed, docId={}", doc.getId(), e);
+                        markHashStatus(doc.getFileHash(), ImageHashStatus.FAILED, HASH_FAILED_TTL_MINUTES, TimeUnit.MINUTES);
+                        failures.add(BatchUploadResultDTO.BatchFailureItem.builder()
+                                .objectKey(doc.getImagePath())
+                                .filename(doc.getRawFilename())
+                                .errorMessage("kb_segment writes failed")
+                                .build());
                     }
                 }
             } catch (Exception e) {
@@ -364,10 +379,11 @@ public class ImageIngestionServiceImpl implements ImageIngestionService {
                 return false;
             }
 
+            imageSegmentIndexWriter.write(doc);
             markHashStatus(doc.getFileHash(), ImageHashStatus.SUCCESS, HASH_SUCCESS_TTL_DAYS, TimeUnit.DAYS);
             return true;
         } catch (Exception e) {
-            log.error("ES writes failed in async task", e);
+            log.error("image index writes failed in async task", e);
             markHashStatus(doc.getFileHash(), ImageHashStatus.FAILED, HASH_FAILED_TTL_MINUTES, TimeUnit.MINUTES);
             return false;
         }
