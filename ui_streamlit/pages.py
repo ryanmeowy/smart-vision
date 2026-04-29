@@ -397,30 +397,66 @@ def _render_kb_search_results(results: list[Any]) -> None:
         st.error("Unexpected response shape: result items are not objects.")
         return
 
+    def _format_anchor(anchor_payload: Any) -> str:
+        if not isinstance(anchor_payload, dict):
+            return "-"
+        parts: list[str] = []
+        page_no = anchor_payload.get("pageNo")
+        chunk_order = anchor_payload.get("chunkOrder")
+        bbox = anchor_payload.get("bbox")
+        if isinstance(page_no, int):
+            parts.append(f"pageNo={page_no}")
+        if isinstance(chunk_order, int):
+            parts.append(f"chunkOrder={chunk_order}")
+        if isinstance(bbox, list) and bbox:
+            parts.append(f"bbox={bbox}")
+        return ", ".join(parts) if parts else "-"
+
     for idx, item in enumerate(normalized, start=1):
         result_type = _safe_str(item.get("resultType")) or "-"
         asset_type = _safe_str(item.get("assetType")) or "-"
         snippet = _safe_str(item.get("snippet")) or "-"
         score = item.get("score")
-        page_no = item.get("pageNo")
         source_ref = _safe_str(item.get("sourceRef"))
         segment_id = _safe_str(item.get("segmentId"))
         asset_id = _safe_str(item.get("assetId"))
+        thumbnail = _safe_str(item.get("thumbnail"))
+        ocr_summary = _safe_str(item.get("ocrSummary"))
+        total_hits = int(item.get("totalHits")) if isinstance(item.get("totalHits"), int) else 1
         explain = item.get("explain") if isinstance(item.get("explain"), dict) else {}
         hit_sources = explain.get("hitSources") if isinstance(explain.get("hitSources"), list) else []
         hit_sources_text = ", ".join(_safe_str(source).upper() for source in hit_sources if _safe_str(source))
+
+        top_chunks = item.get("topChunks") if isinstance(item.get("topChunks"), list) else []
+        top_chunk_items = [chunk for chunk in top_chunks if isinstance(chunk, dict)]
+        if not top_chunk_items:
+            top_chunk_items = [
+                {
+                    "segmentId": segment_id,
+                    "segmentType": result_type,
+                    "snippet": snippet,
+                    "score": score,
+                    "pageNo": item.get("pageNo"),
+                    "anchor": item.get("anchor"),
+                    "sourceRef": source_ref,
+                    "thumbnail": thumbnail,
+                    "ocrSummary": ocr_summary,
+                }
+            ]
 
         with st.container(border=True):
             left, right = st.columns([5, 1])
             left.markdown(f"**{idx}. {asset_type} · {result_type}**")
             right.markdown(f"**{float(score):.4f}**" if isinstance(score, (int, float)) else "**-**")
-            if asset_type.upper() == "TEXT":
-                if isinstance(page_no, int):
-                    st.caption(f"pageNo: {page_no}")
-                st.write(snippet)
+
+            summary_cols = st.columns([2, 3]) if asset_type.upper() == "IMAGE" and thumbnail else st.columns([1, 4])
+            if asset_type.upper() == "IMAGE" and thumbnail:
+                summary_cols[0].image(thumbnail, width=220)
+                summary_cols[1].write(ocr_summary or snippet or "-")
             else:
-                st.caption("image summary")
-                st.write(snippet)
+                summary_cols[1].write(snippet or "-")
+
+            st.caption(f"totalHits: {max(total_hits, len(top_chunk_items))}")
             if hit_sources_text:
                 st.caption(f"hitSources: {hit_sources_text}")
             id_parts = []
@@ -432,6 +468,24 @@ def _render_kb_search_results(results: list[Any]) -> None:
                 st.caption(" | ".join(id_parts))
             if source_ref:
                 st.caption(f"sourceRef: {source_ref}")
+
+            with st.expander(f"Top Chunks ({len(top_chunk_items)})"):
+                for chunk_idx, chunk in enumerate(top_chunk_items, start=1):
+                    chunk_score = chunk.get("score")
+                    chunk_segment_id = _safe_str(chunk.get("segmentId")) or "-"
+                    chunk_segment_type = _safe_str(chunk.get("segmentType")) or "-"
+                    chunk_snippet = _safe_str(chunk.get("snippet")) or "-"
+                    chunk_anchor_text = _format_anchor(chunk.get("anchor"))
+                    chunk_source_ref = _safe_str(chunk.get("sourceRef"))
+                    chunk_header = (
+                        f"{chunk_idx}. {chunk_segment_type} · {chunk_segment_id}"
+                        f" · score={float(chunk_score):.4f}"
+                    ) if isinstance(chunk_score, (int, float)) else f"{chunk_idx}. {chunk_segment_type} · {chunk_segment_id}"
+                    st.markdown(chunk_header)
+                    st.write(chunk_snippet)
+                    st.caption(f"anchor: {chunk_anchor_text}")
+                    if chunk_source_ref:
+                        st.caption(f"sourceRef: {chunk_source_ref}")
 
 
 def render_image_analyze_page(base_url: str) -> None:

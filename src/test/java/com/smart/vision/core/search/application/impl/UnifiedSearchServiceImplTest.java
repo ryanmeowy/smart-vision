@@ -216,6 +216,51 @@ class UnifiedSearchServiceImplTest {
         verify(kbSegmentSearchPort).vectorSearch(List.of(0.1f, 0.2f), 12);
     }
 
+    @Test
+    void search_shouldAggregateByAssetAndExposeTopChunks() {
+        UnifiedSearchServiceImpl service = buildService();
+
+        KbSearchQueryDTO query = new KbSearchQueryDTO();
+        query.setQuery("mysql");
+        query.setTopK(5);
+        query.setLimit(5);
+
+        when(kbQueryEmbeddingService.embedQuery("mysql")).thenReturn(List.of(0.1f, 0.2f));
+        when(kbSegmentSearchPort.textSearch("mysql", 5)).thenReturn(List.of());
+
+        KbSegmentDocument imageCaption = buildDoc("seg-a1", "IMAGE", "IMAGE_CAPTION", "db chart", "mysql chart", null, null);
+        imageCaption.setAssetId("asset-image-1");
+        KbSegmentDocument imageOcr = buildDoc("seg-a2", "IMAGE", "IMAGE_OCR_BLOCK", "db chart", null, "mysql ocr summary text", null);
+        imageOcr.setAssetId("asset-image-1");
+
+        when(kbSegmentSearchPort.vectorSearch(List.of(0.1f, 0.2f), 5)).thenReturn(List.of(
+                KbSegmentHit.builder()
+                        .document(imageCaption)
+                        .rawScore(1.8d)
+                        .highlights(Map.of())
+                        .highlightFields(List.of())
+                        .build(),
+                KbSegmentHit.builder()
+                        .document(imageOcr)
+                        .rawScore(1.6d)
+                        .highlights(Map.of())
+                        .highlightFields(List.of())
+                        .build()
+        ));
+
+        List<KbSearchResultDTO> results = service.search(query);
+
+        assertThat(results).hasSize(1);
+        KbSearchResultDTO aggregated = results.getFirst();
+        assertThat(aggregated.getAssetId()).isEqualTo("asset-image-1");
+        assertThat(aggregated.getTotalHits()).isEqualTo(2);
+        assertThat(aggregated.getTopChunks()).hasSize(2);
+        assertThat(aggregated.getTopChunks().getFirst().getSegmentId()).isEqualTo("seg-a1");
+        assertThat(aggregated.getTopChunks().get(1).getSegmentId()).isEqualTo("seg-a2");
+        assertThat(aggregated.getThumbnail()).isEqualTo("oss://seg-a1");
+        assertThat(aggregated.getOcrSummary()).contains("mysql ocr");
+    }
+
     private UnifiedSearchServiceImpl buildService() {
         return buildService(1);
     }
@@ -250,6 +295,7 @@ class UnifiedSearchServiceImplTest {
         doc.setTitle(title);
         doc.setContentText(contentText);
         doc.setOcrText(ocrText);
+        doc.setSourceRef("oss://" + segmentId);
         doc.setPageNo(pageNo);
         if ("IMAGE_OCR_BLOCK".equals(segmentType) || "IMAGE_CAPTION".equals(segmentType)) {
             doc.setTags(List.of("mysql"));

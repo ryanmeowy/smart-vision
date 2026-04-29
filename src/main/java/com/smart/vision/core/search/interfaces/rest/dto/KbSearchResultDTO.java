@@ -27,6 +27,8 @@ public class KbSearchResultDTO implements Serializable {
     private Anchor anchor;
     private String thumbnail;
     private String ocrSummary;
+    private Integer totalHits;
+    private List<TopChunk> topChunks;
 
     /**
      * Optional trace fields for callback to original asset.
@@ -41,5 +43,19 @@ public class KbSearchResultDTO implements Serializable {
         private Integer pageNo;
         private Integer chunkOrder;
         private List<Integer> bbox;
+    }
+
+    @Data
+    @Builder
+    public static class TopChunk implements Serializable {
+        private String segmentId;
+        private String segmentType;
+        private String snippet;
+        private Double score;
+        private Integer pageNo;
+        private Anchor anchor;
+        private String sourceRef;
+        private String thumbnail;
+        private String ocrSummary;
     }
 }

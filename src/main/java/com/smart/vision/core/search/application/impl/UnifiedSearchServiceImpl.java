@@ -77,11 +77,11 @@ public class UnifiedSearchServiceImpl implements UnifiedSearchService {
                 : candidates;
         String effectiveStrategyCode = rerankEnabled ? STRATEGY_CODE_RERANK : STRATEGY_CODE;
 
-        return rankedCandidates.stream()
-                .limit(limit)
+        List<KbSearchResultDTO> segmentResults = rankedCandidates.stream()
                 .map(candidate -> toResult(candidate, keyword, effectiveStrategyCode))
                 .filter(Objects::nonNull)
                 .toList();
+        return aggregateByAsset(segmentResults, limit);
     }
 
     private List<SegmentRerankCandidate> fuseCandidates(List<KbSegmentHit> textHits,
@@ -203,6 +203,90 @@ public class UnifiedSearchServiceImpl implements UnifiedSearchService {
                 .ocrSummary(resolveOcrSummary(doc))
                 .explain(buildExplain(doc, strategyCode, hitSources, candidate.vectorHit(), titleHit, contentHit, ocrHit, tagHit))
                 .build();
+    }
+
+    private List<KbSearchResultDTO> aggregateByAsset(List<KbSearchResultDTO> rankedSegments, int limit) {
+        if (rankedSegments == null || rankedSegments.isEmpty()) {
+            return List.of();
+        }
+        Map<String, KbSearchResultDTO> aggregatedByAsset = new LinkedHashMap<>();
+        for (KbSearchResultDTO item : rankedSegments) {
+            String groupKey = resolveAggregateKey(item);
+            KbSearchResultDTO.TopChunk topChunk = toTopChunk(item);
+            KbSearchResultDTO aggregated = aggregatedByAsset.get(groupKey);
+            if (aggregated == null) {
+                aggregatedByAsset.put(groupKey, initAggregateResult(item, topChunk));
+                continue;
+            }
+            List<KbSearchResultDTO.TopChunk> topChunks = aggregated.getTopChunks();
+            if (topChunks == null) {
+                topChunks = new ArrayList<>();
+                aggregated.setTopChunks(topChunks);
+            }
+            topChunks.add(topChunk);
+            int totalHits = aggregated.getTotalHits() == null ? 0 : aggregated.getTotalHits();
+            aggregated.setTotalHits(totalHits + 1);
+            if (!StringUtils.hasText(aggregated.getThumbnail()) && StringUtils.hasText(item.getThumbnail())) {
+                aggregated.setThumbnail(item.getThumbnail());
+            }
+            if (!StringUtils.hasText(aggregated.getOcrSummary()) && StringUtils.hasText(item.getOcrSummary())) {
+                aggregated.setOcrSummary(item.getOcrSummary());
+            }
+        }
+        return aggregatedByAsset.values().stream().limit(limit).toList();
+    }
+
+    private KbSearchResultDTO initAggregateResult(KbSearchResultDTO primary, KbSearchResultDTO.TopChunk topChunk) {
+        List<KbSearchResultDTO.TopChunk> topChunks = new ArrayList<>();
+        topChunks.add(topChunk);
+        return KbSearchResultDTO.builder()
+                .segmentType(primary.getSegmentType())
+                .content(primary.getContent())
+                .resultType(primary.getResultType())
+                .assetType(primary.getAssetType())
+                .snippet(primary.getSnippet())
+                .pageNo(primary.getPageNo())
+                .score(primary.getScore())
+                .explain(primary.getExplain())
+                .anchor(primary.getAnchor())
+                .thumbnail(primary.getThumbnail())
+                .ocrSummary(primary.getOcrSummary())
+                .segmentId(primary.getSegmentId())
+                .assetId(primary.getAssetId())
+                .sourceRef(primary.getSourceRef())
+                .totalHits(1)
+                .topChunks(topChunks)
+                .build();
+    }
+
+    private KbSearchResultDTO.TopChunk toTopChunk(KbSearchResultDTO segmentItem) {
+        return KbSearchResultDTO.TopChunk.builder()
+                .segmentId(segmentItem.getSegmentId())
+                .segmentType(segmentItem.getSegmentType())
+                .snippet(segmentItem.getSnippet())
+                .score(segmentItem.getScore())
+                .pageNo(segmentItem.getPageNo())
+                .anchor(segmentItem.getAnchor())
+                .sourceRef(segmentItem.getSourceRef())
+                .thumbnail(segmentItem.getThumbnail())
+                .ocrSummary(segmentItem.getOcrSummary())
+                .build();
+    }
+
+    private String resolveAggregateKey(KbSearchResultDTO item) {
+        if (item == null) {
+            return "";
+        }
+        if (StringUtils.hasText(item.getAssetId())) {
+            return item.getAssetId().trim();
+        }
+        if (StringUtils.hasText(item.getSegmentId())) {
+            return "__segment__" + item.getSegmentId().trim();
+        }
+        if (StringUtils.hasText(item.getSourceRef())) {
+            return "__source__" + item.getSourceRef().trim();
+        }
+        return "__fallback__" + item.hashCode();
     }
 
     private KbSearchExplainDTO buildExplain(KbSegmentDocument doc,
