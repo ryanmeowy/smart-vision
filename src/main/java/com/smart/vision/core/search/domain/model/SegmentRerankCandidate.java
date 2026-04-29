@@ -1,0 +1,19 @@
+package com.smart.vision.core.search.domain.model;
+
+import com.smart.vision.core.search.infrastructure.persistence.es.document.KbSegmentDocument;
+
+import java.util.Map;
+
+/**
+ * Unified segment candidate for post-RRF rerank and response assembly.
+ */
+public record SegmentRerankCandidate(
+        String segmentId,
+        KbSegmentDocument document,
+        Map<String, String> highlights,
+        double score,
+        double bestRawScore,
+        int hitCount,
+        boolean vectorHit
+) {
+}

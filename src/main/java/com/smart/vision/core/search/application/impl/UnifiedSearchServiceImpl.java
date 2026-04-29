@@ -7,11 +7,16 @@ import com.smart.vision.core.search.application.KbQueryEmbeddingService;
 import com.smart.vision.core.search.application.UnifiedSearchService;
 import com.smart.vision.core.search.config.AppSearchProperties;
 import com.smart.vision.core.search.domain.model.KbSegmentHit;
+import com.smart.vision.core.search.domain.model.SegmentRerankCandidate;
 import com.smart.vision.core.search.domain.port.KbSegmentSearchPort;
+import com.smart.vision.core.search.domain.port.SearchRerankPort;
+import com.smart.vision.core.search.domain.port.SearchRerankPort.RerankItem;
 import com.smart.vision.core.search.infrastructure.persistence.es.document.KbSegmentDocument;
 import com.smart.vision.core.search.interfaces.rest.dto.KbSearchExplainDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.KbSearchQueryDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.KbSearchResultDTO;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -19,10 +24,12 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Unified retrieval service over kb_segment index.
@@ -37,7 +44,9 @@ public class UnifiedSearchServiceImpl implements UnifiedSearchService {
 
     private final KbSegmentSearchPort kbSegmentSearchPort;
     private final KbQueryEmbeddingService kbQueryEmbeddingService;
+    private final SearchRerankPort searchRerankPort;
     private final AppSearchProperties appSearchProperties;
+    private final MeterRegistry meterRegistry;
 
     @Override
     public List<KbSearchResultDTO> search(KbSearchQueryDTO query) {
@@ -45,25 +54,39 @@ public class UnifiedSearchServiceImpl implements UnifiedSearchService {
             throw new BusinessException(ApiError.INVALID_REQUEST, "query cannot be empty");
         }
         String keyword = query.getQuery().trim();
-        int topK = resolveTopK(query.getTopK());
-        int limit = resolveLimit(query.getLimit(), topK);
-        String strategyCode = resolveStrategy(query.getStrategy());
-        boolean rerankRequested = Boolean.TRUE.equals(query.getEnableRerank());
+        int requestTopK = resolveTopK(query.getTopK());
+        int limit = resolveLimit(query.getLimit(), requestTopK);
+        int recallTopK = resolveRecallTopK(requestTopK, limit);
+        String requestedStrategyCode = resolveStrategy(query.getStrategy());
+        boolean rerankRequested = STRATEGY_CODE_RERANK.equals(requestedStrategyCode);
 
         List<Float> queryVector = kbQueryEmbeddingService.embedQuery(keyword);
-        List<KbSegmentHit> textHits = kbSegmentSearchPort.textSearch(keyword, topK);
-        List<KbSegmentHit> vectorHits = kbSegmentSearchPort.vectorSearch(queryVector, topK);
-        log.info("kb search recall completed, keyword={}, strategy={}, rerankRequested={}, textHits={}, vectorHits={}",
-                keyword, strategyCode, rerankRequested, textHits.size(), vectorHits.size());
-        return fuseAndAssemble(textHits, vectorHits, keyword, limit, appSearchProperties.getRrf().getRankConstant(), strategyCode);
+        List<KbSegmentHit> textHits = kbSegmentSearchPort.textSearch(keyword, recallTopK);
+        List<KbSegmentHit> vectorHits = kbSegmentSearchPort.vectorSearch(queryVector, recallTopK);
+        log.info("kb search recall completed, keyword={}, strategy={}, rerankRequested={}, recallTopK={}, textHits={}, vectorHits={}",
+                keyword, requestedStrategyCode, rerankRequested, recallTopK, textHits.size(), vectorHits.size());
+
+        List<SegmentRerankCandidate> candidates = fuseCandidates(
+                textHits,
+                vectorHits,
+                appSearchProperties.getRrf().getRankConstant()
+        );
+        boolean rerankEnabled = rerankRequested && appSearchProperties.getRerank().isEnabled();
+        List<SegmentRerankCandidate> rankedCandidates = rerankEnabled
+                ? applyRerank(keyword, candidates, limit)
+                : candidates;
+        String effectiveStrategyCode = rerankEnabled ? STRATEGY_CODE_RERANK : STRATEGY_CODE;
+
+        return rankedCandidates.stream()
+                .limit(limit)
+                .map(candidate -> toResult(candidate, keyword, effectiveStrategyCode))
+                .filter(Objects::nonNull)
+                .toList();
     }
 
-    private List<KbSearchResultDTO> fuseAndAssemble(List<KbSegmentHit> textHits,
-                                                    List<KbSegmentHit> vectorHits,
-                                                    String keyword,
-                                                    int limit,
-                                                    int rankConstant,
-                                                    String strategyCode) {
+    private List<SegmentRerankCandidate> fuseCandidates(List<KbSegmentHit> textHits,
+                                                        List<KbSegmentHit> vectorHits,
+                                                        int rankConstant) {
         Map<String, Accumulator> grouped = new LinkedHashMap<>();
         ingest(textHits, false, Math.max(1, rankConstant), grouped);
         ingest(vectorHits, true, Math.max(1, rankConstant), grouped);
@@ -72,9 +95,8 @@ public class UnifiedSearchServiceImpl implements UnifiedSearchService {
                 .sorted(Comparator.comparingDouble(Accumulator::getRrfScore).reversed()
                         .thenComparing(Comparator.comparingInt(Accumulator::getHitCount).reversed())
                         .thenComparing(Comparator.comparingDouble(Accumulator::getBestRawScore).reversed()))
-                .limit(limit)
-                .map(acc -> toResult(acc, keyword, strategyCode))
-                .filter(java.util.Objects::nonNull)
+                .map(this::toCandidate)
+                .filter(Objects::nonNull)
                 .toList();
     }
 
@@ -113,20 +135,36 @@ public class UnifiedSearchServiceImpl implements UnifiedSearchService {
         return 1d / (rankConstant + rankIndex + 1d);
     }
 
-    private KbSearchResultDTO toResult(Accumulator acc, String keyword, String strategyCode) {
+    private SegmentRerankCandidate toCandidate(Accumulator acc) {
         KbSegmentHit displaySource = acc.textSource != null ? acc.textSource : acc.vectorSource;
         KbSegmentDocument doc = displaySource == null ? null : displaySource.getDocument();
         if (doc == null) {
             return null;
         }
-        Map<String, String> highlights = acc.textSource == null ? Map.of() : acc.textSource.getHighlights();
+        Map<String, String> highlights = acc.textSource == null || acc.textSource.getHighlights() == null
+                ? Map.of()
+                : acc.textSource.getHighlights();
+        return new SegmentRerankCandidate(
+                doc.getSegmentId(),
+                doc,
+                highlights,
+                acc.rrfScore,
+                acc.bestRawScore,
+                acc.hitCount,
+                acc.vectorHit
+        );
+    }
+
+    private KbSearchResultDTO toResult(SegmentRerankCandidate candidate, String keyword, String strategyCode) {
+        KbSegmentDocument doc = candidate.document();
+        Map<String, String> highlights = candidate.highlights();
         boolean titleHit = highlights.containsKey("title") || containsIgnoreCase(doc.getTitle(), keyword);
         boolean contentHit = highlights.containsKey("contentText") || containsIgnoreCase(doc.getContentText(), keyword);
         boolean ocrHit = highlights.containsKey("ocrText") || containsIgnoreCase(doc.getOcrText(), keyword);
         boolean tagHit = hasTagHit(doc, keyword, highlights);
 
         List<String> hitSources = new ArrayList<>();
-        if (acc.vectorHit) {
+        if (candidate.vectorHit()) {
             hitSources.add("VECTOR");
         }
         if (titleHit) {
@@ -156,14 +194,14 @@ public class UnifiedSearchServiceImpl implements UnifiedSearchService {
                 .assetType(doc.getAssetType())
                 .snippet(snippet)
                 .pageNo(doc.getPageNo())
-                .score(acc.rrfScore)
+                .score(candidate.score())
                 .segmentId(doc.getSegmentId())
                 .assetId(doc.getAssetId())
                 .sourceRef(doc.getSourceRef())
                 .anchor(anchor)
                 .thumbnail(resolveThumbnail(doc))
                 .ocrSummary(resolveOcrSummary(doc))
-                .explain(buildExplain(doc, strategyCode, hitSources, acc.vectorHit, titleHit, contentHit, ocrHit, tagHit))
+                .explain(buildExplain(doc, strategyCode, hitSources, candidate.vectorHit(), titleHit, contentHit, ocrHit, tagHit))
                 .build();
     }
 
@@ -303,6 +341,183 @@ public class UnifiedSearchServiceImpl implements UnifiedSearchService {
                 && text.toLowerCase(Locale.ROOT).contains(keyword.toLowerCase(Locale.ROOT));
     }
 
+    private List<SegmentRerankCandidate> applyRerank(String keyword,
+                                                     List<SegmentRerankCandidate> candidates,
+                                                     int limit) {
+        if (!appSearchProperties.getRerank().isEnabled() || !StringUtils.hasText(keyword) || candidates.isEmpty()) {
+            return candidates;
+        }
+        int windowSize = resolveRerankWindowSize(limit, candidates.size());
+        if (windowSize <= 0) {
+            return candidates;
+        }
+
+        List<SegmentRerankCandidate> rerankWindow = new ArrayList<>(candidates.subList(0, windowSize));
+        List<SegmentRerankCandidate> untouchedTail = windowSize >= candidates.size()
+                ? List.of()
+                : candidates.subList(windowSize, candidates.size());
+        List<String> docs = rerankWindow.stream().map(this::buildRerankDocument).toList();
+
+        meterRegistry.counter("smartvision.kb.search.rerank.calls").increment();
+        Timer.Sample sample = Timer.start(meterRegistry);
+        List<RerankItem> rerankResults = searchRerankPort.rerank(keyword, docs, rerankWindow.size());
+        sample.stop(Timer.builder("smartvision.kb.search.rerank.latency")
+                .description("KB unified rerank latency")
+                .register(meterRegistry));
+        if (rerankResults == null || rerankResults.isEmpty()) {
+            meterRegistry.counter("smartvision.kb.search.rerank.fallback", "reason", "empty_result").increment();
+            return candidates;
+        }
+
+        Map<Integer, Double> rerankScoreByIndex = new HashMap<>();
+        for (RerankItem item : rerankResults) {
+            if (item == null) {
+                continue;
+            }
+            int index = item.index();
+            if (index < 0 || index >= rerankWindow.size()) {
+                continue;
+            }
+            rerankScoreByIndex.put(index, normalizeRerankScore(item.score()));
+        }
+        if (rerankScoreByIndex.isEmpty()) {
+            return candidates;
+        }
+
+        WeightPair weightPair = resolveFusionWeights();
+        List<WindowRankItem> sortedWindow = buildAndSortWindow(
+                rerankWindow,
+                rerankScoreByIndex,
+                weightPair.alpha(),
+                weightPair.beta()
+        );
+        List<SegmentRerankCandidate> merged = new ArrayList<>(candidates.size());
+        for (WindowRankItem item : sortedWindow) {
+            merged.add(item.candidate());
+        }
+        merged.addAll(untouchedTail);
+        log.info("kb search rerank applied, candidates={}, windowSize={}, scored={}, limit={}, alpha={}, beta={}",
+                candidates.size(), windowSize, rerankScoreByIndex.size(), limit, weightPair.alpha(), weightPair.beta());
+        return merged;
+    }
+
+    private List<WindowRankItem> buildAndSortWindow(List<SegmentRerankCandidate> rerankWindow,
+                                                    Map<Integer, Double> rerankScoreByIndex,
+                                                    double alpha,
+                                                    double beta) {
+        double maxScore = rerankWindow.stream()
+                .mapToDouble(SegmentRerankCandidate::score)
+                .max()
+                .orElse(0d);
+        List<WindowRankItem> items = new ArrayList<>(rerankWindow.size());
+        for (int i = 0; i < rerankWindow.size(); i++) {
+            SegmentRerankCandidate candidate = rerankWindow.get(i);
+            double retrievalScore = maxScore <= 0d ? 0d : candidate.score() / maxScore;
+            double rerankScore = rerankScoreByIndex.getOrDefault(i, 0d);
+            double fusedScore = alpha * retrievalScore + beta * rerankScore;
+            SegmentRerankCandidate updatedCandidate = new SegmentRerankCandidate(
+                    candidate.segmentId(),
+                    candidate.document(),
+                    candidate.highlights(),
+                    fusedScore,
+                    candidate.bestRawScore(),
+                    candidate.hitCount(),
+                    candidate.vectorHit()
+            );
+            items.add(new WindowRankItem(i, updatedCandidate, retrievalScore, rerankScore, fusedScore));
+        }
+        items.sort(Comparator
+                .comparingDouble(WindowRankItem::fusedScore).reversed()
+                .thenComparing(Comparator.comparingDouble(WindowRankItem::retrievalScore).reversed())
+                .thenComparing(Comparator.comparingDouble(WindowRankItem::rerankScore).reversed())
+                .thenComparingInt(WindowRankItem::index));
+        return items;
+    }
+
+    private int resolveRecallTopK(int requestTopK, int limit) {
+        int multiplier = Math.max(1, appSearchProperties.getRrf().getCandidateMultiplier());
+        int maxCandidates = Math.max(1, appSearchProperties.getRrf().getMaxCandidates());
+        int recallByLimit = Math.max(1, limit) * multiplier;
+        int recallSize = Math.max(requestTopK, recallByLimit);
+        return Math.min(recallSize, maxCandidates);
+    }
+
+    private int resolveRerankWindowSize(int limit, int candidateSize) {
+        if (candidateSize <= 0) {
+            return 0;
+        }
+        AppSearchProperties.Rerank rerank = appSearchProperties.getRerank();
+        if (!rerank.isWindowEnabled()) {
+            return candidateSize;
+        }
+        int safeLimit = Math.max(1, limit);
+        int baseSize = rerank.getWindowSize() > 0
+                ? rerank.getWindowSize()
+                : safeLimit * Math.max(1, rerank.getWindowFactor());
+        int minSize = Math.max(1, rerank.getWindowMin());
+        int maxSize = Math.max(minSize, rerank.getWindowMax());
+        int bounded = Math.max(minSize, Math.min(baseSize, maxSize));
+        return Math.min(candidateSize, bounded);
+    }
+
+    private WeightPair resolveFusionWeights() {
+        double alpha = clamp01(appSearchProperties.getRerank().getFusionAlpha());
+        double beta = clamp01(appSearchProperties.getRerank().getFusionBeta());
+        double sum = alpha + beta;
+        if (sum <= 0d) {
+            return new WeightPair(1d, 0d);
+        }
+        return new WeightPair(alpha / sum, beta / sum);
+    }
+
+    private double normalizeRerankScore(double score) {
+        if (score <= 0d) {
+            return 0d;
+        }
+        return Math.min(score, 1d);
+    }
+
+    private double clamp01(double value) {
+        if (value < 0d) {
+            return 0d;
+        }
+        if (value > 1d) {
+            return 1d;
+        }
+        return value;
+    }
+
+    private String buildRerankDocument(SegmentRerankCandidate candidate) {
+        if (candidate == null || candidate.document() == null) {
+            return "";
+        }
+        KbSegmentDocument doc = candidate.document();
+        StringBuilder sb = new StringBuilder(256);
+        appendRerankField(sb, "segmentType", doc.getSegmentType());
+        appendRerankField(sb, "title", doc.getTitle());
+        appendRerankField(sb, "content", doc.getContentText());
+        appendRerankField(sb, "ocr", doc.getOcrText());
+        if (doc.getTags() != null && !doc.getTags().isEmpty()) {
+            appendRerankField(sb, "tags", String.join(", ", doc.getTags()));
+        }
+        String merged = sb.toString();
+        int maxDocChars = Math.max(64, appSearchProperties.getRerank().getMaxDocChars());
+        if (merged.length() <= maxDocChars) {
+            return merged;
+        }
+        return merged.substring(0, maxDocChars);
+    }
+
+    private void appendRerankField(StringBuilder sb, String field, String value) {
+        if (!StringUtils.hasText(value)) {
+            return;
+        }
+        if (!sb.isEmpty()) {
+            sb.append('\n');
+        }
+        sb.append(field).append(": ").append(value);
+    }
+
     private int resolveTopK(Integer topK) {
         if (topK == null || topK <= 0) {
             return EmbeddingConstant.DEFAULT_TOP_K;
@@ -350,5 +565,15 @@ public class UnifiedSearchServiceImpl implements UnifiedSearchService {
         private double getBestRawScore() {
             return bestRawScore;
         }
+    }
+
+    private record WeightPair(double alpha, double beta) {
+    }
+
+    private record WindowRankItem(int index,
+                                  SegmentRerankCandidate candidate,
+                                  double retrievalScore,
+                                  double rerankScore,
+                                  double fusedScore) {
     }
 }

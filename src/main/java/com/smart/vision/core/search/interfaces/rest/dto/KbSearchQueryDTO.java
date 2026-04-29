@@ -35,14 +35,9 @@ public class KbSearchQueryDTO {
 
     /**
      * Retrieval strategy selector.
-     * Current supported value: KB_RRF.
+     * Current supported values: KB_RRF / KB_RRF_RERANK.
      */
     @Size(max = 32, message = "strategy length cannot exceed 32")
     private String strategy;
 
-    /**
-     * Rerank switch. Defined for unified protocol compatibility.
-     * Rerank execution in KB chain will be delivered in later phase tasks.
-     */
-    private Boolean enableRerank;
 }

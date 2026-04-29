@@ -11,7 +11,6 @@
    - `topK`（可选）
    - `limit`（可选）
    - `strategy`（可选，当前支持 `KB_RRF`、`KB_RRF_RERANK`）
-   - `enableRerank`（可选，布尔开关；当前仅作为协议字段保留）
 2. 结果协议扩展为：
    - `segmentId/assetId/assetType/segmentType/content/score/explain/sourceRef/anchor/thumbnail/ocrSummary`
 3. 兼容字段保留：
