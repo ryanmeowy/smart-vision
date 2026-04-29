@@ -1,7 +1,7 @@
-package com.smart.vision.core.integration.storage.port;
+package com.smart.vision.core.auth.application.port;
 
 /**
- * Capability port for issuing temporary upload credentials.
+ * Auth-side outbound port for issuing temporary upload credentials.
  */
 public interface CredentialIssuePort {
 
@@ -9,4 +9,3 @@ public interface CredentialIssuePort {
 
     record IssuedCredential(String accessKeyId, String accessKeySecret, String securityToken) {}
 }
-
