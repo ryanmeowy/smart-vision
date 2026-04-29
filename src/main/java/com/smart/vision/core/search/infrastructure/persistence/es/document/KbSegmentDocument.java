@@ -58,6 +58,9 @@ public class KbSegmentDocument {
     @Field(type = FieldType.Text, analyzer = "my_ik_analyzer", searchAnalyzer = "my_ik_search_analyzer")
     private String ocrSummary;
 
+    @Field(type = FieldType.Keyword)
+    private List<String> tags;
+
     @Field(type = FieldType.Long)
     private Long createdAt;
 }

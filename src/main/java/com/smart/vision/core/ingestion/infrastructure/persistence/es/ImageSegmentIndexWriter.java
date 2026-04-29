@@ -48,6 +48,7 @@ public class ImageSegmentIndexWriter {
                     .sourceRef(doc.getImagePath())
                     .thumbnail(doc.getImagePath())
                     .ocrSummary(ocrSummary)
+                    .tags(doc.getTags())
                     .createdAt(createdAt)
                     .build());
         }
@@ -63,6 +64,7 @@ public class ImageSegmentIndexWriter {
                     .sourceRef(doc.getImagePath())
                     .thumbnail(doc.getImagePath())
                     .ocrSummary(ocrSummary)
+                    .tags(doc.getTags())
                     .createdAt(createdAt)
                     .build());
         }

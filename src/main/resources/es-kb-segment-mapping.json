@@ -64,6 +64,9 @@
       "analyzer": "my_ik_analyzer",
       "search_analyzer": "my_ik_search_analyzer"
     },
+    "tags": {
+      "type": "keyword"
+    },
     "createdAt": {
       "type": "long"
     }

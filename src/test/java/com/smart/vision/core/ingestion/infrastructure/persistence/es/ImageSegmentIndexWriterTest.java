@@ -26,6 +26,7 @@ class ImageSegmentIndexWriterTest {
         doc.setRawFilename("a.png");
         doc.setFileName("cat on sofa");
         doc.setOcrContent("invoice no 001");
+        doc.setTags(List.of("cat", "sofa"));
         doc.setImageEmbedding(List.of(0.1f, 0.2f));
         doc.setCreateTime(123456L);
 
@@ -39,6 +40,8 @@ class ImageSegmentIndexWriterTest {
                 .containsExactly(SegmentType.IMAGE_CAPTION, SegmentType.IMAGE_OCR_BLOCK);
         assertThat(segments.getFirst().getContentText()).isEqualTo("cat on sofa");
         assertThat(segments.get(1).getOcrText()).isEqualTo("invoice no 001");
+        assertThat(segments.getFirst().getTags()).containsExactly("cat", "sofa");
+        assertThat(segments.get(1).getTags()).containsExactly("cat", "sofa");
     }
 
     @Test

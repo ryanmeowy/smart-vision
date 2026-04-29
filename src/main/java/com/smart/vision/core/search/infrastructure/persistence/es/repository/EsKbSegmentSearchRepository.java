@@ -70,12 +70,14 @@ public class EsKbSegmentSearchRepository implements KbSegmentSearchPort {
                         .should(sh -> sh.match(m -> m.field("title").query(query).boost(2.5f)))
                         .should(sh -> sh.match(m -> m.field("contentText").query(query).boost(4.0f)))
                         .should(sh -> sh.match(m -> m.field("ocrText").query(query).boost(3.0f)))
+                        .should(sh -> sh.match(m -> m.field("tags").query(query).boost(3.2f)))
                         .minimumShouldMatch("1")
                 ))
                 .highlight(h -> h
                         .fields("title", f -> f.numberOfFragments(0))
                         .fields("contentText", f -> f.fragmentSize(180).numberOfFragments(1))
                         .fields("ocrText", f -> f.fragmentSize(180).numberOfFragments(1))
+                        .fields("tags", f -> f.numberOfFragments(0))
                 )
         );
     }

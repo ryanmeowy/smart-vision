@@ -28,8 +28,7 @@ class UnifiedSearchServiceImplTest {
 
     @Test
     void search_shouldMergeTextAndVectorHitsWithUnifiedSchema() {
-        AppSearchProperties props = new AppSearchProperties();
-        UnifiedSearchServiceImpl service = new UnifiedSearchServiceImpl(kbSegmentSearchPort, kbQueryEmbeddingService, props);
+        UnifiedSearchServiceImpl service = buildService();
 
         KbSearchQueryDTO query = new KbSearchQueryDTO();
         query.setQuery("mysql");
@@ -75,7 +74,87 @@ class UnifiedSearchServiceImplTest {
         assertThat(results.getFirst().getExplain().getMatchedBy().isVector()).isTrue();
         assertThat(results.getFirst().getExplain().getMatchedBy().isContent()).isTrue();
         assertThat(results.getFirst().getExplain().getStrategyEffective()).isEqualTo("KB_RRF");
+        assertThat(results.getFirst().getExplain().getTextSignals()).isNotNull();
+        assertThat(results.getFirst().getExplain().getTextSignals().isSemantic()).isTrue();
+        assertThat(results.getFirst().getExplain().getTextSignals().isKeyword()).isTrue();
+        assertThat(results.getFirst().getExplain().getImageSignals()).isNull();
         assertThat(results.get(1).getAssetType()).isEqualTo("IMAGE");
+        assertThat(results.get(1).getExplain().getImageSignals()).isNotNull();
+        assertThat(results.get(1).getExplain().getImageSignals().isVector()).isTrue();
+        assertThat(results.get(1).getExplain().getImageSignals().isCaption()).isTrue();
+        assertThat(results.get(1).getExplain().getImageSignals().isTag()).isTrue();
+        assertThat(results.get(1).getExplain().getHitSources()).contains("TAG");
+        assertThat(results.get(1).getExplain().getTextSignals()).isNull();
+    }
+
+    @Test
+    void search_shouldBuildTextOnlyExplainSignals() {
+        UnifiedSearchServiceImpl service = buildService();
+
+        KbSearchQueryDTO query = new KbSearchQueryDTO();
+        query.setQuery("mysql");
+        query.setTopK(5);
+        query.setLimit(3);
+
+        when(kbQueryEmbeddingService.embedQuery("mysql")).thenReturn(List.of(0.1f, 0.2f));
+        when(kbSegmentSearchPort.textSearch("mysql", 5)).thenReturn(List.of(
+                KbSegmentHit.builder()
+                        .document(buildDoc("seg-t1", "TEXT", "TEXT_CHUNK", "mysql notes", "mysql chunk", null, 3))
+                        .rawScore(2.1d)
+                        .highlights(Map.of("contentText", "<em>mysql</em> chunk"))
+                        .highlightFields(List.of("contentText"))
+                        .build()
+        ));
+        when(kbSegmentSearchPort.vectorSearch(List.of(0.1f, 0.2f), 5)).thenReturn(List.of());
+
+        List<KbSearchResultDTO> results = service.search(query);
+
+        assertThat(results).hasSize(1);
+        assertThat(results.getFirst().getSegmentType()).isEqualTo("TEXT_CHUNK");
+        assertThat(results.getFirst().getExplain().getTextSignals()).isNotNull();
+        assertThat(results.getFirst().getExplain().getTextSignals().isSemantic()).isFalse();
+        assertThat(results.getFirst().getExplain().getTextSignals().isKeyword()).isTrue();
+        assertThat(results.getFirst().getExplain().getTextSignals().isPageHit()).isTrue();
+        assertThat(results.getFirst().getExplain().getTextSignals().isChunkHit()).isTrue();
+        assertThat(results.getFirst().getExplain().getImageSignals()).isNull();
+    }
+
+    @Test
+    void search_shouldBuildImageOnlyExplainSignals() {
+        UnifiedSearchServiceImpl service = buildService();
+
+        KbSearchQueryDTO query = new KbSearchQueryDTO();
+        query.setQuery("mysql");
+        query.setTopK(5);
+        query.setLimit(3);
+
+        when(kbQueryEmbeddingService.embedQuery("mysql")).thenReturn(List.of(0.1f, 0.2f));
+        when(kbSegmentSearchPort.textSearch("mysql", 5)).thenReturn(List.of());
+        when(kbSegmentSearchPort.vectorSearch(List.of(0.1f, 0.2f), 5)).thenReturn(List.of(
+                KbSegmentHit.builder()
+                        .document(buildDoc("seg-i1", "IMAGE", "IMAGE_OCR_BLOCK", "diagram", null, "mysql ocr text", null))
+                        .rawScore(1.8d)
+                        .highlights(Map.of())
+                        .highlightFields(List.of())
+                        .build()
+        ));
+
+        List<KbSearchResultDTO> results = service.search(query);
+
+        assertThat(results).hasSize(1);
+        assertThat(results.getFirst().getSegmentType()).isEqualTo("IMAGE_OCR_BLOCK");
+        assertThat(results.getFirst().getExplain().getTextSignals()).isNull();
+        assertThat(results.getFirst().getExplain().getImageSignals()).isNotNull();
+        assertThat(results.getFirst().getExplain().getImageSignals().isVector()).isTrue();
+        assertThat(results.getFirst().getExplain().getImageSignals().isOcr()).isTrue();
+        assertThat(results.getFirst().getExplain().getImageSignals().isCaption()).isFalse();
+        assertThat(results.getFirst().getExplain().getImageSignals().isTag()).isTrue();
+        assertThat(results.getFirst().getExplain().getHitSources()).contains("TAG");
+    }
+
+    private UnifiedSearchServiceImpl buildService() {
+        AppSearchProperties props = new AppSearchProperties();
+        return new UnifiedSearchServiceImpl(kbSegmentSearchPort, kbQueryEmbeddingService, props);
     }
 
     private KbSegmentDocument buildDoc(String segmentId,
@@ -94,6 +173,12 @@ class UnifiedSearchServiceImplTest {
         doc.setContentText(contentText);
         doc.setOcrText(ocrText);
         doc.setPageNo(pageNo);
+        if ("IMAGE_OCR_BLOCK".equals(segmentType) || "IMAGE_CAPTION".equals(segmentType)) {
+            doc.setTags(List.of("mysql"));
+        }
+        if ("TEXT_CHUNK".equals(segmentType)) {
+            doc.setChunkOrder(0);
+        }
         return doc;
     }
 }

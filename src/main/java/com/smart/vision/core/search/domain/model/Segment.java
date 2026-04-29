@@ -26,5 +26,6 @@ public class Segment {
     String sourceRef;
     String thumbnail;
     String ocrSummary;
+    List<String> tags;
     Long createdAt;
 }

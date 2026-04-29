@@ -123,6 +123,7 @@ public class UnifiedSearchServiceImpl implements UnifiedSearchService {
         boolean titleHit = highlights.containsKey("title") || containsIgnoreCase(doc.getTitle(), keyword);
         boolean contentHit = highlights.containsKey("contentText") || containsIgnoreCase(doc.getContentText(), keyword);
         boolean ocrHit = highlights.containsKey("ocrText") || containsIgnoreCase(doc.getOcrText(), keyword);
+        boolean tagHit = hasTagHit(doc, keyword, highlights);
 
         List<String> hitSources = new ArrayList<>();
         if (acc.vectorHit) {
@@ -136,6 +137,9 @@ public class UnifiedSearchServiceImpl implements UnifiedSearchService {
         }
         if (ocrHit) {
             hitSources.add("OCR");
+        }
+        if (tagHit) {
+            hitSources.add("TAG");
         }
 
         String content = resolveContent(doc);
@@ -159,16 +163,50 @@ public class UnifiedSearchServiceImpl implements UnifiedSearchService {
                 .anchor(anchor)
                 .thumbnail(resolveThumbnail(doc))
                 .ocrSummary(resolveOcrSummary(doc))
-                .explain(KbSearchExplainDTO.builder()
-                        .strategyEffective(strategyCode)
-                        .hitSources(hitSources)
-                        .matchedBy(KbSearchExplainDTO.MatchedBy.builder()
-                                .vector(acc.vectorHit)
-                                .title(titleHit)
-                                .content(contentHit)
-                                .ocr(ocrHit)
-                                .build())
-                        .build())
+                .explain(buildExplain(doc, strategyCode, hitSources, acc.vectorHit, titleHit, contentHit, ocrHit, tagHit))
+                .build();
+    }
+
+    private KbSearchExplainDTO buildExplain(KbSegmentDocument doc,
+                                            String strategyCode,
+                                            List<String> hitSources,
+                                            boolean vectorHit,
+                                            boolean titleHit,
+                                            boolean contentHit,
+                                            boolean ocrHit,
+                                            boolean tagHit) {
+        KbSearchExplainDTO.MatchedBy matchedBy = KbSearchExplainDTO.MatchedBy.builder()
+                .vector(vectorHit)
+                .title(titleHit)
+                .content(contentHit)
+                .ocr(ocrHit)
+                .build();
+
+        KbSearchExplainDTO.TextSignals textSignals = null;
+        KbSearchExplainDTO.ImageSignals imageSignals = null;
+
+        if (isTextSegment(doc)) {
+            textSignals = KbSearchExplainDTO.TextSignals.builder()
+                    .semantic(vectorHit)
+                    .keyword(titleHit || contentHit || ocrHit)
+                    .pageHit(doc.getPageNo() != null)
+                    .chunkHit(doc.getChunkOrder() != null)
+                    .build();
+        } else if (isImageSegment(doc)) {
+            imageSignals = KbSearchExplainDTO.ImageSignals.builder()
+                    .vector(vectorHit)
+                    .ocr(ocrHit)
+                    .caption(isImageCaptionSegment(doc) && (titleHit || contentHit))
+                    .tag(tagHit)
+                    .build();
+        }
+
+        return KbSearchExplainDTO.builder()
+                .strategyEffective(strategyCode)
+                .hitSources(hitSources)
+                .matchedBy(matchedBy)
+                .textSignals(textSignals)
+                .imageSignals(imageSignals)
                 .build();
     }
 
@@ -229,6 +267,34 @@ public class UnifiedSearchServiceImpl implements UnifiedSearchService {
             return doc.getOcrSummary();
         }
         return clip(doc.getOcrText(), 180);
+    }
+
+    private boolean isTextSegment(KbSegmentDocument doc) {
+        return doc != null && "TEXT_CHUNK".equalsIgnoreCase(doc.getSegmentType());
+    }
+
+    private boolean isImageSegment(KbSegmentDocument doc) {
+        return doc != null
+                && StringUtils.hasText(doc.getSegmentType())
+                && doc.getSegmentType().toUpperCase(Locale.ROOT).startsWith("IMAGE_");
+    }
+
+    private boolean isImageCaptionSegment(KbSegmentDocument doc) {
+        return doc != null && "IMAGE_CAPTION".equalsIgnoreCase(doc.getSegmentType());
+    }
+
+    private boolean hasTagHit(KbSegmentDocument doc, String keyword, Map<String, String> highlights) {
+        if (highlights != null && highlights.containsKey("tags")) {
+            return true;
+        }
+        if (doc == null || !StringUtils.hasText(keyword)) {
+            return false;
+        }
+        List<String> tags = doc.getTags();
+        if (tags == null || tags.isEmpty()) {
+            return false;
+        }
+        return tags.stream().anyMatch(tag -> containsIgnoreCase(tag, keyword));
     }
 
     private boolean containsIgnoreCase(String text, String keyword) {

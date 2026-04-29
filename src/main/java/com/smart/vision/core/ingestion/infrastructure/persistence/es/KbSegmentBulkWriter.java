@@ -83,6 +83,7 @@ public class KbSegmentBulkWriter {
         document.setSourceRef(segment.getSourceRef());
         document.setThumbnail(segment.getThumbnail());
         document.setOcrSummary(segment.getOcrSummary());
+        document.setTags(segment.getTags());
         document.setCreatedAt(segment.getCreatedAt());
         return document;
     }

@@ -28,6 +28,16 @@ public class KbSearchExplainDTO implements Serializable {
      */
     private MatchedBy matchedBy;
 
+    /**
+     * Text explain v2 signals.
+     */
+    private TextSignals textSignals;
+
+    /**
+     * Image explain v2 signals.
+     */
+    private ImageSignals imageSignals;
+
     @Data
     @Builder
     public static class MatchedBy implements Serializable {
@@ -35,5 +45,23 @@ public class KbSearchExplainDTO implements Serializable {
         private boolean title;
         private boolean content;
         private boolean ocr;
+    }
+
+    @Data
+    @Builder
+    public static class TextSignals implements Serializable {
+        private boolean semantic;
+        private boolean keyword;
+        private boolean pageHit;
+        private boolean chunkHit;
+    }
+
+    @Data
+    @Builder
+    public static class ImageSignals implements Serializable {
+        private boolean vector;
+        private boolean ocr;
+        private boolean caption;
+        private boolean tag;
     }
 }
