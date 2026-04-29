@@ -1,6 +1,7 @@
-package com.smart.vision.core.common.security;
+package com.smart.vision.core.auth.infrastructure;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smart.vision.core.auth.RequireAuth;
 import com.smart.vision.core.common.model.Result;
 import com.smart.vision.core.common.exception.ApiError;
 import jakarta.servlet.http.HttpServletRequest;

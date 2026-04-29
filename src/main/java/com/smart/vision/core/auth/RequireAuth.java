@@ -1,4 +1,4 @@
-package com.smart.vision.core.common.security;
+package com.smart.vision.core.auth;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

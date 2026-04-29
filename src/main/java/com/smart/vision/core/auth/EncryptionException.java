@@ -1,5 +1,4 @@
-
-package com.smart.vision.core.common.exception;
+package com.smart.vision.core.auth;
 
 /**
  * Runtime exception wrapper for encryption-related failures.

@@ -1,7 +1,6 @@
+package com.smart.vision.core.auth.infrastructure;
 
-package com.smart.vision.core.common.util;
-
-import com.smart.vision.core.common.exception.EncryptionException;
+import com.smart.vision.core.auth.EncryptionException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
