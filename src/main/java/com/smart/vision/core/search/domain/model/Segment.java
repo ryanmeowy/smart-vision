@@ -21,7 +21,10 @@ public class Segment {
     String ocrText;
     Integer pageNo;
     Integer chunkOrder;
+    List<Integer> bbox;
     List<Float> embedding;
     String sourceRef;
+    String thumbnail;
+    String ocrSummary;
     Long createdAt;
 }

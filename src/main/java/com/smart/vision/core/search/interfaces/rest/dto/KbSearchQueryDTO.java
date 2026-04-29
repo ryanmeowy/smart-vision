@@ -32,4 +32,17 @@ public class KbSearchQueryDTO {
     @Min(value = 1, message = "limit must be greater than 0")
     @Max(value = 200, message = "limit cannot exceed 200")
     private Integer limit;
+
+    /**
+     * Retrieval strategy selector.
+     * Current supported value: KB_RRF.
+     */
+    @Size(max = 32, message = "strategy length cannot exceed 32")
+    private String strategy;
+
+    /**
+     * Rerank switch. Defined for unified protocol compatibility.
+     * Rerank execution in KB chain will be delivered in later phase tasks.
+     */
+    private Boolean enableRerank;
 }

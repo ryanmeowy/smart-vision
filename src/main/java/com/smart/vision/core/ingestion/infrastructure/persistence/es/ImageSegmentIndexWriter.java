@@ -32,6 +32,7 @@ public class ImageSegmentIndexWriter {
         String assetId = String.valueOf(doc.getId());
         long createdAt = doc.getCreateTime() == null ? System.currentTimeMillis() : doc.getCreateTime();
         String title = StringUtils.hasText(doc.getRawFilename()) ? doc.getRawFilename() : doc.getFileName();
+        String ocrSummary = clip(doc.getOcrContent(), 180);
         List<Segment> segments = new ArrayList<>();
 
         String captionText = resolveCaptionText(doc);
@@ -45,6 +46,8 @@ public class ImageSegmentIndexWriter {
                     .contentText(captionText)
                     .embedding(doc.getImageEmbedding())
                     .sourceRef(doc.getImagePath())
+                    .thumbnail(doc.getImagePath())
+                    .ocrSummary(ocrSummary)
                     .createdAt(createdAt)
                     .build());
         }
@@ -58,6 +61,8 @@ public class ImageSegmentIndexWriter {
                     .title(title)
                     .ocrText(doc.getOcrContent())
                     .sourceRef(doc.getImagePath())
+                    .thumbnail(doc.getImagePath())
+                    .ocrSummary(ocrSummary)
                     .createdAt(createdAt)
                     .build());
         }
@@ -72,5 +77,15 @@ public class ImageSegmentIndexWriter {
             return doc.getRawFilename();
         }
         return null;
+    }
+
+    private String clip(String text, int maxLen) {
+        if (!StringUtils.hasText(text)) {
+            return null;
+        }
+        if (text.length() <= maxLen) {
+            return text;
+        }
+        return text.substring(0, maxLen);
     }
 }

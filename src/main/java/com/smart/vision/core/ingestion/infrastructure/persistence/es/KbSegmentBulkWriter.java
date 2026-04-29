@@ -78,8 +78,11 @@ public class KbSegmentBulkWriter {
         document.setOcrText(segment.getOcrText());
         document.setPageNo(segment.getPageNo());
         document.setChunkOrder(segment.getChunkOrder());
+        document.setBbox(segment.getBbox());
         document.setEmbedding(segment.getEmbedding());
         document.setSourceRef(segment.getSourceRef());
+        document.setThumbnail(segment.getThumbnail());
+        document.setOcrSummary(segment.getOcrSummary());
         document.setCreatedAt(segment.getCreatedAt());
         return document;
     }

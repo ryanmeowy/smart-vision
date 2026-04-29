@@ -35,6 +35,8 @@ class UnifiedSearchServiceImplTest {
         query.setQuery("mysql");
         query.setTopK(5);
         query.setLimit(3);
+        query.setStrategy("KB_RRF");
+        query.setEnableRerank(Boolean.FALSE);
 
         when(kbQueryEmbeddingService.embedQuery("mysql")).thenReturn(List.of(0.1f, 0.2f));
         when(kbSegmentSearchPort.textSearch("mysql", 5)).thenReturn(List.of(
@@ -64,10 +66,15 @@ class UnifiedSearchServiceImplTest {
 
         assertThat(results).hasSize(2);
         assertThat(results.getFirst().getSegmentId()).isEqualTo("seg-1");
+        assertThat(results.getFirst().getSegmentType()).isEqualTo("TEXT_CHUNK");
         assertThat(results.getFirst().getResultType()).isEqualTo("TEXT_CHUNK");
+        assertThat(results.getFirst().getContent()).contains("mysql");
         assertThat(results.getFirst().getSnippet()).contains("mysql");
+        assertThat(results.getFirst().getAnchor()).isNotNull();
+        assertThat(results.getFirst().getAnchor().getPageNo()).isEqualTo(2);
         assertThat(results.getFirst().getExplain().getMatchedBy().isVector()).isTrue();
         assertThat(results.getFirst().getExplain().getMatchedBy().isContent()).isTrue();
+        assertThat(results.getFirst().getExplain().getStrategyEffective()).isEqualTo("KB_RRF");
         assertThat(results.get(1).getAssetType()).isEqualTo("IMAGE");
     }
 

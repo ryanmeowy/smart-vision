@@ -39,6 +39,9 @@
     "chunkOrder": {
       "type": "integer"
     },
+    "bbox": {
+      "type": "integer"
+    },
     "embedding": {
       "type": "dense_vector",
       "dims": "@DIMS@",
@@ -52,6 +55,14 @@
     },
     "sourceRef": {
       "type": "keyword"
+    },
+    "thumbnail": {
+      "type": "keyword"
+    },
+    "ocrSummary": {
+      "type": "text",
+      "analyzer": "my_ik_analyzer",
+      "search_analyzer": "my_ik_search_analyzer"
     },
     "createdAt": {
       "type": "long"

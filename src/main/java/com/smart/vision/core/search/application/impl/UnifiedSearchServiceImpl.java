@@ -33,6 +33,7 @@ import java.util.Map;
 public class UnifiedSearchServiceImpl implements UnifiedSearchService {
 
     private static final String STRATEGY_CODE = "KB_RRF";
+    private static final String STRATEGY_CODE_RERANK = "KB_RRF_RERANK";
 
     private final KbSegmentSearchPort kbSegmentSearchPort;
     private final KbQueryEmbeddingService kbQueryEmbeddingService;
@@ -46,19 +47,23 @@ public class UnifiedSearchServiceImpl implements UnifiedSearchService {
         String keyword = query.getQuery().trim();
         int topK = resolveTopK(query.getTopK());
         int limit = resolveLimit(query.getLimit(), topK);
+        String strategyCode = resolveStrategy(query.getStrategy());
+        boolean rerankRequested = Boolean.TRUE.equals(query.getEnableRerank());
 
         List<Float> queryVector = kbQueryEmbeddingService.embedQuery(keyword);
         List<KbSegmentHit> textHits = kbSegmentSearchPort.textSearch(keyword, topK);
         List<KbSegmentHit> vectorHits = kbSegmentSearchPort.vectorSearch(queryVector, topK);
-        log.info("kb search recall completed, keyword={}, textHits={}, vectorHits={}", keyword, textHits.size(), vectorHits.size());
-        return fuseAndAssemble(textHits, vectorHits, keyword, limit, appSearchProperties.getRrf().getRankConstant());
+        log.info("kb search recall completed, keyword={}, strategy={}, rerankRequested={}, textHits={}, vectorHits={}",
+                keyword, strategyCode, rerankRequested, textHits.size(), vectorHits.size());
+        return fuseAndAssemble(textHits, vectorHits, keyword, limit, appSearchProperties.getRrf().getRankConstant(), strategyCode);
     }
 
     private List<KbSearchResultDTO> fuseAndAssemble(List<KbSegmentHit> textHits,
                                                     List<KbSegmentHit> vectorHits,
                                                     String keyword,
                                                     int limit,
-                                                    int rankConstant) {
+                                                    int rankConstant,
+                                                    String strategyCode) {
         Map<String, Accumulator> grouped = new LinkedHashMap<>();
         ingest(textHits, false, Math.max(1, rankConstant), grouped);
         ingest(vectorHits, true, Math.max(1, rankConstant), grouped);
@@ -68,7 +73,7 @@ public class UnifiedSearchServiceImpl implements UnifiedSearchService {
                         .thenComparing(Comparator.comparingInt(Accumulator::getHitCount).reversed())
                         .thenComparing(Comparator.comparingDouble(Accumulator::getBestRawScore).reversed()))
                 .limit(limit)
-                .map(acc -> toResult(acc, keyword))
+                .map(acc -> toResult(acc, keyword, strategyCode))
                 .filter(java.util.Objects::nonNull)
                 .toList();
     }
@@ -108,7 +113,7 @@ public class UnifiedSearchServiceImpl implements UnifiedSearchService {
         return 1d / (rankConstant + rankIndex + 1d);
     }
 
-    private KbSearchResultDTO toResult(Accumulator acc, String keyword) {
+    private KbSearchResultDTO toResult(Accumulator acc, String keyword, String strategyCode) {
         KbSegmentHit displaySource = acc.textSource != null ? acc.textSource : acc.vectorSource;
         KbSegmentDocument doc = displaySource == null ? null : displaySource.getDocument();
         if (doc == null) {
@@ -133,8 +138,16 @@ public class UnifiedSearchServiceImpl implements UnifiedSearchService {
             hitSources.add("OCR");
         }
 
-        String snippet = pickSnippet(doc, highlights);
+        String content = resolveContent(doc);
+        String snippet = pickSnippet(content, highlights);
+        KbSearchResultDTO.Anchor anchor = KbSearchResultDTO.Anchor.builder()
+                .pageNo(doc.getPageNo())
+                .chunkOrder(doc.getChunkOrder())
+                .bbox(doc.getBbox())
+                .build();
         return KbSearchResultDTO.builder()
+                .segmentType(doc.getSegmentType())
+                .content(content)
                 .resultType(doc.getSegmentType())
                 .assetType(doc.getAssetType())
                 .snippet(snippet)
@@ -143,8 +156,11 @@ public class UnifiedSearchServiceImpl implements UnifiedSearchService {
                 .segmentId(doc.getSegmentId())
                 .assetId(doc.getAssetId())
                 .sourceRef(doc.getSourceRef())
+                .anchor(anchor)
+                .thumbnail(resolveThumbnail(doc))
+                .ocrSummary(resolveOcrSummary(doc))
                 .explain(KbSearchExplainDTO.builder()
-                        .strategyEffective(STRATEGY_CODE)
+                        .strategyEffective(strategyCode)
                         .hitSources(hitSources)
                         .matchedBy(KbSearchExplainDTO.MatchedBy.builder()
                                 .vector(acc.vectorHit)
@@ -156,7 +172,7 @@ public class UnifiedSearchServiceImpl implements UnifiedSearchService {
                 .build();
     }
 
-    private String pickSnippet(KbSegmentDocument doc, Map<String, String> highlights) {
+    private String pickSnippet(String content, Map<String, String> highlights) {
         if (highlights != null && StringUtils.hasText(highlights.get("contentText"))) {
             return highlights.get("contentText");
         }
@@ -166,16 +182,7 @@ public class UnifiedSearchServiceImpl implements UnifiedSearchService {
         if (highlights != null && StringUtils.hasText(highlights.get("title"))) {
             return highlights.get("title");
         }
-        if (StringUtils.hasText(doc.getContentText())) {
-            return clip(doc.getContentText(), 180);
-        }
-        if (StringUtils.hasText(doc.getOcrText())) {
-            return clip(doc.getOcrText(), 180);
-        }
-        if (StringUtils.hasText(doc.getTitle())) {
-            return clip(doc.getTitle(), 180);
-        }
-        return "";
+        return clip(content, 180);
     }
 
     private String clip(String text, int maxLen) {
@@ -186,6 +193,42 @@ public class UnifiedSearchServiceImpl implements UnifiedSearchService {
             return text;
         }
         return text.substring(0, maxLen);
+    }
+
+    private String resolveContent(KbSegmentDocument doc) {
+        if (doc == null) {
+            return "";
+        }
+        if (StringUtils.hasText(doc.getContentText())) {
+            return doc.getContentText();
+        }
+        if (StringUtils.hasText(doc.getOcrText())) {
+            return doc.getOcrText();
+        }
+        if (StringUtils.hasText(doc.getTitle())) {
+            return doc.getTitle();
+        }
+        return "";
+    }
+
+    private String resolveThumbnail(KbSegmentDocument doc) {
+        if (doc == null || !"IMAGE".equalsIgnoreCase(doc.getAssetType())) {
+            return null;
+        }
+        if (StringUtils.hasText(doc.getThumbnail())) {
+            return doc.getThumbnail();
+        }
+        return doc.getSourceRef();
+    }
+
+    private String resolveOcrSummary(KbSegmentDocument doc) {
+        if (doc == null || !"IMAGE".equalsIgnoreCase(doc.getAssetType())) {
+            return null;
+        }
+        if (StringUtils.hasText(doc.getOcrSummary())) {
+            return doc.getOcrSummary();
+        }
+        return clip(doc.getOcrText(), 180);
     }
 
     private boolean containsIgnoreCase(String text, String keyword) {
@@ -206,6 +249,17 @@ public class UnifiedSearchServiceImpl implements UnifiedSearchService {
             return topK;
         }
         return Math.min(limit, 200);
+    }
+
+    private String resolveStrategy(String strategy) {
+        if (!StringUtils.hasText(strategy)) {
+            return STRATEGY_CODE;
+        }
+        String normalized = strategy.trim().toUpperCase(Locale.ROOT);
+        if (STRATEGY_CODE.equals(normalized) || STRATEGY_CODE_RERANK.equals(normalized)) {
+            return normalized;
+        }
+        throw new BusinessException(ApiError.INVALID_REQUEST, "unsupported strategy: " + strategy);
     }
 
     private static final class Accumulator {

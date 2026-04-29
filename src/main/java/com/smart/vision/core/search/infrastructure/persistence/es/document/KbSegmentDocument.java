@@ -43,11 +43,20 @@ public class KbSegmentDocument {
     @Field(type = FieldType.Integer)
     private Integer chunkOrder;
 
+    @Field(type = FieldType.Integer)
+    private List<Integer> bbox;
+
     @Field(type = FieldType.Dense_Vector, similarity = "dot_product")
     private List<Float> embedding;
 
     @Field(type = FieldType.Keyword)
     private String sourceRef;
+
+    @Field(type = FieldType.Keyword)
+    private String thumbnail;
+
+    @Field(type = FieldType.Text, analyzer = "my_ik_analyzer", searchAnalyzer = "my_ik_search_analyzer")
+    private String ocrSummary;
 
     @Field(type = FieldType.Long)
     private Long createdAt;
