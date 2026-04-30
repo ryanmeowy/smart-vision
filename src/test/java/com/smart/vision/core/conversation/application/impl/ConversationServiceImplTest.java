@@ -1,0 +1,273 @@
+package com.smart.vision.core.conversation.application.impl;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smart.vision.core.conversation.application.AnswerGenerationService;
+import com.smart.vision.core.conversation.application.ConversationRetrievalOrchestrator;
+import com.smart.vision.core.conversation.application.QueryRewriteService;
+import com.smart.vision.core.conversation.application.assembler.ConversationCitationMapper;
+import com.smart.vision.core.conversation.application.model.AnswerGenerationResult;
+import com.smart.vision.core.conversation.application.model.ConversationRetrievalResult;
+import com.smart.vision.core.conversation.application.model.RewriteResult;
+import com.smart.vision.core.conversation.domain.model.ConversationSession;
+import com.smart.vision.core.conversation.domain.model.ConversationTurn;
+import com.smart.vision.core.conversation.domain.repository.ConversationRepository;
+import com.smart.vision.core.conversation.interfaces.rest.dto.ConversationCreateRequestDTO;
+import com.smart.vision.core.conversation.interfaces.rest.dto.ConversationMessageRequestDTO;
+import com.smart.vision.core.conversation.interfaces.rest.dto.ConversationMessageResponseDTO;
+import com.smart.vision.core.conversation.interfaces.rest.dto.ConversationSessionDTO;
+import com.smart.vision.core.conversation.interfaces.rest.dto.ConversationTurnListDTO;
+import com.smart.vision.core.search.interfaces.rest.dto.KbSearchResultDTO;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class ConversationServiceImplTest {
+
+    @Mock
+    private QueryRewriteService queryRewriteService;
+    @Mock
+    private ConversationRetrievalOrchestrator conversationRetrievalOrchestrator;
+    @Mock
+    private AnswerGenerationService answerGenerationService;
+
+    private InMemoryConversationRepository repository;
+    private ObjectMapper objectMapper;
+    private SimpleMeterRegistry meterRegistry;
+    private ConversationServiceImpl service;
+
+    @BeforeEach
+    void setUp() {
+        repository = new InMemoryConversationRepository();
+        objectMapper = new ObjectMapper();
+        meterRegistry = new SimpleMeterRegistry();
+        service = new ConversationServiceImpl(
+                repository,
+                queryRewriteService,
+                conversationRetrievalOrchestrator,
+                new ConversationCitationMapper(),
+                answerGenerationService,
+                objectMapper,
+                meterRegistry
+        );
+    }
+
+    @Test
+    void createMessage_shouldSupportMultiTurnAndPersistTrace() throws Exception {
+        ConversationSessionDTO session = service.createSession(new ConversationCreateRequestDTO());
+        String sessionId = session.getSessionId();
+
+        RewriteResult rewriteFirstTurn = buildRewrite(
+                "mysql 架构是什么",
+                "mysql 架构是什么 核心组件",
+                "rewrite_by_model",
+                false
+        );
+        RewriteResult rewriteSecondTurn = buildRewrite(
+                "那 InnoDB 呢",
+                "mysql 架构中的 InnoDB 作用",
+                "rewrite_by_model",
+                false
+        );
+        when(queryRewriteService.rewrite(eq(sessionId), eq("mysql 架构是什么"))).thenReturn(rewriteFirstTurn);
+        when(queryRewriteService.rewrite(eq(sessionId), eq("那 InnoDB 呢"))).thenReturn(rewriteSecondTurn);
+
+        ConversationRetrievalResult firstRetrieval = buildRetrievalResult(List.of(
+                buildResult("seg_text_1", "asset_1", "TEXT_CHUNK", "oss://bucket/mysql-notes.pdf", "mysql 架构三层", 3),
+                buildResult("seg_image_1", "asset_2", "IMAGE_CAPTION", "oss://bucket/mysql-diagram.png", "mysql 架构图", null)
+        ));
+        ConversationRetrievalResult secondRetrieval = buildRetrievalResult(List.of(
+                buildResult("seg_text_2", "asset_1", "TEXT_CHUNK", "oss://bucket/mysql-notes.pdf", "InnoDB 支持事务与行锁", 12)
+        ));
+        when(conversationRetrievalOrchestrator.retrieve(
+                eq("mysql 架构是什么 核心组件"), eq(60), eq(20), eq("KB_RRF_RERANK"), anyList()
+        )).thenReturn(firstRetrieval);
+        when(conversationRetrievalOrchestrator.retrieve(
+                eq("mysql 架构中的 InnoDB 作用"), eq(60), eq(20), eq("KB_RRF_RERANK"), anyList()
+        )).thenReturn(secondRetrieval);
+
+        when(answerGenerationService.generate(eq("mysql 架构是什么"), eq("mysql 架构是什么 核心组件"), anyList(), anyList()))
+                .thenReturn(buildAnswer("MySQL 架构通常由连接层、SQL 层、存储引擎层组成。[1]", false, null, List.of("seg_text_1")));
+        when(answerGenerationService.generate(eq("那 InnoDB 呢"), eq("mysql 架构中的 InnoDB 作用"), anyList(), anyList()))
+                .thenReturn(buildAnswer("InnoDB 是默认事务引擎，支持行级锁与崩溃恢复。[1]", false, null, List.of("seg_text_2")));
+
+        ConversationMessageResponseDTO firstResponse = service.createMessage(sessionId, buildMessageRequest("mysql 架构是什么"));
+        ConversationMessageResponseDTO secondResponse = service.createMessage(sessionId, buildMessageRequest("那 InnoDB 呢"));
+
+        assertThat(firstResponse.getSessionId()).isEqualTo(sessionId);
+        assertThat(secondResponse.getSessionId()).isEqualTo(sessionId);
+        assertThat(secondResponse.getRewrittenQuery()).isEqualTo("mysql 架构中的 InnoDB 作用");
+        assertThat(secondResponse.getCitations()).hasSize(1);
+        assertThat(secondResponse.getCitations().getFirst().getFileName()).isEqualTo("mysql-notes.pdf");
+        assertThat(secondResponse.getRetrievalTrace().getTopK()).isEqualTo(60);
+
+        ConversationTurnListDTO messageList = service.listMessages(sessionId, 20, null);
+        assertThat(messageList.getTurns()).hasSize(2);
+        assertThat(messageList.getTurns().getFirst().getQuery()).isEqualTo("mysql 架构是什么");
+        assertThat(messageList.getTurns().get(1).getQuery()).isEqualTo("那 InnoDB 呢");
+
+        List<ConversationTurn> storedTurns = repository.findRecentTurns(sessionId, 10);
+        assertThat(storedTurns).hasSize(2);
+        ConversationTurn latestTurn = storedTurns.getFirst();
+        Map<String, Object> trace = objectMapper.readValue(latestTurn.getRetrievalTraceJson(), new TypeReference<>() {
+        });
+        assertThat(trace.get("rewriteFallback")).isEqualTo(false);
+        assertThat(trace.get("answerFallback")).isEqualTo(false);
+        assertThat(trace.get("answerFallbackReason")).isNull();
+        assertThat(trace.get("retrievedCount")).isEqualTo(1);
+        assertThat(meterRegistry.counter("conversation.turn.count").count()).isEqualTo(2.0d);
+    }
+
+    @Test
+    void createMessage_shouldFallbackWhenEvidenceIsEmpty() throws Exception {
+        ConversationSessionDTO session = service.createSession(new ConversationCreateRequestDTO());
+        String sessionId = session.getSessionId();
+
+        RewriteResult rewriteResult = buildRewrite(
+                "它和 buffer pool 有什么关系",
+                "mysql 架构中 InnoDB 与 buffer pool 的关系",
+                "rewrite_by_model",
+                false
+        );
+        when(queryRewriteService.rewrite(eq(sessionId), eq("它和 buffer pool 有什么关系"))).thenReturn(rewriteResult);
+        when(conversationRetrievalOrchestrator.retrieve(
+                eq("mysql 架构中 InnoDB 与 buffer pool 的关系"), eq(60), eq(20), eq("KB_RRF_RERANK"), anyList()
+        )).thenReturn(buildRetrievalResult(List.of()));
+        when(answerGenerationService.generate(
+                eq("它和 buffer pool 有什么关系"), eq("mysql 架构中 InnoDB 与 buffer pool 的关系"), anyList(), anyList()
+        )).thenReturn(buildAnswer("未找到足够内容支持该问题。请尝试缩小范围或补充关键词。", true, "no_evidence", List.of()));
+
+        ConversationMessageResponseDTO response = service.createMessage(sessionId, buildMessageRequest("它和 buffer pool 有什么关系"));
+
+        assertThat(response.getSessionId()).isEqualTo(sessionId);
+        assertThat(response.getCitations()).isEmpty();
+        assertThat(response.getAnswer()).contains("未找到足够内容支持该问题");
+
+        List<ConversationTurn> storedTurns = repository.findRecentTurns(sessionId, 10);
+        assertThat(storedTurns).hasSize(1);
+        ConversationTurn storedTurn = storedTurns.getFirst();
+        Map<String, Object> trace = objectMapper.readValue(storedTurn.getRetrievalTraceJson(), new TypeReference<>() {
+        });
+        assertThat(trace.get("retrievedCount")).isEqualTo(0);
+        assertThat(trace.get("answerFallback")).isEqualTo(true);
+        assertThat(trace.get("answerFallbackReason")).isEqualTo("no_evidence");
+        assertThat(meterRegistry.counter("answer.citation.empty.count").count()).isEqualTo(1.0d);
+    }
+
+    private RewriteResult buildRewrite(String originalQuery, String rewrittenQuery, String reason, boolean fallback) {
+        RewriteResult result = new RewriteResult();
+        result.setOriginalQuery(originalQuery);
+        result.setRewrittenQuery(rewrittenQuery);
+        result.setRewriteReason(reason);
+        result.setPreferredModalities(List.of("MIXED"));
+        result.setTopicEntities(List.of("mysql", "innodb"));
+        result.setConfidence(0.92d);
+        result.setFallbackUsed(fallback);
+        return result;
+    }
+
+    private ConversationRetrievalResult buildRetrievalResult(List<KbSearchResultDTO> topCandidates) {
+        ConversationRetrievalResult result = new ConversationRetrievalResult();
+        result.setTopCandidates(topCandidates);
+        ConversationRetrievalResult.GroupedResult groupedResult = new ConversationRetrievalResult.GroupedResult();
+        groupedResult.setGroupKey("MIXED");
+        groupedResult.setItems(topCandidates);
+        result.setGroupedResults(topCandidates.isEmpty() ? List.of() : List.of(groupedResult));
+        return result;
+    }
+
+    private KbSearchResultDTO buildResult(String segmentId,
+                                          String assetId,
+                                          String segmentType,
+                                          String sourceRef,
+                                          String snippet,
+                                          Integer pageNo) {
+        return KbSearchResultDTO.builder()
+                .segmentId(segmentId)
+                .assetId(assetId)
+                .segmentType(segmentType)
+                .snippet(snippet)
+                .sourceRef(sourceRef)
+                .pageNo(pageNo)
+                .build();
+    }
+
+    private AnswerGenerationResult buildAnswer(String answer, boolean fallback, String fallbackReason, List<String> segmentIds) {
+        AnswerGenerationResult result = new AnswerGenerationResult();
+        result.setAnswerText(answer);
+        result.setFallbackUsed(fallback);
+        result.setFallbackReason(fallbackReason);
+        result.setAnswerInputSegmentIds(segmentIds);
+        return result;
+    }
+
+    private ConversationMessageRequestDTO buildMessageRequest(String query) {
+        ConversationMessageRequestDTO request = new ConversationMessageRequestDTO();
+        request.setQuery(query);
+        request.setTopK(60);
+        request.setLimit(20);
+        request.setStrategy("KB_RRF_RERANK");
+        return request;
+    }
+
+    private static class InMemoryConversationRepository implements ConversationRepository {
+
+        private final Map<String, ConversationSession> sessions = new HashMap<>();
+        private final Map<String, LinkedHashMap<String, ConversationTurn>> turnsBySession = new HashMap<>();
+
+        @Override
+        public void saveSession(ConversationSession session) {
+            sessions.put(session.getSessionId(), session);
+        }
+
+        @Override
+        public Optional<ConversationSession> findSession(String sessionId) {
+            return Optional.ofNullable(sessions.get(sessionId));
+        }
+
+        @Override
+        public void saveTurn(ConversationTurn turn) {
+            turnsBySession.computeIfAbsent(turn.getSessionId(), ignored -> new LinkedHashMap<>())
+                    .put(turn.getTurnId(), turn);
+        }
+
+        @Override
+        public Optional<ConversationTurn> findTurn(String sessionId, String turnId) {
+            LinkedHashMap<String, ConversationTurn> turns = turnsBySession.get(sessionId);
+            if (turns == null) {
+                return Optional.empty();
+            }
+            return Optional.ofNullable(turns.get(turnId));
+        }
+
+        @Override
+        public List<ConversationTurn> findRecentTurns(String sessionId, int limit) {
+            LinkedHashMap<String, ConversationTurn> turns = turnsBySession.get(sessionId);
+            if (turns == null || turns.isEmpty()) {
+                return List.of();
+            }
+            return turns.values().stream()
+                    .sorted(Comparator.comparingLong(ConversationTurn::getCreatedAt).reversed())
+                    .limit(Math.max(1, limit))
+                    .collect(Collectors.toCollection(ArrayList::new));
+        }
+    }
+}
