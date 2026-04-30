@@ -6,6 +6,8 @@ import com.smart.vision.core.common.exception.ApiError;
 import com.smart.vision.core.common.exception.BusinessException;
 import com.smart.vision.core.conversation.application.QueryRewriteService;
 import com.smart.vision.core.conversation.application.ConversationService;
+import com.smart.vision.core.conversation.application.ConversationRetrievalOrchestrator;
+import com.smart.vision.core.conversation.application.model.ConversationRetrievalResult;
 import com.smart.vision.core.conversation.application.model.RewriteResult;
 import com.smart.vision.core.conversation.domain.model.ConversationRole;
 import com.smart.vision.core.conversation.domain.model.ConversationSession;
@@ -40,6 +42,7 @@ public class ConversationServiceImpl implements ConversationService {
 
     private final ConversationRepository conversationRepository;
     private final QueryRewriteService queryRewriteService;
+    private final ConversationRetrievalOrchestrator conversationRetrievalOrchestrator;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -62,6 +65,13 @@ public class ConversationServiceImpl implements ConversationService {
         ConversationSession session = loadSessionOrThrow(sessionId);
         long now = System.currentTimeMillis();
         RewriteResult rewriteResult = queryRewriteService.rewrite(session.getSessionId(), request.getQuery().trim());
+        ConversationRetrievalResult retrievalResult = conversationRetrievalOrchestrator.retrieve(
+                rewriteResult.getRewrittenQuery(),
+                request.getTopK(),
+                request.getLimit(),
+                request.getStrategy(),
+                rewriteResult.getPreferredModalities()
+        );
 
         ConversationTurn turn = new ConversationTurn();
         turn.setTurnId(newTurnId());
@@ -71,7 +81,7 @@ public class ConversationServiceImpl implements ConversationService {
         turn.setRewrittenQuery(rewriteResult.getRewrittenQuery());
         turn.setAnswer("");
         turn.setCitationsJson("[]");
-        turn.setRetrievalTraceJson(buildRetrievalTraceJson(request, rewriteResult));
+        turn.setRetrievalTraceJson(buildRetrievalTraceJson(request, rewriteResult, retrievalResult));
         turn.setCreatedAt(now);
         conversationRepository.saveTurn(turn);
 
@@ -171,7 +181,9 @@ public class ConversationServiceImpl implements ConversationService {
         return text.trim();
     }
 
-    private String buildRetrievalTraceJson(ConversationMessageRequestDTO request, RewriteResult rewriteResult) {
+    private String buildRetrievalTraceJson(ConversationMessageRequestDTO request,
+                                           RewriteResult rewriteResult,
+                                           ConversationRetrievalResult retrievalResult) {
         Map<String, Object> trace = new LinkedHashMap<>();
         trace.put("topK", request.getTopK());
         trace.put("limit", request.getLimit());
@@ -181,11 +193,36 @@ public class ConversationServiceImpl implements ConversationService {
         trace.put("preferredModalities", rewriteResult.getPreferredModalities());
         trace.put("rewriteConfidence", rewriteResult.getConfidence());
         trace.put("rewriteFallback", rewriteResult.isFallbackUsed());
+        trace.put("retrievedCount", retrievalResult.getTopCandidates().size());
+        trace.put("retrievedSegmentIds", retrievalResult.getTopCandidates().stream()
+                .map(ConversationServiceImpl::safeSegmentId)
+                .filter(StringUtils::hasText)
+                .limit(20)
+                .toList());
+        trace.put("groupedResultCounts", toGroupedCounts(retrievalResult));
         try {
             return objectMapper.writeValueAsString(trace);
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Failed to serialize retrieval trace.", e);
         }
+    }
+
+    private static String safeSegmentId(com.smart.vision.core.search.interfaces.rest.dto.KbSearchResultDTO item) {
+        return item == null ? null : item.getSegmentId();
+    }
+
+    private Map<String, Integer> toGroupedCounts(ConversationRetrievalResult retrievalResult) {
+        Map<String, Integer> groupedCounts = new LinkedHashMap<>();
+        if (retrievalResult.getGroupedResults() == null || retrievalResult.getGroupedResults().isEmpty()) {
+            return groupedCounts;
+        }
+        for (ConversationRetrievalResult.GroupedResult groupedResult : retrievalResult.getGroupedResults()) {
+            if (groupedResult == null || !StringUtils.hasText(groupedResult.getGroupKey())) {
+                continue;
+            }
+            groupedCounts.put(groupedResult.getGroupKey(), groupedResult.getItems() == null ? 0 : groupedResult.getItems().size());
+        }
+        return groupedCounts;
     }
 
     private String newSessionId() {
