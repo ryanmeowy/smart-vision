@@ -47,6 +47,7 @@ public class ConversationServiceImpl implements ConversationService {
     private static final int DEFAULT_TURN_LIMIT = 20;
     private static final int MAX_TURN_LIMIT = 100;
     private static final int ANSWER_CITATION_LIMIT = 5;
+    private static final int AUTO_TITLE_MAX_LENGTH = 128;
 
     private final ConversationRepository conversationRepository;
     private final QueryRewriteService queryRewriteService;
@@ -77,6 +78,7 @@ public class ConversationServiceImpl implements ConversationService {
     public ConversationMessageResponseDTO createMessage(String sessionId, ConversationMessageRequestDTO request) {
         ConversationSession session = loadSessionOrThrow(sessionId);
         long now = System.currentTimeMillis();
+        boolean shouldAutoTitle = shouldAutoGenerateTitle(session.getSessionId(), session.getTitle());
         meterRegistry.counter("conversation.active.count").increment();
         MessagePipelineResult pipelineResult = executeMessagePipeline(session.getSessionId(), request);
 
@@ -98,6 +100,9 @@ public class ConversationServiceImpl implements ConversationService {
         conversationRepository.saveTurn(turn);
         meterRegistry.counter("conversation.turn.count").increment();
 
+        if (shouldAutoTitle) {
+            session.setTitle(buildAutoTitle(request.getQuery(), pipelineResult.rewriteResult.getRewrittenQuery()));
+        }
         session.touch(now);
         conversationRepository.saveSession(session);
 
@@ -227,6 +232,25 @@ public class ConversationServiceImpl implements ConversationService {
             return null;
         }
         return text.trim();
+    }
+
+    private boolean shouldAutoGenerateTitle(String sessionId, String existingTitle) {
+        if (StringUtils.hasText(existingTitle)) {
+            return false;
+        }
+        return conversationRepository.findRecentTurns(sessionId, 1).isEmpty();
+    }
+
+    private String buildAutoTitle(String query, String rewrittenQuery) {
+        String candidate = StringUtils.hasText(rewrittenQuery) ? rewrittenQuery : query;
+        if (!StringUtils.hasText(candidate)) {
+            return "新会话";
+        }
+        String normalized = candidate.trim().replaceAll("\\s+", " ");
+        if (normalized.length() <= AUTO_TITLE_MAX_LENGTH) {
+            return normalized;
+        }
+        return normalized.substring(0, AUTO_TITLE_MAX_LENGTH);
     }
 
     private String buildRetrievalTraceJson(ConversationMessageRequestDTO request,

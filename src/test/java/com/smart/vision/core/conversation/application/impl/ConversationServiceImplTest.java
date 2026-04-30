@@ -128,6 +128,7 @@ class ConversationServiceImplTest {
         assertThat(secondResponse.getRetrievalTrace().getTopK()).isEqualTo(60);
         assertThat(secondResponse.getSuggestedQuestions()).hasSize(2);
         assertThat(secondResponse.getSuggestedQuestions().getFirst()).contains("mysql-notes.pdf");
+        assertThat(service.getSession(sessionId).getTitle()).isEqualTo("mysql 架构是什么 核心组件");
 
         ConversationTurnListDTO messageList = service.listMessages(sessionId, 20, null);
         assertThat(messageList.getTurns()).hasSize(2);
@@ -183,6 +184,35 @@ class ConversationServiceImplTest {
         assertThat(trace.get("answerFallback")).isEqualTo(true);
         assertThat(trace.get("answerFallbackReason")).isEqualTo("no_evidence");
         assertThat(meterRegistry.counter("answer.citation.empty.count").count()).isEqualTo(1.0d);
+    }
+
+    @Test
+    void createMessage_shouldKeepExistingTitleWhenAlreadyProvided() {
+        ConversationCreateRequestDTO createRequest = new ConversationCreateRequestDTO();
+        createRequest.setTitle("手动命名会话");
+        ConversationSessionDTO session = service.createSession(createRequest);
+        String sessionId = session.getSessionId();
+
+        RewriteResult rewriteResult = buildRewrite(
+                "那 InnoDB 呢",
+                "mysql 架构中的 InnoDB 作用",
+                "rewrite_by_model",
+                false
+        );
+        when(queryRewriteService.rewrite(eq(sessionId), eq("那 InnoDB 呢"))).thenReturn(rewriteResult);
+        when(conversationRetrievalOrchestrator.retrieve(
+                eq("mysql 架构中的 InnoDB 作用"), eq(60), eq(20), eq("KB_RRF_RERANK"), anyList()
+        )).thenReturn(buildRetrievalResult(List.of(
+                buildResult("seg_text_2", "asset_1", "TEXT_CHUNK", "oss://bucket/mysql-notes.pdf", "InnoDB 支持事务与行锁", 12)
+        )));
+        when(answerGenerationService.generate(eq("那 InnoDB 呢"), eq("mysql 架构中的 InnoDB 作用"), anyList(), anyList()))
+                .thenReturn(buildAnswer("InnoDB 是默认事务引擎，支持行级锁与崩溃恢复。[1]", false, null, List.of("seg_text_2")));
+        when(followUpQuestionService.generate(eq("那 InnoDB 呢"), eq("mysql 架构中的 InnoDB 作用"), anyList()))
+                .thenReturn(List.of("在《mysql-notes.pdf》第12页，关于“InnoDB”还有哪些关键点？", "有没有“InnoDB”对应的结构图或示意图可对照理解？"));
+
+        service.createMessage(sessionId, buildMessageRequest("那 InnoDB 呢"));
+
+        assertThat(service.getSession(sessionId).getTitle()).isEqualTo("手动命名会话");
     }
 
     private RewriteResult buildRewrite(String originalQuery, String rewrittenQuery, String reason, boolean fallback) {
