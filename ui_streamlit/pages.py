@@ -17,6 +17,18 @@ REQUEST_TIMEOUT_SECONDS = 20
 ACTION_STALE_TIMEOUT_SECONDS = 45
 SUCCESS_CODE = 200
 MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024
+BATCH_INGESTION_CONFIG: dict[str, dict[str, Any]] = {
+    "image": {
+        "label": "Image",
+        "extensions": ["png", "jpg", "jpeg", "webp"],
+        "batch_tasks_path": "/api/v1/image/batch-tasks",
+    },
+    "text": {
+        "label": "Text",
+        "extensions": ["pdf", "txt", "md", "markdown"],
+        "batch_tasks_path": "/api/v1/ingestion/text-assets/batch-tasks",
+    },
+}
 RESULT_STATE_KEYS = {
     "text": "result_state_text",
     "kb": "result_state_kb",
@@ -1759,21 +1771,44 @@ def render_auth_admin_page(base_url: str) -> None:
 
 def render_image_batch_process_page(base_url: str) -> None:
     st.subheader("Batch Process")
-    st.caption("Endpoint: POST /api/v1/image/batch-tasks")
+
+    mode_store_key = "batch_ingestion_mode_store"
+    mode_widget_key = "batch_ingestion_mode_widget"
+    if mode_store_key not in st.session_state:
+        st.session_state[mode_store_key] = "image"
+    if mode_widget_key not in st.session_state:
+        st.session_state[mode_widget_key] = st.session_state[mode_store_key]
+
+    ingestion_mode = st.selectbox(
+        "Ingestion Type",
+        options=list(BATCH_INGESTION_CONFIG.keys()),
+        format_func=lambda mode: str(BATCH_INGESTION_CONFIG.get(mode, BATCH_INGESTION_CONFIG["image"]).get("label", mode)),
+        key=mode_widget_key,
+    )
+    st.session_state[mode_store_key] = ingestion_mode
+    mode_cfg = _get_batch_mode_config(ingestion_mode)
+    batch_tasks_path = str(mode_cfg.get("batch_tasks_path", "/api/v1/image/batch-tasks"))
+    accepted_extensions = list(mode_cfg.get("extensions", ["png", "jpg", "jpeg", "webp"]))
+
+    st.caption(f"Endpoint: POST {batch_tasks_path}")
     st.info(
         "Integrated flow: fetch STS -> upload to OSS -> submit async task. "
-        "Each image has independent status and can be retried manually when failed."
+        "Each item has independent status and can be retried manually when failed."
     )
-    st.caption("Image limit: up to 10MB per file.")
+    st.caption("File limit: up to 10MB per file.")
+    st.caption("Accepted extensions: " + ", ".join(f".{ext}" for ext in accepted_extensions))
 
     if "batch_task_ids" not in st.session_state:
         st.session_state.batch_task_ids = []
     task_cache_key = "batch_task_cache"
     active_task_ids_key = "batch_active_task_ids"
+    task_mode_map_key = "batch_task_mode_map"
     if task_cache_key not in st.session_state or not isinstance(st.session_state[task_cache_key], dict):
         st.session_state[task_cache_key] = {}
     if active_task_ids_key not in st.session_state or not isinstance(st.session_state[active_task_ids_key], list):
         st.session_state[active_task_ids_key] = []
+    if task_mode_map_key not in st.session_state or not isinstance(st.session_state[task_mode_map_key], dict):
+        st.session_state[task_mode_map_key] = {}
     active_statuses = {"PENDING", "RUNNING"}
 
     env_cfg = _load_env_config()
@@ -1828,7 +1863,7 @@ def render_image_batch_process_page(base_url: str) -> None:
     )
     files = st.file_uploader(
         "Select local files for integrated upload",
-        type=["png", "jpg", "jpeg", "webp"],
+        type=accepted_extensions,
         accept_multiple_files=True,
         key="batch_files_widget",
     )
@@ -1898,6 +1933,7 @@ def render_image_batch_process_page(base_url: str) -> None:
                     bucket_name=bucket_name.strip(),
                     endpoint=oss_endpoint.strip(),
                     sts=sts,
+                    include_mime_type=ingestion_mode == "text",
                 )
             if not items:
                 return
@@ -1910,6 +1946,7 @@ def render_image_batch_process_page(base_url: str) -> None:
                     base_url=_normalize_base_url(base_url),
                     access_token=token.strip(),
                     items=items,
+                    batch_tasks_path=batch_tasks_path,
                 )
             if envelope is None:
                 return
@@ -1925,6 +1962,11 @@ def render_image_batch_process_page(base_url: str) -> None:
                 if isinstance(task, dict):
                     task_cache[task_id] = task
                 st.session_state[task_cache_key] = task_cache
+                task_mode_map = st.session_state.get(task_mode_map_key)
+                if not isinstance(task_mode_map, dict):
+                    task_mode_map = {}
+                task_mode_map[task_id] = ingestion_mode
+                st.session_state[task_mode_map_key] = task_mode_map
                 active_task_ids = st.session_state.get(active_task_ids_key)
                 if not isinstance(active_task_ids, list):
                     active_task_ids = []
@@ -1958,13 +2000,16 @@ def render_image_batch_process_page(base_url: str) -> None:
         st.session_state[auto_refresh_store_key] = bool(auto_refresh)
 
         if not token.strip():
-            st.warning("Input X-Access-Token to load task status and retry failed images.")
+            st.warning("Input X-Access-Token to load task status and retry failed items.")
             return
 
         base = _normalize_base_url(base_url)
         task_cache = st.session_state.get(task_cache_key)
         if not isinstance(task_cache, dict):
             task_cache = {}
+        task_mode_map = st.session_state.get(task_mode_map_key)
+        if not isinstance(task_mode_map, dict):
+            task_mode_map = {}
         active_task_ids = st.session_state.get(active_task_ids_key)
         if not isinstance(active_task_ids, list):
             active_task_ids = []
@@ -1982,7 +2027,15 @@ def render_image_batch_process_page(base_url: str) -> None:
                     query_task_ids.append(task_id)
 
         for task_id in query_task_ids:
-            task_payload = _get_batch_task_status(base_url=base, access_token=token.strip(), task_id=task_id)
+            task_mode = str(task_mode_map.get(task_id, ingestion_mode))
+            task_mode_cfg = _get_batch_mode_config(task_mode)
+            task_batch_path = str(task_mode_cfg.get("batch_tasks_path", "/api/v1/image/batch-tasks"))
+            task_payload = _get_batch_task_status(
+                base_url=base,
+                access_token=token.strip(),
+                task_id=task_id,
+                batch_tasks_path=task_batch_path,
+            )
             if task_payload is None:
                 continue
             task_data = task_payload.get("data")
@@ -2012,10 +2065,14 @@ def render_image_batch_process_page(base_url: str) -> None:
                     if not isinstance(task_data, dict):
                         st.caption(f"Task `{task_id}` is active. Waiting for status update...")
                         continue
+                    task_mode = str(task_mode_map.get(task_id, ingestion_mode))
+                    task_mode_cfg = _get_batch_mode_config(task_mode)
                     _render_single_batch_task(
                         task_data=task_data,
                         base_url=base,
                         access_token=token.strip(),
+                        batch_tasks_path=str(task_mode_cfg.get("batch_tasks_path", "/api/v1/image/batch-tasks")),
+                        ingestion_label=str(task_mode_cfg.get("label", "Image")),
                     )
             else:
                 st.caption("No active tasks.")
@@ -2027,10 +2084,14 @@ def render_image_batch_process_page(base_url: str) -> None:
                 if not isinstance(task_data, dict):
                     st.caption(f"Task `{task_id}` has no cached status yet. Click `Refresh Task Status`.")
                     continue
+                task_mode = str(task_mode_map.get(task_id, ingestion_mode))
+                task_mode_cfg = _get_batch_mode_config(task_mode)
                 _render_single_batch_task(
                     task_data=task_data,
                     base_url=base,
                     access_token=token.strip(),
+                    batch_tasks_path=str(task_mode_cfg.get("batch_tasks_path", "/api/v1/image/batch-tasks")),
+                    ingestion_label=str(task_mode_cfg.get("label", "Image")),
                 )
         else:
             st.caption("No completed tasks yet.")
@@ -2042,7 +2103,14 @@ def render_image_batch_process_page(base_url: str) -> None:
         st.rerun()
 
 
-def _render_single_batch_task(*, task_data: dict[str, Any], base_url: str, access_token: str) -> None:
+def _render_single_batch_task(
+    *,
+    task_data: dict[str, Any],
+    base_url: str,
+    access_token: str,
+    batch_tasks_path: str,
+    ingestion_label: str,
+) -> None:
     task_id = str(task_data.get("taskId", ""))
     status = str(task_data.get("status", "UNKNOWN"))
     total = int(task_data.get("total", 0) or 0)
@@ -2055,6 +2123,7 @@ def _render_single_batch_task(*, task_data: dict[str, Any], base_url: str, acces
 
     with st.container(border=True):
         st.markdown(f"**Task:** `{task_id}`")
+        st.caption(f"Ingestion Type: {ingestion_label}")
         st.caption(
             f"Status: {status} | total={total} success={success_count} "
             f"failed={failure_count} running={running_count} pending={pending_count}"
@@ -2103,6 +2172,7 @@ def _render_single_batch_task(*, task_data: dict[str, Any], base_url: str, acces
                             base_url=base_url,
                             access_token=access_token,
                             task_id=task_id,
+                            batch_tasks_path=batch_tasks_path,
                         )
                     if retried_all is not None:
                         _mark_batch_task_active(task_id)
@@ -2150,6 +2220,7 @@ def _render_single_batch_task(*, task_data: dict[str, Any], base_url: str, acces
                                 access_token=access_token,
                                 task_id=task_id,
                                 item_id=item_id,
+                                batch_tasks_path=batch_tasks_path,
                             )
                         if retried is not None:
                             _mark_batch_task_active(task_id)
@@ -2311,6 +2382,7 @@ def _upload_files_to_oss(
     bucket_name: str,
     endpoint: str,
     sts: dict[str, str],
+    include_mime_type: bool = False,
 ) -> list[dict[str, str]]:
     try:
         import oss2
@@ -2333,27 +2405,34 @@ def _upload_files_to_oss(
             st.error(f"OSS upload failed for {file.name}: {exc}")
             return []
 
-        items.append(
-            {
-                "key": object_key,
-                "fileName": file.name,
-                "fileHash": md5_hex,
-            }
-        )
+        item = {
+            "key": object_key,
+            "fileName": file.name,
+            "fileHash": md5_hex,
+        }
+        if include_mime_type and file.type:
+            item["mimeType"] = str(file.type)
+        items.append(item)
 
     return items
 
 
-def _submit_batch_task(*, base_url: str, access_token: str, items: list[dict[str, str]]) -> dict[str, Any] | None:
+def _submit_batch_task(
+    *,
+    base_url: str,
+    access_token: str,
+    items: list[dict[str, str]],
+    batch_tasks_path: str,
+) -> dict[str, Any] | None:
     try:
         response = requests.post(
-            f"{base_url}/api/v1/image/batch-tasks",
+            f"{base_url}{batch_tasks_path}",
             headers={"X-Access-Token": access_token, "Content-Type": "application/json"},
             json=items,
             timeout=REQUEST_TIMEOUT_SECONDS,
         )
     except requests.exceptions.RequestException as exc:
-        st.error(f"Failed to call /image/batch-tasks: {exc}")
+        st.error(f"Failed to call {batch_tasks_path}: {exc}")
         return None
 
     st.caption(f"HTTP {response.status_code}")
@@ -2376,10 +2455,16 @@ def _submit_batch_task(*, base_url: str, access_token: str, items: list[dict[str
     return envelope
 
 
-def _get_batch_task_status(*, base_url: str, access_token: str, task_id: str) -> dict[str, Any] | None:
+def _get_batch_task_status(
+    *,
+    base_url: str,
+    access_token: str,
+    task_id: str,
+    batch_tasks_path: str,
+) -> dict[str, Any] | None:
     try:
         response = requests.get(
-            f"{base_url}/api/v1/image/batch-tasks/{task_id}",
+            f"{base_url}{batch_tasks_path}/{task_id}",
             headers={"X-Access-Token": access_token},
             timeout=REQUEST_TIMEOUT_SECONDS,
         )
@@ -2402,10 +2487,17 @@ def _get_batch_task_status(*, base_url: str, access_token: str, task_id: str) ->
     return envelope
 
 
-def _retry_batch_task_item(*, base_url: str, access_token: str, task_id: str, item_id: str) -> dict[str, Any] | None:
+def _retry_batch_task_item(
+    *,
+    base_url: str,
+    access_token: str,
+    task_id: str,
+    item_id: str,
+    batch_tasks_path: str,
+) -> dict[str, Any] | None:
     try:
         response = requests.post(
-            f"{base_url}/api/v1/image/batch-tasks/{task_id}/items/{item_id}/retry",
+            f"{base_url}{batch_tasks_path}/{task_id}/items/{item_id}/retry",
             headers={"X-Access-Token": access_token},
             timeout=REQUEST_TIMEOUT_SECONDS,
         )
@@ -2429,10 +2521,16 @@ def _retry_batch_task_item(*, base_url: str, access_token: str, task_id: str, it
     return envelope
 
 
-def _retry_all_failed_batch_task_items(*, base_url: str, access_token: str, task_id: str) -> dict[str, Any] | None:
+def _retry_all_failed_batch_task_items(
+    *,
+    base_url: str,
+    access_token: str,
+    task_id: str,
+    batch_tasks_path: str,
+) -> dict[str, Any] | None:
     try:
         response = requests.post(
-            f"{base_url}/api/v1/image/batch-tasks/{task_id}/retry-failed",
+            f"{base_url}{batch_tasks_path}/{task_id}/retry-failed",
             headers={"X-Access-Token": access_token},
             timeout=REQUEST_TIMEOUT_SECONDS,
         )
@@ -2454,6 +2552,10 @@ def _retry_all_failed_batch_task_items(*, base_url: str, access_token: str, task
         return None
 
     return envelope
+
+
+def _get_batch_mode_config(mode: str) -> dict[str, Any]:
+    return BATCH_INGESTION_CONFIG.get(mode, BATCH_INGESTION_CONFIG["image"])
 
 
 def _request_json(
