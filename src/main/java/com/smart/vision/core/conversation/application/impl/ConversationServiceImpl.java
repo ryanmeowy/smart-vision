@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.type.CollectionType;
 import com.smart.vision.core.common.exception.ApiError;
 import com.smart.vision.core.common.exception.BusinessException;
 import com.smart.vision.core.conversation.application.AnswerGenerationService;
+import com.smart.vision.core.conversation.application.FollowUpQuestionService;
 import com.smart.vision.core.conversation.application.QueryRewriteService;
 import com.smart.vision.core.conversation.application.ConversationService;
 import com.smart.vision.core.conversation.application.ConversationRetrievalOrchestrator;
@@ -52,6 +53,7 @@ public class ConversationServiceImpl implements ConversationService {
     private final ConversationRetrievalOrchestrator conversationRetrievalOrchestrator;
     private final ConversationCitationMapper conversationCitationMapper;
     private final AnswerGenerationService answerGenerationService;
+    private final FollowUpQuestionService followUpQuestionService;
     private final ObjectMapper objectMapper;
     private final MeterRegistry meterRegistry;
 
@@ -105,7 +107,12 @@ public class ConversationServiceImpl implements ConversationService {
         response.setRewrittenQuery(pipelineResult.rewriteResult.getRewrittenQuery());
         response.setAnswer(turn.getAnswer());
         response.setCitations(toCitationDTOs(pipelineResult.answerCitations));
-        response.setSuggestedQuestions(List.of());
+        List<String> suggestedQuestions = followUpQuestionService.generate(
+                request.getQuery().trim(),
+                pipelineResult.rewriteResult.getRewrittenQuery(),
+                pipelineResult.answerCitations
+        );
+        response.setSuggestedQuestions(suggestedQuestions);
 
         ConversationMessageResponseDTO.RetrievalTraceDTO traceDTO = new ConversationMessageResponseDTO.RetrievalTraceDTO();
         traceDTO.setTopK(request.getTopK());

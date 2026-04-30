@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smart.vision.core.conversation.application.AnswerGenerationService;
 import com.smart.vision.core.conversation.application.ConversationRetrievalOrchestrator;
+import com.smart.vision.core.conversation.application.FollowUpQuestionService;
 import com.smart.vision.core.conversation.application.QueryRewriteService;
 import com.smart.vision.core.conversation.application.assembler.ConversationCitationMapper;
 import com.smart.vision.core.conversation.application.model.AnswerGenerationResult;
@@ -48,6 +49,8 @@ class ConversationServiceImplTest {
     private ConversationRetrievalOrchestrator conversationRetrievalOrchestrator;
     @Mock
     private AnswerGenerationService answerGenerationService;
+    @Mock
+    private FollowUpQuestionService followUpQuestionService;
 
     private InMemoryConversationRepository repository;
     private ObjectMapper objectMapper;
@@ -65,6 +68,7 @@ class ConversationServiceImplTest {
                 conversationRetrievalOrchestrator,
                 new ConversationCitationMapper(),
                 answerGenerationService,
+                followUpQuestionService,
                 objectMapper,
                 meterRegistry
         );
@@ -108,6 +112,10 @@ class ConversationServiceImplTest {
                 .thenReturn(buildAnswer("MySQL 架构通常由连接层、SQL 层、存储引擎层组成。[1]", false, null, List.of("seg_text_1")));
         when(answerGenerationService.generate(eq("那 InnoDB 呢"), eq("mysql 架构中的 InnoDB 作用"), anyList(), anyList()))
                 .thenReturn(buildAnswer("InnoDB 是默认事务引擎，支持行级锁与崩溃恢复。[1]", false, null, List.of("seg_text_2")));
+        when(followUpQuestionService.generate(eq("mysql 架构是什么"), eq("mysql 架构是什么 核心组件"), anyList()))
+                .thenReturn(List.of("《mysql-notes.pdf》里还有哪些和“mysql”直接相关的内容？", "“mysql”和“InnoDB”之间的关系是什么？"));
+        when(followUpQuestionService.generate(eq("那 InnoDB 呢"), eq("mysql 架构中的 InnoDB 作用"), anyList()))
+                .thenReturn(List.of("在《mysql-notes.pdf》第12页，关于“InnoDB”还有哪些关键点？", "有没有“InnoDB”对应的结构图或示意图可对照理解？"));
 
         ConversationMessageResponseDTO firstResponse = service.createMessage(sessionId, buildMessageRequest("mysql 架构是什么"));
         ConversationMessageResponseDTO secondResponse = service.createMessage(sessionId, buildMessageRequest("那 InnoDB 呢"));
@@ -118,6 +126,8 @@ class ConversationServiceImplTest {
         assertThat(secondResponse.getCitations()).hasSize(1);
         assertThat(secondResponse.getCitations().getFirst().getFileName()).isEqualTo("mysql-notes.pdf");
         assertThat(secondResponse.getRetrievalTrace().getTopK()).isEqualTo(60);
+        assertThat(secondResponse.getSuggestedQuestions()).hasSize(2);
+        assertThat(secondResponse.getSuggestedQuestions().getFirst()).contains("mysql-notes.pdf");
 
         ConversationTurnListDTO messageList = service.listMessages(sessionId, 20, null);
         assertThat(messageList.getTurns()).hasSize(2);
@@ -154,12 +164,15 @@ class ConversationServiceImplTest {
         when(answerGenerationService.generate(
                 eq("它和 buffer pool 有什么关系"), eq("mysql 架构中 InnoDB 与 buffer pool 的关系"), anyList(), anyList()
         )).thenReturn(buildAnswer("未找到足够内容支持该问题。请尝试缩小范围或补充关键词。", true, "no_evidence", List.of()));
+        when(followUpQuestionService.generate(eq("它和 buffer pool 有什么关系"), eq("mysql 架构中 InnoDB 与 buffer pool 的关系"), anyList()))
+                .thenReturn(List.of());
 
         ConversationMessageResponseDTO response = service.createMessage(sessionId, buildMessageRequest("它和 buffer pool 有什么关系"));
 
         assertThat(response.getSessionId()).isEqualTo(sessionId);
         assertThat(response.getCitations()).isEmpty();
         assertThat(response.getAnswer()).contains("未找到足够内容支持该问题");
+        assertThat(response.getSuggestedQuestions()).isEmpty();
 
         List<ConversationTurn> storedTurns = repository.findRecentTurns(sessionId, 10);
         assertThat(storedTurns).hasSize(1);
