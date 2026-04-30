@@ -5,8 +5,9 @@ import com.smart.vision.core.common.exception.ApiError;
 import com.smart.vision.core.common.exception.BusinessException;
 import com.smart.vision.core.grpc.VisionProto;
 import com.smart.vision.core.grpc.VisionServiceGrpc;
+import com.smart.vision.core.ingestion.domain.port.IngestionOcrPort;
 import com.smart.vision.core.integration.multimodal.domain.model.PromptEnum;
-import com.smart.vision.core.integration.multimodal.port.OcrPort;
+import com.smart.vision.core.search.domain.port.SearchOcrPort;
 import io.grpc.StatusRuntimeException;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.client.inject.GrpcClient;
@@ -20,7 +21,7 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Service
 @ConditionalOnProperty(prefix = "app.capability-provider", name = "ocr", havingValue = "local")
-public class LocalOcrImpl implements OcrPort {
+public class LocalOcrImpl implements SearchOcrPort, IngestionOcrPort {
 
     @SuppressWarnings("unused")
     @GrpcClient("vision-python-service")
