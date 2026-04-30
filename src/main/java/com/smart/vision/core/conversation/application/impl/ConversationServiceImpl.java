@@ -5,10 +5,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.CollectionType;
 import com.smart.vision.core.common.exception.ApiError;
 import com.smart.vision.core.common.exception.BusinessException;
+import com.smart.vision.core.conversation.application.AnswerGenerationService;
 import com.smart.vision.core.conversation.application.QueryRewriteService;
 import com.smart.vision.core.conversation.application.ConversationService;
 import com.smart.vision.core.conversation.application.ConversationRetrievalOrchestrator;
 import com.smart.vision.core.conversation.application.assembler.ConversationCitationMapper;
+import com.smart.vision.core.conversation.application.model.AnswerGenerationResult;
 import com.smart.vision.core.conversation.application.model.ConversationRetrievalResult;
 import com.smart.vision.core.conversation.application.model.RewriteResult;
 import com.smart.vision.core.conversation.domain.model.ConversationCitation;
@@ -42,11 +44,13 @@ public class ConversationServiceImpl implements ConversationService {
 
     private static final int DEFAULT_TURN_LIMIT = 20;
     private static final int MAX_TURN_LIMIT = 100;
+    private static final int ANSWER_CITATION_LIMIT = 5;
 
     private final ConversationRepository conversationRepository;
     private final QueryRewriteService queryRewriteService;
     private final ConversationRetrievalOrchestrator conversationRetrievalOrchestrator;
     private final ConversationCitationMapper conversationCitationMapper;
+    private final AnswerGenerationService answerGenerationService;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -76,7 +80,18 @@ public class ConversationServiceImpl implements ConversationService {
                 request.getStrategy(),
                 rewriteResult.getPreferredModalities()
         );
-        List<ConversationCitation> citations = conversationCitationMapper.mapFromSearchResults(retrievalResult.getTopCandidates());
+        List<ConversationCitation> allCitations = conversationCitationMapper.mapFromSearchResults(retrievalResult.getTopCandidates());
+        List<ConversationCitation> answerCitations = allCitations.stream().limit(ANSWER_CITATION_LIMIT).toList();
+        List<com.smart.vision.core.search.interfaces.rest.dto.KbSearchResultDTO> answerCandidates = retrievalResult.getTopCandidates()
+                .stream()
+                .limit(ANSWER_CITATION_LIMIT)
+                .toList();
+        AnswerGenerationResult answerGenerationResult = answerGenerationService.generate(
+                request.getQuery().trim(),
+                rewriteResult.getRewrittenQuery(),
+                answerCandidates,
+                answerCitations
+        );
 
         ConversationTurn turn = new ConversationTurn();
         turn.setTurnId(newTurnId());
@@ -84,9 +99,9 @@ public class ConversationServiceImpl implements ConversationService {
         turn.setRole(ConversationRole.USER);
         turn.setQuery(request.getQuery().trim());
         turn.setRewrittenQuery(rewriteResult.getRewrittenQuery());
-        turn.setAnswer("");
-        turn.setCitationsJson(serializeCitations(citations));
-        turn.setRetrievalTraceJson(buildRetrievalTraceJson(request, rewriteResult, retrievalResult));
+        turn.setAnswer(answerGenerationResult.getAnswerText());
+        turn.setCitationsJson(serializeCitations(answerCitations));
+        turn.setRetrievalTraceJson(buildRetrievalTraceJson(request, rewriteResult, retrievalResult, answerGenerationResult));
         turn.setCreatedAt(now);
         conversationRepository.saveTurn(turn);
 
@@ -98,7 +113,7 @@ public class ConversationServiceImpl implements ConversationService {
         response.setTurnId(turn.getTurnId());
         response.setRewrittenQuery(rewriteResult.getRewrittenQuery());
         response.setAnswer(turn.getAnswer());
-        response.setCitations(toCitationDTOs(citations));
+        response.setCitations(toCitationDTOs(answerCitations));
         response.setSuggestedQuestions(List.of());
 
         ConversationMessageResponseDTO.RetrievalTraceDTO traceDTO = new ConversationMessageResponseDTO.RetrievalTraceDTO();
@@ -188,7 +203,8 @@ public class ConversationServiceImpl implements ConversationService {
 
     private String buildRetrievalTraceJson(ConversationMessageRequestDTO request,
                                            RewriteResult rewriteResult,
-                                           ConversationRetrievalResult retrievalResult) {
+                                           ConversationRetrievalResult retrievalResult,
+                                           AnswerGenerationResult answerGenerationResult) {
         Map<String, Object> trace = new LinkedHashMap<>();
         trace.put("topK", request.getTopK());
         trace.put("limit", request.getLimit());
@@ -205,6 +221,8 @@ public class ConversationServiceImpl implements ConversationService {
                 .limit(20)
                 .toList());
         trace.put("groupedResultCounts", toGroupedCounts(retrievalResult));
+        trace.put("answerFallback", answerGenerationResult.isFallbackUsed());
+        trace.put("answerFallbackReason", answerGenerationResult.getFallbackReason());
         try {
             return objectMapper.writeValueAsString(trace);
         } catch (JsonProcessingException e) {
