@@ -11,7 +11,7 @@ import com.alibaba.dashscope.rerank.TextReRankResult;
 import com.smart.vision.core.common.exception.ApiError;
 import com.smart.vision.core.common.exception.BusinessException;
 import com.smart.vision.core.common.exception.InfraException;
-import com.smart.vision.core.integration.multimodal.port.RerankPort;
+import com.smart.vision.core.search.domain.port.SearchRerankPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -32,15 +32,16 @@ import static com.smart.vision.core.integration.constant.AliyunConstant.RERANK_M
 @Service
 @RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "app.capability-provider", name = "rerank", havingValue = "aliyun")
-public class AliyunCrossEncoderRerankServiceImpl implements RerankPort {
+public class AliyunCrossEncoderRerankServiceImpl implements SearchRerankPort {
 
     @Override
-    public List<RerankResult> rerank(String query, List<String> documents, Integer topN) {
-        if (!StringUtils.hasText(query) || CollectionUtil.isEmpty(documents)) {
-            throw new BusinessException(ApiError.INVALID_REQUEST, "query and documents cannot be empty.");
-        }
-        int safeTopN = topN == null || topN <= 0 ? documents.size() : Math.min(topN, documents.size());
+    public List<RerankItem> rerank(String query, List<String> documents, Integer topN) {
+        String fallbackReason;
         try {
+            if (!StringUtils.hasText(query) || CollectionUtil.isEmpty(documents)) {
+                throw new BusinessException(ApiError.INVALID_REQUEST, "query and documents cannot be empty.");
+            }
+            int safeTopN = topN == null || topN <= 0 ? documents.size() : Math.min(topN, documents.size());
             TextReRankParam param = TextReRankParam.builder()
                     .apiKey(resolveApiKey())
                     .model(RERANK_MODEL_NAME)
@@ -55,27 +56,30 @@ public class AliyunCrossEncoderRerankServiceImpl implements RerankPort {
             }
             return result.getOutput().getResults().stream()
                     .filter(item -> item != null && item.getIndex() != null)
-                    .map(this::toRerankResult)
-                    .sorted(Comparator.comparingDouble(RerankResult::score).reversed())
+                    .map(this::toRerankItem)
+                    .sorted(Comparator.comparingDouble(RerankItem::score).reversed()
+                            .thenComparingInt(RerankItem::index))
                     .toList();
         } catch (NoApiKeyException e) {
             log.error("Cross-encoder rerank failed: missing DashScope API key", e);
-            throw new InfraException(ApiError.INVALID_API_KEY, "Missing DashScope API key.", e);
+            fallbackReason = e.getMessage();
         } catch (InputRequiredException e) {
             log.warn("Cross-encoder rerank skipped due to invalid input", e);
-            throw new BusinessException(ApiError.INVALID_REQUEST, "Invalid rerank input.", e);
+            fallbackReason = e.getMessage();
         } catch (ApiException e) {
             log.error("Cross-encoder rerank API call failed", e);
-            throw new InfraException(ApiError.INTERNAL_ERROR, "Aliyun rerank API call failed.", e);
+            fallbackReason = e.getMessage();
         } catch (Exception e) {
             log.error("Cross-encoder rerank failed", e);
-            throw new InfraException(ApiError.INTERNAL_ERROR, "Aliyun rerank failed.", e);
+            fallbackReason = e.getMessage();
         }
+        log.warn("Rerank via integration failed, fallback to original order: {}", fallbackReason);
+        return List.of();
     }
 
-    private RerankResult toRerankResult(TextReRankOutput.Result item) {
+    private RerankItem toRerankItem(TextReRankOutput.Result item) {
         double score = item.getRelevanceScore() == null ? 0d : item.getRelevanceScore();
-        return new RerankResult(item.getIndex(), Math.max(0d, score));
+        return new RerankItem(item.getIndex(), Math.max(0d, score));
     }
 
     private String resolveApiKey() {

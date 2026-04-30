@@ -6,7 +6,7 @@ import com.smart.vision.core.common.exception.BusinessException;
 import com.smart.vision.core.common.exception.InfraException;
 import com.smart.vision.core.grpc.VisionProto;
 import com.smart.vision.core.grpc.VisionServiceGrpc;
-import com.smart.vision.core.integration.multimodal.port.RerankPort;
+import com.smart.vision.core.search.domain.port.SearchRerankPort;
 import io.grpc.StatusRuntimeException;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.client.inject.GrpcClient;
@@ -25,7 +25,7 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Service
 @ConditionalOnProperty(prefix = "app.capability-provider", name = "rerank", havingValue = "local")
-public class LocalCrossEncoderRerankImpl implements RerankPort {
+public class LocalCrossEncoderRerankImpl implements SearchRerankPort {
 
     @SuppressWarnings("unused")
     @GrpcClient("vision-python-service")
@@ -35,15 +35,22 @@ public class LocalCrossEncoderRerankImpl implements RerankPort {
     private long rerankDeadlineMs;
 
     @Override
-    public List<RerankResult> rerank(String query, List<String> documents, Integer topN) {
-        if (!StringUtils.hasText(query) || CollectionUtil.isEmpty(documents)) {
-            throw new BusinessException(ApiError.INVALID_REQUEST, "query and documents cannot be empty.");
+    public List<RerankItem> rerank(String query, List<String> documents, Integer topN) {
+        String fallbackReason;
+        try {
+            if (!StringUtils.hasText(query) || CollectionUtil.isEmpty(documents)) {
+                throw new BusinessException(ApiError.INVALID_REQUEST, "query and documents cannot be empty.");
+            }
+            int safeTopN = topN == null || topN <= 0 ? documents.size() : Math.min(topN, documents.size());
+            return rerankByGrpc(query, documents, safeTopN);
+        } catch (Exception e) {
+            fallbackReason = e.getMessage();
         }
-        int safeTopN = topN == null || topN <= 0 ? documents.size() : Math.min(topN, documents.size());
-        return rerankByGrpc(query, documents, safeTopN);
+        log.warn("Rerank via integration failed, fallback to original order: {}", fallbackReason);
+        return List.of();
     }
 
-    private List<RerankResult> rerankByGrpc(String query, List<String> documents, int topN) {
+    private List<RerankItem> rerankByGrpc(String query, List<String> documents, int topN) {
         if (visionStub == null) {
             throw new InfraException(ApiError.INTERNAL_ERROR, "Local rerank grpc client is unavailable.");
         }
@@ -64,9 +71,9 @@ public class LocalCrossEncoderRerankImpl implements RerankPort {
                 throw new InfraException(ApiError.INTERNAL_ERROR, "Local rerank returned empty results.");
             }
             return response.getResultsList().stream()
-                    .map(item -> new RerankResult(item.getIndex(), Math.max(0d, item.getRelevanceScore())))
-                    .sorted(Comparator.comparingDouble(RerankResult::score).reversed()
-                            .thenComparingInt(RerankResult::index))
+                    .map(item -> new RerankItem(item.getIndex(), Math.max(0d, item.getRelevanceScore())))
+                    .sorted(Comparator.comparingDouble(RerankItem::score).reversed()
+                            .thenComparingInt(RerankItem::index))
                     .limit(topN)
                     .toList();
         } catch (StatusRuntimeException e) {
