@@ -3,7 +3,8 @@ package com.smart.vision.core.integration.multimodal.adapter.local;
 import com.google.protobuf.ByteString;
 import com.smart.vision.core.grpc.VisionProto;
 import com.smart.vision.core.grpc.VisionServiceGrpc;
-import com.smart.vision.core.integration.multimodal.port.EmbeddingPort;
+import com.smart.vision.core.ingestion.domain.port.IngestionEmbeddingPort;
+import com.smart.vision.core.search.domain.port.SearchEmbeddingPort;
 import io.grpc.StatusRuntimeException;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.client.inject.GrpcClient;
@@ -17,7 +18,7 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Service
 @ConditionalOnProperty(prefix = "app.capability-provider", name = "embedding", havingValue = "local")
-public class LocalEmbeddingImpl implements EmbeddingPort {
+public class LocalEmbeddingImpl implements SearchEmbeddingPort, IngestionEmbeddingPort {
 
     @SuppressWarnings("unused")
     @GrpcClient("vision-python-service")
