@@ -17,7 +17,7 @@ import com.smart.vision.core.ingestion.domain.model.ImageHashAcquireOutcomeType;
 import com.smart.vision.core.ingestion.domain.model.ImageHashStatePolicy;
 import com.smart.vision.core.ingestion.domain.model.ImageHashStatus;
 import com.smart.vision.core.common.model.GraphTriple;
-import com.smart.vision.core.ingestion.domain.port.ImageHashStateRepository;
+import com.smart.vision.core.ingestion.domain.repository.ImageHashStateRepository;
 import com.smart.vision.core.ingestion.domain.port.IngestionContentPort;
 import com.smart.vision.core.ingestion.domain.port.IngestionEmbeddingPort;
 import com.smart.vision.core.ingestion.domain.port.IngestionObjectStoragePort;

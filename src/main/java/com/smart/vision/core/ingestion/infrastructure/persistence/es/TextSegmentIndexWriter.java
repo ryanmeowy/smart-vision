@@ -1,7 +1,7 @@
 package com.smart.vision.core.ingestion.infrastructure.persistence.es;
 
 import com.smart.vision.core.ingestion.domain.model.TextChunk;
-import com.smart.vision.core.ingestion.domain.port.TextSegmentRepository;
+import com.smart.vision.core.ingestion.domain.repository.TextSegmentRepository;
 import com.smart.vision.core.search.domain.model.KbAssetTypeEnum;
 import com.smart.vision.core.search.domain.model.Segment;
 import com.smart.vision.core.search.domain.model.SegmentType;

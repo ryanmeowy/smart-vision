@@ -3,7 +3,7 @@ package com.smart.vision.core.ingestion.application.impl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smart.vision.core.common.exception.BusinessException;
 import com.smart.vision.core.ingestion.application.assembler.BatchTaskAssembler;
-import com.smart.vision.core.ingestion.domain.port.ImageHashStateRepository;
+import com.smart.vision.core.ingestion.domain.repository.ImageHashStateRepository;
 import com.smart.vision.core.ingestion.domain.port.IngestionContentPort;
 import com.smart.vision.core.ingestion.domain.port.IngestionEmbeddingPort;
 import com.smart.vision.core.ingestion.domain.port.IngestionObjectStoragePort;

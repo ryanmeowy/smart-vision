@@ -1,4 +1,4 @@
-package com.smart.vision.core.ingestion.domain.port;
+package com.smart.vision.core.ingestion.domain.repository;
 
 import com.smart.vision.core.ingestion.domain.model.TextChunk;
 

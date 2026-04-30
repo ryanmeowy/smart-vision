@@ -16,7 +16,7 @@ import com.smart.vision.core.ingestion.domain.model.TextChunk;
 import com.smart.vision.core.ingestion.domain.model.TextAssetType;
 import com.smart.vision.core.ingestion.domain.model.TextParseResult;
 import com.smart.vision.core.ingestion.domain.port.IngestionEmbeddingPort;
-import com.smart.vision.core.ingestion.domain.port.TextSegmentRepository;
+import com.smart.vision.core.ingestion.domain.repository.TextSegmentRepository;
 import com.smart.vision.core.common.util.IdGen;
 import com.smart.vision.core.ingestion.infrastructure.parser.TextChunkSplitter;
 import com.smart.vision.core.ingestion.infrastructure.parser.TextParserRouter;
