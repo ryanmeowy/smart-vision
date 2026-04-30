@@ -1,4 +1,4 @@
-package com.smart.vision.core.auth.application.port;
+package com.smart.vision.core.auth.domain.port;
 
 /**
  * Auth-side outbound port for issuing temporary upload credentials.

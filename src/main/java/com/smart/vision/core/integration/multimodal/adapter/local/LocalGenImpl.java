@@ -8,8 +8,11 @@ import com.smart.vision.core.common.exception.InfraException;
 import com.smart.vision.core.common.model.GraphTriple;
 import com.smart.vision.core.grpc.VisionProto;
 import com.smart.vision.core.grpc.VisionServiceGrpc;
+import com.smart.vision.core.ingestion.domain.port.IngestionContentPort;
 import com.smart.vision.core.integration.multimodal.domain.model.PromptEnum;
-import com.smart.vision.core.integration.multimodal.port.GenPort;
+import com.smart.vision.core.search.domain.port.QueryGraphParserPort;
+import com.smart.vision.core.search.domain.port.SearchContentPort;
+import com.smart.vision.core.search.interfaces.rest.dto.GraphTripleDTO;
 import io.grpc.StatusRuntimeException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +34,7 @@ import static com.smart.vision.core.common.constant.CommonConstant.DEFAULT_IMAGE
 @Service
 @RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "app.capability-provider", name = "gen", havingValue = "local")
-public class LocalGenImpl implements GenPort {
+public class LocalGenImpl implements SearchContentPort, IngestionContentPort, QueryGraphParserPort {
 
     @SuppressWarnings("unused")
     @GrpcClient("vision-python-service")
@@ -160,7 +163,7 @@ public class LocalGenImpl implements GenPort {
     }
 
     @Override
-    public List<GraphTriple> praseTriplesFromKeyword(String keyword) {
+    public List<GraphTripleDTO> parseFromKeyword(String keyword) {
         if (!StringUtils.hasText(keyword)) {
             throw new BusinessException(ApiError.INVALID_REQUEST, "keyword cannot be blank.");
         }
@@ -170,12 +173,14 @@ public class LocalGenImpl implements GenPort {
                     .withDeadlineAfter(parseGraphDeadlineMs, TimeUnit.MILLISECONDS)
                     .parseQueryToGraph(request);
             List<VisionProto.GraphTriple> tripleList = response.getTripleList();
-            return tripleList.stream().map(x -> new GraphTriple(x.getS(), x.getP(), x.getO())).toList();
+            return tripleList.stream()
+                    .map(x -> new GraphTripleDTO(x.getS(), x.getP(), x.getO()))
+                    .toList();
         } catch (StatusRuntimeException e) {
             log.error("gRPC parseQueryToGraph failed: statusCode={}, deadlineMs={}", e.getStatus().getCode(), parseGraphDeadlineMs, e);
             throw new RuntimeException("parse triples from keyword failed, try again later.");
         } catch (Exception e) {
-            log.error("gRPC prase triples from keyword call failed: {}", e.getMessage(), e);
+            log.error("gRPC parse triples from keyword call failed: {}", e.getMessage(), e);
             throw new RuntimeException("parse triples from keyword failed, try again later.");
         }
     }

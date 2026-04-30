@@ -5,7 +5,7 @@ import com.aliyuncs.IAcsClient;
 import com.aliyuncs.auth.sts.AssumeRoleRequest;
 import com.aliyuncs.auth.sts.AssumeRoleResponse;
 import com.aliyuncs.profile.DefaultProfile;
-import com.smart.vision.core.auth.application.port.CredentialIssuePort;
+import com.smart.vision.core.auth.domain.port.CredentialIssuePort;
 import com.smart.vision.core.common.exception.ApiError;
 import com.smart.vision.core.common.exception.InfraException;
 import com.smart.vision.core.integration.storage.adapter.aliyun.config.AliyunObjectStorageConfig;
