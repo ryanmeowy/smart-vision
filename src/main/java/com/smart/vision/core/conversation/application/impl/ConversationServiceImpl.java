@@ -24,6 +24,7 @@ import com.smart.vision.core.conversation.interfaces.rest.dto.ConversationMessag
 import com.smart.vision.core.conversation.interfaces.rest.dto.ConversationSessionDTO;
 import com.smart.vision.core.conversation.interfaces.rest.dto.ConversationTurnDTO;
 import com.smart.vision.core.conversation.interfaces.rest.dto.ConversationTurnListDTO;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -52,6 +53,7 @@ public class ConversationServiceImpl implements ConversationService {
     private final ConversationCitationMapper conversationCitationMapper;
     private final AnswerGenerationService answerGenerationService;
     private final ObjectMapper objectMapper;
+    private final MeterRegistry meterRegistry;
 
     @Override
     public ConversationSessionDTO createSession(ConversationCreateRequestDTO request) {
@@ -59,6 +61,7 @@ public class ConversationServiceImpl implements ConversationService {
         String title = safeTrim(request.getTitle());
         ConversationSession session = ConversationSession.createActive(newSessionId(), title, now);
         conversationRepository.saveSession(session);
+        meterRegistry.counter("conversation.created.count").increment();
         return toSessionDto(session);
     }
 
@@ -72,6 +75,7 @@ public class ConversationServiceImpl implements ConversationService {
     public ConversationMessageResponseDTO createMessage(String sessionId, ConversationMessageRequestDTO request) {
         ConversationSession session = loadSessionOrThrow(sessionId);
         long now = System.currentTimeMillis();
+        meterRegistry.counter("conversation.active.count").increment();
         MessagePipelineResult pipelineResult = executeMessagePipeline(session.getSessionId(), request);
 
         ConversationTurn turn = new ConversationTurn();
@@ -90,6 +94,7 @@ public class ConversationServiceImpl implements ConversationService {
         ));
         turn.setCreatedAt(now);
         conversationRepository.saveTurn(turn);
+        meterRegistry.counter("conversation.turn.count").increment();
 
         session.touch(now);
         conversationRepository.saveSession(session);
@@ -108,6 +113,10 @@ public class ConversationServiceImpl implements ConversationService {
         traceDTO.setStrategy(request.getStrategy());
         response.setRetrievalTrace(traceDTO);
         response.setCreatedAt(now);
+        meterRegistry.summary("answer.citation.count").record(pipelineResult.answerCitations.size());
+        if (pipelineResult.answerCitations.isEmpty()) {
+            meterRegistry.counter("answer.citation.empty.count").increment();
+        }
         return response;
     }
 
@@ -233,6 +242,7 @@ public class ConversationServiceImpl implements ConversationService {
                 .limit(20)
                 .toList());
         trace.put("groupedResultCounts", toGroupedCounts(retrievalResult));
+        trace.put("answerInputSegmentIds", answerGenerationResult.getAnswerInputSegmentIds());
         trace.put("answerFallback", answerGenerationResult.isFallbackUsed());
         trace.put("answerFallbackReason", answerGenerationResult.getFallbackReason());
         try {

@@ -7,6 +7,8 @@ import com.smart.vision.core.conversation.application.model.AnswerGenerationResu
 import com.smart.vision.core.conversation.domain.model.ConversationCitation;
 import com.smart.vision.core.conversation.domain.port.ConversationRewritePort;
 import com.smart.vision.core.search.interfaces.rest.dto.KbSearchResultDTO;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,32 +32,44 @@ public class AnswerGenerationServiceImpl implements AnswerGenerationService {
 
     private final ConversationRewritePort conversationRewritePort;
     private final ObjectMapper objectMapper;
+    private final MeterRegistry meterRegistry;
 
     @Override
     public AnswerGenerationResult generate(String userQuery,
                                            String rewrittenQuery,
                                            List<KbSearchResultDTO> topCandidates,
                                            List<ConversationCitation> citations) {
+        meterRegistry.counter("answer.generate.count").increment();
+        Timer.Sample sample = Timer.start(meterRegistry);
         List<GroundingSegment> groundingSegments = pickGroundingSegments(topCandidates, citations);
-        if (groundingSegments.isEmpty()) {
-            return buildNoEvidenceFallback();
-        }
-
-        String prompt = buildPrompt(userQuery, rewrittenQuery, groundingSegments);
         try {
+            if (groundingSegments.isEmpty()) {
+                meterRegistry.counter("answer.generate.fallback.count").increment();
+                meterRegistry.counter("no_evidence.answer.rate").increment();
+                return buildNoEvidenceFallback();
+            }
+
+            String prompt = buildPrompt(userQuery, rewrittenQuery, groundingSegments);
             String rawText = conversationRewritePort.generateText(prompt);
             String answerText = parseAnswer(rawText);
             if (!StringUtils.hasText(answerText)) {
+                meterRegistry.counter("answer.generate.fallback.count").increment();
                 return buildModelFallback(groundingSegments, "empty_model_answer");
             }
             AnswerGenerationResult result = new AnswerGenerationResult();
             result.setAnswerText(answerText.trim());
             result.setFallbackUsed(false);
             result.setFallbackReason(null);
+            result.setAnswerInputSegmentIds(collectSegmentIds(groundingSegments));
             return result;
         } catch (Exception e) {
             log.warn("Answer generation failed: {}", e.getMessage());
+            meterRegistry.counter("answer.generate.fallback.count").increment();
             return buildModelFallback(groundingSegments, "model_unavailable");
+        } finally {
+            sample.stop(Timer.builder("answer.generate.latency")
+                    .description("Conversation answer generation latency.")
+                    .register(meterRegistry));
         }
     }
 
@@ -80,6 +94,7 @@ public class AnswerGenerationServiceImpl implements AnswerGenerationService {
             segment.hitType = citation.getHitType();
             segment.fileName = citation.getFileName();
             segment.pageNo = citation.getPageNo();
+            segment.segmentId = citation.getSegmentId();
             segment.evidence = evidence;
             segments.add(segment);
         }
@@ -162,6 +177,7 @@ public class AnswerGenerationServiceImpl implements AnswerGenerationService {
         result.setAnswerText("未找到足够内容支持该问题。请尝试缩小范围或补充关键词。");
         result.setFallbackUsed(true);
         result.setFallbackReason("no_evidence");
+        result.setAnswerInputSegmentIds(List.of());
         return result;
     }
 
@@ -180,7 +196,18 @@ public class AnswerGenerationServiceImpl implements AnswerGenerationService {
         result.setAnswerText(answer.toString());
         result.setFallbackUsed(true);
         result.setFallbackReason(reason);
+        result.setAnswerInputSegmentIds(collectSegmentIds(segments));
         return result;
+    }
+
+    private List<String> collectSegmentIds(List<GroundingSegment> segments) {
+        if (segments == null || segments.isEmpty()) {
+            return List.of();
+        }
+        return segments.stream()
+                .map(segment -> segment.segmentId)
+                .filter(StringUtils::hasText)
+                .toList();
     }
 
     private static class GroundingSegment {
@@ -188,7 +215,7 @@ public class AnswerGenerationServiceImpl implements AnswerGenerationService {
         private String fileName;
         private Integer pageNo;
         private String hitType;
+        private String segmentId;
         private String evidence;
     }
 }
-

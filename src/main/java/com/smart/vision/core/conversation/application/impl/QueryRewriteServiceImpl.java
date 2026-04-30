@@ -7,6 +7,8 @@ import com.smart.vision.core.conversation.application.model.RewriteResult;
 import com.smart.vision.core.conversation.domain.model.ConversationTurn;
 import com.smart.vision.core.conversation.domain.port.ConversationRewritePort;
 import com.smart.vision.core.conversation.domain.repository.ConversationRepository;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,27 +33,36 @@ public class QueryRewriteServiceImpl implements QueryRewriteService {
     private final ConversationRepository conversationRepository;
     private final ConversationRewritePort conversationRewritePort;
     private final ObjectMapper objectMapper;
+    private final MeterRegistry meterRegistry;
 
     @Override
     public RewriteResult rewrite(String sessionId, String latestQuery) {
+        meterRegistry.counter("query.rewrite.count").increment();
+        Timer.Sample sample = Timer.start(meterRegistry);
         RewriteResult fallback = buildFallback(latestQuery, "fallback_original_query");
-        if (!StringUtils.hasText(latestQuery)) {
-            return fallback;
-        }
-
-        List<ConversationTurn> recentTurns = conversationRepository.findRecentTurns(sessionId, CONTEXT_TURN_LIMIT);
-        String prompt = buildPrompt(latestQuery.trim(), recentTurns);
         try {
+            if (!StringUtils.hasText(latestQuery)) {
+                meterRegistry.counter("query.rewrite.fallback.count").increment();
+                return fallback;
+            }
+            List<ConversationTurn> recentTurns = conversationRepository.findRecentTurns(sessionId, CONTEXT_TURN_LIMIT);
+            String prompt = buildPrompt(latestQuery.trim(), recentTurns);
             String raw = conversationRewritePort.generateText(prompt);
             RewriteResult parsed = parseRewriteResult(latestQuery.trim(), raw);
             if (!StringUtils.hasText(parsed.getRewrittenQuery())) {
+                meterRegistry.counter("query.rewrite.fallback.count").increment();
                 return fallback;
             }
             parsed.setFallbackUsed(false);
             return parsed;
         } catch (Exception e) {
             log.warn("Query rewrite failed, sessionId={}, message={}", sessionId, e.getMessage());
+            meterRegistry.counter("query.rewrite.fallback.count").increment();
             return fallback;
+        } finally {
+            sample.stop(Timer.builder("query.rewrite.latency")
+                    .description("Conversation query rewrite latency.")
+                    .register(meterRegistry));
         }
     }
 
@@ -175,4 +186,3 @@ public class QueryRewriteServiceImpl implements QueryRewriteService {
         return text.trim();
     }
 }
-

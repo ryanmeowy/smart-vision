@@ -5,6 +5,8 @@ import com.smart.vision.core.conversation.application.model.ConversationRetrieva
 import com.smart.vision.core.search.application.UnifiedSearchService;
 import com.smart.vision.core.search.interfaces.rest.dto.KbSearchQueryDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.KbSearchResultDTO;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -27,6 +29,7 @@ public class ConversationRetrievalOrchestratorImpl implements ConversationRetrie
     private static final String MODALITY_MIXED = "MIXED";
 
     private final UnifiedSearchService unifiedSearchService;
+    private final MeterRegistry meterRegistry;
 
     @Override
     public ConversationRetrievalResult retrieve(String rewrittenQuery,
@@ -34,18 +37,29 @@ public class ConversationRetrievalOrchestratorImpl implements ConversationRetrie
                                                 Integer limit,
                                                 String strategy,
                                                 List<String> preferredModalities) {
-        KbSearchQueryDTO query = new KbSearchQueryDTO();
-        query.setQuery(rewrittenQuery);
-        query.setTopK(topK);
-        query.setLimit(limit);
-        query.setStrategy(strategy);
+        Timer.Sample sample = Timer.start(meterRegistry);
+        try {
+            KbSearchQueryDTO query = new KbSearchQueryDTO();
+            query.setQuery(rewrittenQuery);
+            query.setTopK(topK);
+            query.setLimit(limit);
+            query.setStrategy(strategy);
 
-        List<KbSearchResultDTO> rawResults = unifiedSearchService.search(query);
-        List<KbSearchResultDTO> filtered = applyModalityFilter(rawResults, preferredModalities);
-        ConversationRetrievalResult result = new ConversationRetrievalResult();
-        result.setTopCandidates(filtered);
-        result.setGroupedResults(groupByResultType(filtered));
-        return result;
+            List<KbSearchResultDTO> rawResults = unifiedSearchService.search(query);
+            List<KbSearchResultDTO> filtered = applyModalityFilter(rawResults, preferredModalities);
+            ConversationRetrievalResult result = new ConversationRetrievalResult();
+            result.setTopCandidates(filtered);
+            result.setGroupedResults(groupByResultType(filtered));
+            meterRegistry.summary("conversation.retrieval.topk").record(filtered.size());
+            if (filtered.isEmpty()) {
+                meterRegistry.counter("conversation.retrieval.empty.count").increment();
+            }
+            return result;
+        } finally {
+            sample.stop(Timer.builder("conversation.retrieval.latency")
+                    .description("Conversation retrieval orchestrator latency.")
+                    .register(meterRegistry));
+        }
     }
 
     private List<KbSearchResultDTO> applyModalityFilter(List<KbSearchResultDTO> rawResults, List<String> preferredModalities) {
@@ -134,4 +148,3 @@ public class ConversationRetrievalOrchestratorImpl implements ConversationRetrie
         return StringUtils.hasText(segmentType) && segmentType.toUpperCase(Locale.ROOT).startsWith("IMAGE");
     }
 }
-
