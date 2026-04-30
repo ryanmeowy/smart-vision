@@ -9,6 +9,7 @@ import com.volcengine.ark.runtime.model.multimodalembeddings.MultimodalEmbedding
 import com.volcengine.ark.runtime.service.ArkService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
@@ -23,6 +24,7 @@ import static com.smart.vision.core.integration.constant.VolcengineConstant.VOLC
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@ConditionalOnProperty(prefix = "app.capability-provider", name = "gen", havingValue = "volcengine")
 public class VolcengineEmbeddingManager {
 
     private final ArkService arkService;
