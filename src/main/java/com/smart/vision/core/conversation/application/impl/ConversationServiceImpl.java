@@ -72,7 +72,47 @@ public class ConversationServiceImpl implements ConversationService {
     public ConversationMessageResponseDTO createMessage(String sessionId, ConversationMessageRequestDTO request) {
         ConversationSession session = loadSessionOrThrow(sessionId);
         long now = System.currentTimeMillis();
-        RewriteResult rewriteResult = queryRewriteService.rewrite(session.getSessionId(), request.getQuery().trim());
+        MessagePipelineResult pipelineResult = executeMessagePipeline(session.getSessionId(), request);
+
+        ConversationTurn turn = new ConversationTurn();
+        turn.setTurnId(newTurnId());
+        turn.setSessionId(session.getSessionId());
+        turn.setRole(ConversationRole.USER);
+        turn.setQuery(request.getQuery().trim());
+        turn.setRewrittenQuery(pipelineResult.rewriteResult.getRewrittenQuery());
+        turn.setAnswer(pipelineResult.answerGenerationResult.getAnswerText());
+        turn.setCitationsJson(serializeCitations(pipelineResult.answerCitations));
+        turn.setRetrievalTraceJson(buildRetrievalTraceJson(
+                request,
+                pipelineResult.rewriteResult,
+                pipelineResult.retrievalResult,
+                pipelineResult.answerGenerationResult
+        ));
+        turn.setCreatedAt(now);
+        conversationRepository.saveTurn(turn);
+
+        session.touch(now);
+        conversationRepository.saveSession(session);
+
+        ConversationMessageResponseDTO response = new ConversationMessageResponseDTO();
+        response.setSessionId(session.getSessionId());
+        response.setTurnId(turn.getTurnId());
+        response.setRewrittenQuery(pipelineResult.rewriteResult.getRewrittenQuery());
+        response.setAnswer(turn.getAnswer());
+        response.setCitations(toCitationDTOs(pipelineResult.answerCitations));
+        response.setSuggestedQuestions(List.of());
+
+        ConversationMessageResponseDTO.RetrievalTraceDTO traceDTO = new ConversationMessageResponseDTO.RetrievalTraceDTO();
+        traceDTO.setTopK(request.getTopK());
+        traceDTO.setLimit(request.getLimit());
+        traceDTO.setStrategy(request.getStrategy());
+        response.setRetrievalTrace(traceDTO);
+        response.setCreatedAt(now);
+        return response;
+    }
+
+    private MessagePipelineResult executeMessagePipeline(String sessionId, ConversationMessageRequestDTO request) {
+        RewriteResult rewriteResult = queryRewriteService.rewrite(sessionId, request.getQuery().trim());
         ConversationRetrievalResult retrievalResult = conversationRetrievalOrchestrator.retrieve(
                 rewriteResult.getRewrittenQuery(),
                 request.getTopK(),
@@ -81,7 +121,9 @@ public class ConversationServiceImpl implements ConversationService {
                 rewriteResult.getPreferredModalities()
         );
         List<ConversationCitation> allCitations = conversationCitationMapper.mapFromSearchResults(retrievalResult.getTopCandidates());
-        List<ConversationCitation> answerCitations = allCitations.stream().limit(ANSWER_CITATION_LIMIT).toList();
+        List<ConversationCitation> answerCitations = allCitations.stream()
+                .limit(ANSWER_CITATION_LIMIT)
+                .toList();
         List<com.smart.vision.core.search.interfaces.rest.dto.KbSearchResultDTO> answerCandidates = retrievalResult.getTopCandidates()
                 .stream()
                 .limit(ANSWER_CITATION_LIMIT)
@@ -92,37 +134,7 @@ public class ConversationServiceImpl implements ConversationService {
                 answerCandidates,
                 answerCitations
         );
-
-        ConversationTurn turn = new ConversationTurn();
-        turn.setTurnId(newTurnId());
-        turn.setSessionId(session.getSessionId());
-        turn.setRole(ConversationRole.USER);
-        turn.setQuery(request.getQuery().trim());
-        turn.setRewrittenQuery(rewriteResult.getRewrittenQuery());
-        turn.setAnswer(answerGenerationResult.getAnswerText());
-        turn.setCitationsJson(serializeCitations(answerCitations));
-        turn.setRetrievalTraceJson(buildRetrievalTraceJson(request, rewriteResult, retrievalResult, answerGenerationResult));
-        turn.setCreatedAt(now);
-        conversationRepository.saveTurn(turn);
-
-        session.touch(now);
-        conversationRepository.saveSession(session);
-
-        ConversationMessageResponseDTO response = new ConversationMessageResponseDTO();
-        response.setSessionId(session.getSessionId());
-        response.setTurnId(turn.getTurnId());
-        response.setRewrittenQuery(rewriteResult.getRewrittenQuery());
-        response.setAnswer(turn.getAnswer());
-        response.setCitations(toCitationDTOs(answerCitations));
-        response.setSuggestedQuestions(List.of());
-
-        ConversationMessageResponseDTO.RetrievalTraceDTO traceDTO = new ConversationMessageResponseDTO.RetrievalTraceDTO();
-        traceDTO.setTopK(request.getTopK());
-        traceDTO.setLimit(request.getLimit());
-        traceDTO.setStrategy(request.getStrategy());
-        response.setRetrievalTrace(traceDTO);
-        response.setCreatedAt(now);
-        return response;
+        return new MessagePipelineResult(rewriteResult, retrievalResult, answerCitations, answerGenerationResult);
     }
 
     @Override
@@ -282,7 +294,7 @@ public class ConversationServiceImpl implements ConversationService {
         if (citations == null || citations.isEmpty()) {
             return List.of();
         }
-        List<ConversationTurnDTO.CitationDTO> dtos = new ArrayList<>();
+        List<ConversationTurnDTO.CitationDTO> citationList = new ArrayList<>();
         for (ConversationCitation citation : citations) {
             if (citation == null) {
                 continue;
@@ -294,8 +306,13 @@ public class ConversationServiceImpl implements ConversationService {
             dto.setHitType(citation.getHitType());
             dto.setAssetId(citation.getAssetId());
             dto.setSegmentId(citation.getSegmentId());
-            dtos.add(dto);
+            citationList.add(dto);
         }
-        return dtos;
+        return citationList;
+    }
+
+    private record MessagePipelineResult(RewriteResult rewriteResult, ConversationRetrievalResult retrievalResult,
+                                         List<ConversationCitation> answerCitations,
+                                         AnswerGenerationResult answerGenerationResult) {
     }
 }
