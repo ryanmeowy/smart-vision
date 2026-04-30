@@ -324,6 +324,8 @@ def render_conversation_search_page(base_url: str) -> None:
     state = _get_result_state("conversation")
     if "messages" not in state or not isinstance(state["messages"], list):
         state["messages"] = []
+    if "mock_enabled" not in state:
+        state["mock_enabled"] = False
 
     token_store_key = "conversation_token_store"
     token_widget_key = "conversation_token_widget"
@@ -382,6 +384,33 @@ def render_conversation_search_page(base_url: str) -> None:
     known_session_ids = list(session_cache.keys())
 
     with st.container(border=True):
+        state["mock_enabled"] = st.toggle(
+            "Mock conversation preview (no backend)",
+            value=bool(state.get("mock_enabled", False)),
+            key="conversation_mock_enabled_toggle",
+        )
+        if state["mock_enabled"]:
+            preview_col1, preview_col2, preview_col3 = st.columns([1.1, 1.1, 1.1])
+            if preview_col1.button("Load Mock Conversation", type="secondary", key="conversation_mock_load_btn"):
+                state["messages"] = _build_conversation_mock_messages()
+                state["has_searched"] = True
+                state["status_code"] = 200
+                state["headers"] = {}
+                state["payload_text"] = _pretty_json({"mock": True, "action": "load_conversation"})
+                st.rerun()
+            if preview_col2.button("Append Mock Turn", key="conversation_mock_append_btn"):
+                state["messages"] = _append_conversation_mock_turn(state.get("messages", []))
+                state["has_searched"] = True
+                state["status_code"] = 200
+                state["headers"] = {}
+                state["payload_text"] = _pretty_json({"mock": True, "action": "append_turn"})
+                st.rerun()
+            if preview_col3.button("Clear Mock Conversation", key="conversation_mock_clear_btn"):
+                state["messages"] = []
+                state["has_searched"] = False
+                state["payload_text"] = ""
+                st.rerun()
+
         token = st.text_input("X-Access-Token", type="password", key=token_widget_key)
         title_col, create_col = st.columns([4, 1.2])
         new_title = title_col.text_input(
@@ -613,6 +642,7 @@ def _format_conversation_session_option(session_id: str, cache: dict[str, dict[s
 
 def _render_conversation_messages(messages: Any) -> None:
     st.markdown("### Conversation Messages")
+    _inject_conversation_chat_styles()
     if not isinstance(messages, list) or not messages:
         st.info("No messages loaded.")
         return
@@ -627,18 +657,18 @@ def _render_conversation_messages(messages: Any) -> None:
         created_at = message.get("createdAt")
         turn_id = _safe_str(message.get("turnId"))
         citations = message.get("citations")
-        with st.container(border=True):
-            st.markdown(f"**Turn {idx}**")
-            if turn_id:
-                st.caption(f"turnId: {turn_id}")
-            if isinstance(created_at, int):
-                st.caption(f"createdAt: {created_at}")
-            st.markdown("**User Query**")
-            st.write(query or "-")
-            st.markdown("**Rewritten Query**")
-            st.write(rewritten_query or "-")
-            st.markdown("**Answer**")
-            st.write(answer or "-")
+        st.markdown(
+            f"<div class='conversation-turn-sep'>Turn {idx}"
+            f"{' · ' + turn_id if turn_id else ''}"
+            f"{' · ' + str(created_at) if isinstance(created_at, int) else ''}</div>",
+            unsafe_allow_html=True,
+        )
+        with st.chat_message("user"):
+            st.markdown(query or "-")
+            if rewritten_query and rewritten_query != query:
+                st.caption(f"Rewritten: {rewritten_query}")
+        with st.chat_message("assistant"):
+            st.markdown(answer or "-")
             _render_conversation_citations(citations)
 
 
@@ -657,9 +687,105 @@ def _render_conversation_citations(citations: Any) -> None:
         asset_id = _safe_str(citation.get("assetId")) or "-"
         segment_id = _safe_str(citation.get("segmentId")) or "-"
         page_text = str(page_no) if isinstance(page_no, int) else "-"
-        st.caption(f"[{idx}] file={file_name} page={page_text} hitType={hit_type}")
-        st.write(snippet)
-        st.caption(f"assetId={asset_id} | segmentId={segment_id}")
+        with st.container(border=True):
+            st.caption(f"[{idx}] file={file_name} page={page_text} hitType={hit_type}")
+            st.write(snippet)
+            st.caption(f"assetId={asset_id} | segmentId={segment_id}")
+
+
+def _build_conversation_mock_messages() -> list[dict[str, Any]]:
+    now_ms = int(time.time() * 1000)
+    return [
+        {
+            "turnId": "turn_mock_0001",
+            "sessionId": "cvs_mock_demo",
+            "query": "mysql 架构是什么",
+            "rewrittenQuery": "mysql 架构 核心组件 关系",
+            "answer": "MySQL 架构通常包含连接层、SQL 层和存储引擎层。[1]",
+            "citations": [
+                {
+                    "fileName": "mysql-notes.pdf",
+                    "pageNo": 3,
+                    "snippet": "MySQL architecture consists of connection layer, SQL layer and storage engines.",
+                    "hitType": "TEXT_CHUNK",
+                    "assetId": "asset_mock_001",
+                    "segmentId": "seg_mock_001",
+                }
+            ],
+            "createdAt": now_ms - 120000,
+        },
+        {
+            "turnId": "turn_mock_0002",
+            "sessionId": "cvs_mock_demo",
+            "query": "那 InnoDB 呢",
+            "rewrittenQuery": "mysql 架构 InnoDB 作用 事务 行锁",
+            "answer": "InnoDB 是默认事务型存储引擎，支持事务、行级锁和崩溃恢复。[1][2]",
+            "citations": [
+                {
+                    "fileName": "mysql-engine-guide.md",
+                    "pageNo": 12,
+                    "snippet": "InnoDB supports ACID transactions and row-level locking.",
+                    "hitType": "TEXT_CHUNK",
+                    "assetId": "asset_mock_002",
+                    "segmentId": "seg_mock_010",
+                },
+                {
+                    "fileName": "innodb-arch.png",
+                    "pageNo": None,
+                    "snippet": "InnoDB 内部包含 buffer pool、redo log、undo log 等核心模块。",
+                    "hitType": "CAPTION",
+                    "assetId": "asset_mock_003",
+                    "segmentId": "seg_mock_020",
+                },
+            ],
+            "createdAt": now_ms - 30000,
+        },
+    ]
+
+
+def _append_conversation_mock_turn(messages: Any) -> list[dict[str, Any]]:
+    normalized = [item for item in messages if isinstance(item, dict)] if isinstance(messages, list) else []
+    if not normalized:
+        return _build_conversation_mock_messages()
+    now_ms = int(time.time() * 1000)
+    next_index = len(normalized) + 1
+    next_turn = {
+        "turnId": f"turn_mock_{next_index:04d}",
+        "sessionId": _safe_str(normalized[-1].get("sessionId")) or "cvs_mock_demo",
+        "query": "补充说明下索引和检索链路",
+        "rewrittenQuery": "mysql 检索链路 向量检索 召回 排序",
+        "answer": "检索链路可拆成召回、重排和答案生成三个阶段，引用证据用于可追溯性。[1]",
+        "citations": [
+            {
+                "fileName": "retrieval-pipeline.md",
+                "pageNo": 5,
+                "snippet": "Typical retrieval pipeline: recall, rerank, generation.",
+                "hitType": "TEXT_CHUNK",
+                "assetId": "asset_mock_004",
+                "segmentId": "seg_mock_030",
+            }
+        ],
+        "createdAt": now_ms,
+    }
+    return normalized + [next_turn]
+
+
+def _inject_conversation_chat_styles() -> None:
+    st.markdown(
+        """
+        <style>
+        .conversation-turn-sep {
+          margin-top: 10px;
+          margin-bottom: 6px;
+          font-size: 12px;
+          color: #6b7c93;
+          font-weight: 600;
+          letter-spacing: 0.01em;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def render_image_search_page(base_url: str) -> None:
