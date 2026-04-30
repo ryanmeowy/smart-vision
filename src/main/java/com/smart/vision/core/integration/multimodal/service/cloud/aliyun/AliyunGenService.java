@@ -3,6 +3,7 @@ package com.smart.vision.core.integration.multimodal.service.cloud.aliyun;
 import com.alibaba.dashscope.exception.InputRequiredException;
 import com.alibaba.dashscope.exception.NoApiKeyException;
 import com.alibaba.dashscope.exception.UploadFileException;
+import com.smart.vision.core.conversation.domain.port.ConversationRewritePort;
 import com.smart.vision.core.common.model.GraphTriple;
 import com.smart.vision.core.ingestion.domain.port.IngestionContentPort;
 import com.smart.vision.core.integration.multimodal.manager.aliyun.AliyunGenManager;
@@ -22,7 +23,7 @@ import java.util.Objects;
 @Service
 @RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "app.capability-provider", name = "gen", havingValue = "aliyun")
-public class AliyunGenService implements SearchContentPort, IngestionContentPort, QueryGraphParserPort {
+public class AliyunGenService implements SearchContentPort, IngestionContentPort, QueryGraphParserPort, ConversationRewritePort {
 
     private final AliyunGenManager genManager;
 
@@ -107,5 +108,19 @@ public class AliyunGenService implements SearchContentPort, IngestionContentPort
             log.error(AliyunErrorCode.UNKNOWN.getMessage(), e);
         }
         throw new RuntimeException("parse triples from keyword failed, try again later.");
+    }
+
+    @Override
+    public String generateText(String prompt) {
+        try {
+            return genManager.generateText(prompt);
+        } catch (NoApiKeyException e) {
+            log.error(AliyunErrorCode.API_KEY_MISSING.getMessage(), e);
+        } catch (InputRequiredException e) {
+            log.error(AliyunErrorCode.ILLEGAL_INPUT.getMessage(), e);
+        } catch (Exception e) {
+            log.error(AliyunErrorCode.UNKNOWN.getMessage(), e);
+        }
+        throw new RuntimeException("generate text failed, try again later.");
     }
 }

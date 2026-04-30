@@ -6,6 +6,7 @@ import com.smart.vision.core.common.exception.ApiError;
 import com.smart.vision.core.common.exception.BusinessException;
 import com.smart.vision.core.common.exception.InfraException;
 import com.smart.vision.core.common.model.GraphTriple;
+import com.smart.vision.core.conversation.domain.port.ConversationRewritePort;
 import com.smart.vision.core.grpc.VisionProto;
 import com.smart.vision.core.grpc.VisionServiceGrpc;
 import com.smart.vision.core.ingestion.domain.port.IngestionContentPort;
@@ -34,7 +35,7 @@ import static com.smart.vision.core.common.constant.CommonConstant.DEFAULT_IMAGE
 @Service
 @RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "app.capability-provider", name = "gen", havingValue = "local")
-public class LocalGenService implements SearchContentPort, IngestionContentPort, QueryGraphParserPort {
+public class LocalGenService implements SearchContentPort, IngestionContentPort, QueryGraphParserPort, ConversationRewritePort {
 
     @SuppressWarnings("unused")
     @GrpcClient("vision-python-service")
@@ -183,5 +184,11 @@ public class LocalGenService implements SearchContentPort, IngestionContentPort,
             log.error("gRPC parse triples from keyword call failed: {}", e.getMessage(), e);
             throw new RuntimeException("parse triples from keyword failed, try again later.");
         }
+    }
+
+    @Override
+    public String generateText(String prompt) {
+        //TODO TO BE IMPLEMENTED
+        throw new RuntimeException("generate text is not supported in local capability provider.");
     }
 }

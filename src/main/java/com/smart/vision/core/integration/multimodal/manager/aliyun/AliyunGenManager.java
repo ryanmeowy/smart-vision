@@ -207,6 +207,34 @@ public class AliyunGenManager {
         return parseMdJson(content, GraphTriple.class);
     }
 
+    @Retryable(retryFor = Exception.class, backoff = @Backoff(delay = 1000, multiplier = 2))
+    public String generateText(String prompt) throws NoApiKeyException, InputRequiredException {
+        Generation gen = new Generation();
+        Message systemMsg = Message.builder()
+                .role(Role.SYSTEM.getValue())
+                .content("You are a retrieval query rewriter.")
+                .build();
+        Message userMsg = Message.builder()
+                .role(Role.USER.getValue())
+                .content(prompt)
+                .build();
+        GenerationParam param = GenerationParam.builder()
+                .apiKey(resolveApiKey())
+                .model(resolveTextModel())
+                .messages(Arrays.asList(systemMsg, userMsg))
+                .resultFormat(GenerationParam.ResultFormat.MESSAGE)
+                .build();
+        GenerationResult result = gen.call(param);
+        return Optional.of(result)
+                .map(GenerationResult::getOutput)
+                .map(GenerationOutput::getChoices)
+                .filter(CollectionUtil::isNotEmpty)
+                .map(List::getFirst)
+                .map(GenerationOutput.Choice::getMessage)
+                .map(Message::getContent)
+                .orElse(Strings.EMPTY);
+    }
+
     private <T> List<T> parseMdJson(String content, Class<T> clazz) {
         if (StringUtils.isBlank(content)) {
             throw new InfraException(ApiError.INTERNAL_ERROR, "Model returned empty content.");

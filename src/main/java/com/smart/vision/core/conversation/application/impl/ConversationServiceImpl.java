@@ -1,8 +1,12 @@
 package com.smart.vision.core.conversation.application.impl;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smart.vision.core.common.exception.ApiError;
 import com.smart.vision.core.common.exception.BusinessException;
+import com.smart.vision.core.conversation.application.QueryRewriteService;
 import com.smart.vision.core.conversation.application.ConversationService;
+import com.smart.vision.core.conversation.application.model.RewriteResult;
 import com.smart.vision.core.conversation.domain.model.ConversationRole;
 import com.smart.vision.core.conversation.domain.model.ConversationSession;
 import com.smart.vision.core.conversation.domain.model.ConversationTurn;
@@ -19,7 +23,9 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -33,6 +39,8 @@ public class ConversationServiceImpl implements ConversationService {
     private static final int MAX_TURN_LIMIT = 100;
 
     private final ConversationRepository conversationRepository;
+    private final QueryRewriteService queryRewriteService;
+    private final ObjectMapper objectMapper;
 
     @Override
     public ConversationSessionDTO createSession(ConversationCreateRequestDTO request) {
@@ -53,16 +61,17 @@ public class ConversationServiceImpl implements ConversationService {
     public ConversationMessageResponseDTO createMessage(String sessionId, ConversationMessageRequestDTO request) {
         ConversationSession session = loadSessionOrThrow(sessionId);
         long now = System.currentTimeMillis();
+        RewriteResult rewriteResult = queryRewriteService.rewrite(session.getSessionId(), request.getQuery().trim());
 
         ConversationTurn turn = new ConversationTurn();
         turn.setTurnId(newTurnId());
         turn.setSessionId(session.getSessionId());
         turn.setRole(ConversationRole.USER);
         turn.setQuery(request.getQuery().trim());
-        turn.setRewrittenQuery(request.getQuery().trim());
+        turn.setRewrittenQuery(rewriteResult.getRewrittenQuery());
         turn.setAnswer("");
         turn.setCitationsJson("[]");
-        turn.setRetrievalTraceJson(buildRetrievalTraceJson(request));
+        turn.setRetrievalTraceJson(buildRetrievalTraceJson(request, rewriteResult));
         turn.setCreatedAt(now);
         conversationRepository.saveTurn(turn);
 
@@ -72,7 +81,7 @@ public class ConversationServiceImpl implements ConversationService {
         ConversationMessageResponseDTO response = new ConversationMessageResponseDTO();
         response.setSessionId(session.getSessionId());
         response.setTurnId(turn.getTurnId());
-        response.setRewrittenQuery(turn.getRewrittenQuery());
+        response.setRewrittenQuery(rewriteResult.getRewrittenQuery());
         response.setAnswer(turn.getAnswer());
         response.setCitations(List.of());
         response.setSuggestedQuestions(List.of());
@@ -162,17 +171,21 @@ public class ConversationServiceImpl implements ConversationService {
         return text.trim();
     }
 
-    private String buildRetrievalTraceJson(ConversationMessageRequestDTO request) {
-        return String.format(
-                "{\"topK\":%s,\"limit\":%s,\"strategy\":%s}",
-                request.getTopK() == null ? "null" : request.getTopK(),
-                request.getLimit() == null ? "null" : request.getLimit(),
-                request.getStrategy() == null ? "null" : "\"" + escapeJson(request.getStrategy()) + "\""
-        );
-    }
-
-    private String escapeJson(String value) {
-        return value.replace("\\", "\\\\").replace("\"", "\\\"");
+    private String buildRetrievalTraceJson(ConversationMessageRequestDTO request, RewriteResult rewriteResult) {
+        Map<String, Object> trace = new LinkedHashMap<>();
+        trace.put("topK", request.getTopK());
+        trace.put("limit", request.getLimit());
+        trace.put("strategy", request.getStrategy());
+        trace.put("rewriteReason", rewriteResult.getRewriteReason());
+        trace.put("topicEntities", rewriteResult.getTopicEntities());
+        trace.put("preferredModalities", rewriteResult.getPreferredModalities());
+        trace.put("rewriteConfidence", rewriteResult.getConfidence());
+        trace.put("rewriteFallback", rewriteResult.isFallbackUsed());
+        try {
+            return objectMapper.writeValueAsString(trace);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Failed to serialize retrieval trace.", e);
+        }
     }
 
     private String newSessionId() {
