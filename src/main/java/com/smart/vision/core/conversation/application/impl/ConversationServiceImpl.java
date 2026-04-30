@@ -2,13 +2,16 @@ package com.smart.vision.core.conversation.application.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.type.CollectionType;
 import com.smart.vision.core.common.exception.ApiError;
 import com.smart.vision.core.common.exception.BusinessException;
 import com.smart.vision.core.conversation.application.QueryRewriteService;
 import com.smart.vision.core.conversation.application.ConversationService;
 import com.smart.vision.core.conversation.application.ConversationRetrievalOrchestrator;
+import com.smart.vision.core.conversation.application.assembler.ConversationCitationMapper;
 import com.smart.vision.core.conversation.application.model.ConversationRetrievalResult;
 import com.smart.vision.core.conversation.application.model.RewriteResult;
+import com.smart.vision.core.conversation.domain.model.ConversationCitation;
 import com.smart.vision.core.conversation.domain.model.ConversationRole;
 import com.smart.vision.core.conversation.domain.model.ConversationSession;
 import com.smart.vision.core.conversation.domain.model.ConversationTurn;
@@ -43,6 +46,7 @@ public class ConversationServiceImpl implements ConversationService {
     private final ConversationRepository conversationRepository;
     private final QueryRewriteService queryRewriteService;
     private final ConversationRetrievalOrchestrator conversationRetrievalOrchestrator;
+    private final ConversationCitationMapper conversationCitationMapper;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -72,6 +76,7 @@ public class ConversationServiceImpl implements ConversationService {
                 request.getStrategy(),
                 rewriteResult.getPreferredModalities()
         );
+        List<ConversationCitation> citations = conversationCitationMapper.mapFromSearchResults(retrievalResult.getTopCandidates());
 
         ConversationTurn turn = new ConversationTurn();
         turn.setTurnId(newTurnId());
@@ -80,7 +85,7 @@ public class ConversationServiceImpl implements ConversationService {
         turn.setQuery(request.getQuery().trim());
         turn.setRewrittenQuery(rewriteResult.getRewrittenQuery());
         turn.setAnswer("");
-        turn.setCitationsJson("[]");
+        turn.setCitationsJson(serializeCitations(citations));
         turn.setRetrievalTraceJson(buildRetrievalTraceJson(request, rewriteResult, retrievalResult));
         turn.setCreatedAt(now);
         conversationRepository.saveTurn(turn);
@@ -93,7 +98,7 @@ public class ConversationServiceImpl implements ConversationService {
         response.setTurnId(turn.getTurnId());
         response.setRewrittenQuery(rewriteResult.getRewrittenQuery());
         response.setAnswer(turn.getAnswer());
-        response.setCitations(List.of());
+        response.setCitations(toCitationDTOs(citations));
         response.setSuggestedQuestions(List.of());
 
         ConversationMessageResponseDTO.RetrievalTraceDTO traceDTO = new ConversationMessageResponseDTO.RetrievalTraceDTO();
@@ -162,7 +167,7 @@ public class ConversationServiceImpl implements ConversationService {
         dto.setQuery(turn.getQuery());
         dto.setRewrittenQuery(turn.getRewrittenQuery());
         dto.setAnswer(turn.getAnswer());
-        dto.setCitations(List.of());
+        dto.setCitations(parseCitations(turn.getCitationsJson()));
         dto.setCreatedAt(turn.getCreatedAt());
         return dto;
     }
@@ -231,5 +236,48 @@ public class ConversationServiceImpl implements ConversationService {
 
     private String newTurnId() {
         return "turn_" + UUID.randomUUID().toString().replace("-", "");
+    }
+
+    private String serializeCitations(List<ConversationCitation> citations) {
+        try {
+            return objectMapper.writeValueAsString(citations == null ? List.of() : citations);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Failed to serialize citations.", e);
+        }
+    }
+
+    private List<ConversationTurnDTO.CitationDTO> parseCitations(String citationsJson) {
+        if (!StringUtils.hasText(citationsJson)) {
+            return List.of();
+        }
+        try {
+            CollectionType listType = objectMapper.getTypeFactory()
+                    .constructCollectionType(List.class, ConversationCitation.class);
+            List<ConversationCitation> citations = objectMapper.readValue(citationsJson, listType);
+            return toCitationDTOs(citations);
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
+    private List<ConversationTurnDTO.CitationDTO> toCitationDTOs(List<ConversationCitation> citations) {
+        if (citations == null || citations.isEmpty()) {
+            return List.of();
+        }
+        List<ConversationTurnDTO.CitationDTO> dtos = new ArrayList<>();
+        for (ConversationCitation citation : citations) {
+            if (citation == null) {
+                continue;
+            }
+            ConversationTurnDTO.CitationDTO dto = new ConversationTurnDTO.CitationDTO();
+            dto.setFileName(citation.getFileName());
+            dto.setPageNo(citation.getPageNo());
+            dto.setSnippet(citation.getSnippet());
+            dto.setHitType(citation.getHitType());
+            dto.setAssetId(citation.getAssetId());
+            dto.setSegmentId(citation.getSegmentId());
+            dtos.add(dto);
+        }
+        return dtos;
     }
 }
