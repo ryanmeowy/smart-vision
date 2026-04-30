@@ -20,6 +20,7 @@ MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024
 RESULT_STATE_KEYS = {
     "text": "result_state_text",
     "kb": "result_state_kb",
+    "conversation": "result_state_conversation",
     "image": "result_state_image",
     "similar": "result_state_similar",
 }
@@ -314,6 +315,351 @@ def render_kb_search_page(base_url: str) -> None:
         if state["payload_text"]:
             st.code(state["payload_text"], language="json")
         _render_kb_search_results(state["results"])
+
+
+def render_conversation_search_page(base_url: str) -> None:
+    st.subheader("Conversation Search")
+    st.caption("Endpoints: POST /api/conversations, POST /api/conversations/{sessionId}/messages, GET /api/conversations/{sessionId}/messages")
+
+    state = _get_result_state("conversation")
+    if "messages" not in state or not isinstance(state["messages"], list):
+        state["messages"] = []
+
+    token_store_key = "conversation_token_store"
+    token_widget_key = "conversation_token_widget"
+    title_store_key = "conversation_title_store"
+    title_widget_key = "conversation_title_widget"
+    session_id_store_key = "conversation_session_id_store"
+    session_id_widget_key = "conversation_session_id_widget"
+    query_store_key = "conversation_query_store"
+    query_widget_key = "conversation_query_widget"
+    topk_store_key = "conversation_topk_store"
+    topk_widget_key = "conversation_topk_widget"
+    limit_store_key = "conversation_limit_store"
+    limit_widget_key = "conversation_limit_widget"
+    strategy_store_key = "conversation_strategy_store"
+    strategy_widget_key = "conversation_strategy_widget"
+    history_limit_store_key = "conversation_history_limit_store"
+    history_limit_widget_key = "conversation_history_limit_widget"
+    session_cache_key = "conversation_session_cache"
+
+    if token_store_key not in st.session_state:
+        st.session_state[token_store_key] = ""
+    if token_widget_key not in st.session_state:
+        st.session_state[token_widget_key] = st.session_state[token_store_key]
+    if title_store_key not in st.session_state:
+        st.session_state[title_store_key] = ""
+    if title_widget_key not in st.session_state:
+        st.session_state[title_widget_key] = st.session_state[title_store_key]
+    if session_id_store_key not in st.session_state:
+        st.session_state[session_id_store_key] = ""
+    if session_id_widget_key not in st.session_state:
+        st.session_state[session_id_widget_key] = st.session_state[session_id_store_key]
+    if query_store_key not in st.session_state:
+        st.session_state[query_store_key] = ""
+    if query_widget_key not in st.session_state:
+        st.session_state[query_widget_key] = st.session_state[query_store_key]
+    if topk_store_key not in st.session_state:
+        st.session_state[topk_store_key] = 60
+    if topk_widget_key not in st.session_state:
+        st.session_state[topk_widget_key] = int(st.session_state[topk_store_key])
+    if limit_store_key not in st.session_state:
+        st.session_state[limit_store_key] = 20
+    if limit_widget_key not in st.session_state:
+        st.session_state[limit_widget_key] = int(st.session_state[limit_store_key])
+    if strategy_store_key not in st.session_state:
+        st.session_state[strategy_store_key] = "KB_RRF_RERANK"
+    if strategy_widget_key not in st.session_state:
+        st.session_state[strategy_widget_key] = st.session_state[strategy_store_key]
+    if history_limit_store_key not in st.session_state:
+        st.session_state[history_limit_store_key] = 20
+    if history_limit_widget_key not in st.session_state:
+        st.session_state[history_limit_widget_key] = int(st.session_state[history_limit_store_key])
+    if session_cache_key not in st.session_state or not isinstance(st.session_state[session_cache_key], dict):
+        st.session_state[session_cache_key] = {}
+
+    session_cache: dict[str, dict[str, Any]] = st.session_state[session_cache_key]
+    known_session_ids = list(session_cache.keys())
+
+    with st.container(border=True):
+        token = st.text_input("X-Access-Token", type="password", key=token_widget_key)
+        title_col, create_col = st.columns([4, 1.2])
+        new_title = title_col.text_input(
+            "New Session Title (optional)",
+            placeholder="e.g. MySQL 架构问答",
+            key=title_widget_key,
+        )
+        create_payload = {"title": new_title.strip(), "hasToken": bool(token.strip())}
+        create_clicked = create_col.button(
+            "Create Session",
+            type="primary",
+            disabled=_is_action_busy("conversation_create", create_payload),
+        )
+
+    selected_session_id = ""
+    if known_session_ids:
+        selected_session_id = st.selectbox(
+            "Known Sessions",
+            options=[""] + known_session_ids,
+            format_func=lambda sid: _format_conversation_session_option(sid, session_cache),
+            key="conversation_known_session_select",
+        )
+        if selected_session_id:
+            st.session_state[session_id_widget_key] = selected_session_id
+
+    session_id = st.text_input(
+        "Session ID",
+        placeholder="paste session id here",
+        key=session_id_widget_key,
+    ).strip()
+
+    with st.container(border=True):
+        col1, col2, col3 = st.columns([2, 2, 2])
+        top_k = col1.number_input("TopK", min_value=1, max_value=200, key=topk_widget_key)
+        limit = col2.number_input("Limit", min_value=1, max_value=200, key=limit_widget_key)
+        strategy = col3.selectbox(
+            "Strategy",
+            options=["KB_RRF_RERANK", "KB_RRF"],
+            key=strategy_widget_key,
+        )
+        history_limit = st.number_input("History Limit", min_value=1, max_value=100, key=history_limit_widget_key)
+        query = st.text_area(
+            "Message",
+            placeholder="e.g. 那 InnoDB 呢",
+            height=110,
+            key=query_widget_key,
+        )
+        load_payload = {"sessionId": session_id, "limit": int(history_limit), "hasToken": bool(token.strip())}
+        send_payload = {
+            "sessionId": session_id,
+            "query": query.strip(),
+            "topK": int(top_k),
+            "limit": int(limit),
+            "strategy": strategy,
+            "hasToken": bool(token.strip()),
+        }
+        action_col1, action_col2 = st.columns([1.2, 1.2])
+        load_clicked = action_col1.button(
+            "Load Messages",
+            disabled=_is_action_busy("conversation_load_messages", load_payload),
+        )
+        send_clicked = action_col2.button(
+            "Send Message",
+            type="primary",
+            disabled=_is_action_busy("conversation_send_message", send_payload),
+        )
+
+    st.session_state[token_store_key] = token
+    st.session_state[title_store_key] = new_title
+    st.session_state[session_id_store_key] = session_id
+    st.session_state[query_store_key] = query
+    st.session_state[topk_store_key] = int(top_k)
+    st.session_state[limit_store_key] = int(limit)
+    st.session_state[strategy_store_key] = strategy
+    st.session_state[history_limit_store_key] = int(history_limit)
+
+    if create_clicked:
+        if not token.strip():
+            st.warning("X-Access-Token is required.")
+            return
+        _queue_action("conversation_create", create_payload)
+        st.rerun()
+    if load_clicked:
+        if not token.strip():
+            st.warning("X-Access-Token is required.")
+            return
+        if not session_id:
+            st.warning("Session ID is required.")
+            return
+        _queue_action("conversation_load_messages", load_payload)
+        st.rerun()
+    if send_clicked:
+        if not token.strip():
+            st.warning("X-Access-Token is required.")
+            return
+        if not session_id:
+            st.warning("Session ID is required.")
+            return
+        if not query.strip():
+            st.warning("Message is required.")
+            return
+        _queue_action("conversation_send_message", send_payload)
+        st.rerun()
+
+    base = _normalize_base_url(base_url)
+    auth_headers = {"X-Access-Token": token.strip()} if token.strip() else {}
+
+    if _consume_queued_action("conversation_create", create_payload):
+        try:
+            with st.spinner("Creating session..."):
+                response_payload = _request_object_json(
+                    method="POST",
+                    url=f"{base}/api/conversations",
+                    json={"title": new_title.strip()} if new_title.strip() else {},
+                    headers=auth_headers,
+                )
+            if response_payload is None:
+                return
+            data, headers, status_code = response_payload
+            if not isinstance(data, dict):
+                st.error("Unexpected response: session data is not an object.")
+                return
+            created_session_id = _safe_str(data.get("sessionId"))
+            if created_session_id:
+                session_cache[created_session_id] = data
+                st.session_state[session_id_widget_key] = created_session_id
+                st.session_state[session_id_store_key] = created_session_id
+                state["messages"] = []
+            state["results"] = data
+            state["headers"] = headers
+            state["status_code"] = status_code
+            state["payload_text"] = _pretty_json({"title": new_title.strip()})
+            state["has_searched"] = True
+        finally:
+            _complete_action("conversation_create")
+            st.rerun()
+
+    if _consume_queued_action("conversation_load_messages", load_payload):
+        try:
+            with st.spinner("Loading messages..."):
+                response_payload = _request_object_json(
+                    method="GET",
+                    url=f"{base}/api/conversations/{session_id}/messages",
+                    params={"limit": int(history_limit)},
+                    headers=auth_headers,
+                )
+            if response_payload is None:
+                return
+            data, headers, status_code = response_payload
+            turns = data.get("turns") if isinstance(data, dict) else []
+            state["messages"] = turns if isinstance(turns, list) else []
+            state["results"] = data if isinstance(data, dict) else {}
+            state["headers"] = headers
+            state["status_code"] = status_code
+            state["payload_text"] = _pretty_json({"sessionId": session_id, "limit": int(history_limit)})
+            state["has_searched"] = True
+        finally:
+            _complete_action("conversation_load_messages")
+            st.rerun()
+
+    if _consume_queued_action("conversation_send_message", send_payload):
+        try:
+            with st.spinner("Sending message..."):
+                response_payload = _request_object_json(
+                    method="POST",
+                    url=f"{base}/api/conversations/{session_id}/messages",
+                    json={
+                        "query": query.strip(),
+                        "topK": int(top_k),
+                        "limit": int(limit),
+                        "strategy": strategy,
+                    },
+                    headers=auth_headers,
+                )
+            if response_payload is None:
+                return
+            data, headers, status_code = response_payload
+            state["results"] = data if isinstance(data, dict) else {}
+            state["headers"] = headers
+            state["status_code"] = status_code
+            state["payload_text"] = _pretty_json(
+                {
+                    "sessionId": session_id,
+                    "query": query.strip(),
+                    "topK": int(top_k),
+                    "limit": int(limit),
+                    "strategy": strategy,
+                }
+            )
+            state["has_searched"] = True
+            st.session_state[query_widget_key] = ""
+            st.session_state[query_store_key] = ""
+            with st.spinner("Refreshing messages..."):
+                history_response = _request_object_json(
+                    method="GET",
+                    url=f"{base}/api/conversations/{session_id}/messages",
+                    params={"limit": int(history_limit)},
+                    headers=auth_headers,
+                )
+            if history_response is not None:
+                history_data, _, _ = history_response
+                turns = history_data.get("turns") if isinstance(history_data, dict) else []
+                state["messages"] = turns if isinstance(turns, list) else []
+        finally:
+            _complete_action("conversation_send_message")
+            st.rerun()
+
+    if state.get("has_searched"):
+        _render_response_meta(state.get("status_code", 200), state.get("headers", {}))
+        if state.get("payload_text"):
+            st.code(state["payload_text"], language="json")
+
+    if session_id:
+        st.caption(f"Current Session: {session_id}")
+    _render_conversation_messages(state.get("messages", []))
+
+
+def _format_conversation_session_option(session_id: str, cache: dict[str, dict[str, Any]]) -> str:
+    if not session_id:
+        return ""
+    session = cache.get(session_id)
+    if not isinstance(session, dict):
+        return session_id
+    title = _safe_str(session.get("title"))
+    if title:
+        return f"{title} ({session_id})"
+    return session_id
+
+
+def _render_conversation_messages(messages: Any) -> None:
+    st.markdown("### Conversation Messages")
+    if not isinstance(messages, list) or not messages:
+        st.info("No messages loaded.")
+        return
+    normalized = [item for item in messages if isinstance(item, dict)]
+    if not normalized:
+        st.info("No messages loaded.")
+        return
+    for idx, message in enumerate(normalized, start=1):
+        query = _safe_str(message.get("query"))
+        rewritten_query = _safe_str(message.get("rewrittenQuery"))
+        answer = _safe_str(message.get("answer"))
+        created_at = message.get("createdAt")
+        turn_id = _safe_str(message.get("turnId"))
+        citations = message.get("citations")
+        with st.container(border=True):
+            st.markdown(f"**Turn {idx}**")
+            if turn_id:
+                st.caption(f"turnId: {turn_id}")
+            if isinstance(created_at, int):
+                st.caption(f"createdAt: {created_at}")
+            st.markdown("**User Query**")
+            st.write(query or "-")
+            st.markdown("**Rewritten Query**")
+            st.write(rewritten_query or "-")
+            st.markdown("**Answer**")
+            st.write(answer or "-")
+            _render_conversation_citations(citations)
+
+
+def _render_conversation_citations(citations: Any) -> None:
+    st.markdown("**Citations**")
+    if not isinstance(citations, list) or not citations:
+        st.caption("No citations.")
+        return
+    for idx, citation in enumerate(citations, start=1):
+        if not isinstance(citation, dict):
+            continue
+        file_name = _safe_str(citation.get("fileName")) or "-"
+        snippet = _safe_str(citation.get("snippet")) or "-"
+        page_no = citation.get("pageNo")
+        hit_type = _safe_str(citation.get("hitType")) or "-"
+        asset_id = _safe_str(citation.get("assetId")) or "-"
+        segment_id = _safe_str(citation.get("segmentId")) or "-"
+        page_text = str(page_no) if isinstance(page_no, int) else "-"
+        st.caption(f"[{idx}] file={file_name} page={page_text} hitType={hit_type}")
+        st.write(snippet)
+        st.caption(f"assetId={asset_id} | segmentId={segment_id}")
 
 
 def render_image_search_page(base_url: str) -> None:
@@ -1897,6 +2243,61 @@ def _request_json(
         return None
 
     return data, headers, status_code
+
+
+def _request_object_json(
+    method: str,
+    url: str,
+    *,
+    params: dict[str, Any] | None = None,
+    json: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
+) -> tuple[Any, dict[str, str], int] | None:
+    try:
+        response = requests.request(
+            method=method,
+            url=url,
+            params=params,
+            json=json,
+            headers=headers,
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+    except requests.exceptions.Timeout:
+        st.error("Request timed out. Please check backend status and retry.")
+        return None
+    except requests.exceptions.RequestException as exc:
+        st.error(f"Request failed: {exc}")
+        return None
+
+    status_code = response.status_code
+    debug_headers = {
+        "X-Strategy-Requested": response.headers.get("X-Strategy-Requested", ""),
+        "X-Strategy-Effective": response.headers.get("X-Strategy-Effective", ""),
+        "X-Strategy-Fallback": response.headers.get("X-Strategy-Fallback", ""),
+        "X-Strategy-Fallback-Reason": response.headers.get("X-Strategy-Fallback-Reason", ""),
+    }
+
+    if status_code >= 400:
+        st.error(f"HTTP {status_code}: {response.text[:600]}")
+        return None
+
+    try:
+        envelope = response.json()
+    except ValueError:
+        st.error("Backend returned non-JSON response.")
+        return None
+
+    if not isinstance(envelope, dict):
+        st.error("Unexpected response shape: top-level JSON is not an object.")
+        return None
+
+    biz_code = envelope.get("code")
+    message = envelope.get("message", "")
+    data = envelope.get("data")
+    if biz_code != SUCCESS_CODE:
+        st.error(f"Business error {biz_code}: {message or 'Unknown error'}")
+        return None
+    return data, debug_headers, status_code
 
 
 def _request_search_page(
