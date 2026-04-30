@@ -28,7 +28,17 @@ import java.util.regex.Pattern;
 public class AnswerGenerationServiceImpl implements AnswerGenerationService {
 
     private static final int GROUNDING_LIMIT = 5;
+    private static final int MIN_TOTAL_EVIDENCE_CHARS = 80;
+    private static final double MIN_TOP_SCORE_THRESHOLD = 0.12D;
     private static final Pattern JSON_BLOCK_PATTERN = Pattern.compile("```json\\s*(\\{[\\s\\S]*?})\\s*```");
+    private static final String NO_EVIDENCE_TEMPLATE = """
+            未找到足够内容支持该问题。
+            建议改写检索问题：%s
+            你可以重试：
+            1. 补充明确的实体名、版本号或术语
+            2. 增加限定词（文档名、章节、页码、场景）
+            3. 将问题拆成更小的单点问题后再提问
+            """;
 
     private final ConversationRewritePort conversationRewritePort;
     private final ObjectMapper objectMapper;
@@ -43,10 +53,11 @@ public class AnswerGenerationServiceImpl implements AnswerGenerationService {
         Timer.Sample sample = Timer.start(meterRegistry);
         List<GroundingSegment> groundingSegments = pickGroundingSegments(topCandidates, citations);
         try {
-            if (groundingSegments.isEmpty()) {
+            String noEvidenceReason = resolveNoEvidenceReason(groundingSegments, topCandidates);
+            if (StringUtils.hasText(noEvidenceReason)) {
                 meterRegistry.counter("answer.generate.fallback.count").increment();
                 meterRegistry.counter("no_evidence.answer.rate").increment();
-                return buildNoEvidenceFallback();
+                return buildNoEvidenceFallback(userQuery, rewrittenQuery, noEvidenceReason);
             }
 
             String prompt = buildPrompt(userQuery, rewrittenQuery, groundingSegments);
@@ -172,13 +183,55 @@ public class AnswerGenerationServiceImpl implements AnswerGenerationService {
         return null;
     }
 
-    private AnswerGenerationResult buildNoEvidenceFallback() {
+    private String resolveNoEvidenceReason(List<GroundingSegment> groundingSegments, List<KbSearchResultDTO> topCandidates) {
+        if (groundingSegments == null || groundingSegments.isEmpty()) {
+            return "no_grounding_segment";
+        }
+        int totalEvidenceChars = groundingSegments.stream()
+                .map(segment -> segment.evidence == null ? 0 : segment.evidence.length())
+                .reduce(0, Integer::sum);
+        if (totalEvidenceChars < MIN_TOTAL_EVIDENCE_CHARS && groundingSegments.size() < 2) {
+            return "evidence_too_short";
+        }
+        double maxScore = resolveMaxScore(topCandidates);
+        if (maxScore >= 0D && maxScore < MIN_TOP_SCORE_THRESHOLD && groundingSegments.size() < 2) {
+            return "low_retrieval_score";
+        }
+        return null;
+    }
+
+    private double resolveMaxScore(List<KbSearchResultDTO> topCandidates) {
+        if (topCandidates == null || topCandidates.isEmpty()) {
+            return -1D;
+        }
+        double maxScore = -1D;
+        for (KbSearchResultDTO candidate : topCandidates) {
+            if (candidate == null || candidate.getScore() == null) {
+                continue;
+            }
+            maxScore = Math.max(maxScore, candidate.getScore());
+        }
+        return maxScore;
+    }
+
+    private AnswerGenerationResult buildNoEvidenceFallback(String userQuery, String rewrittenQuery, String reason) {
+        String rewriteSuggestion = resolveRewriteSuggestion(userQuery, rewrittenQuery);
         AnswerGenerationResult result = new AnswerGenerationResult();
-        result.setAnswerText("未找到足够内容支持该问题。请尝试缩小范围或补充关键词。");
+        result.setAnswerText(NO_EVIDENCE_TEMPLATE.formatted(rewriteSuggestion).trim());
         result.setFallbackUsed(true);
-        result.setFallbackReason("no_evidence");
+        result.setFallbackReason("no_evidence_" + reason);
         result.setAnswerInputSegmentIds(List.of());
         return result;
+    }
+
+    private String resolveRewriteSuggestion(String userQuery, String rewrittenQuery) {
+        if (StringUtils.hasText(rewrittenQuery)) {
+            return rewrittenQuery.trim();
+        }
+        if (StringUtils.hasText(userQuery)) {
+            return userQuery.trim();
+        }
+        return "请补充更明确的问题描述";
     }
 
     private AnswerGenerationResult buildModelFallback(List<GroundingSegment> segments, String reason) {
