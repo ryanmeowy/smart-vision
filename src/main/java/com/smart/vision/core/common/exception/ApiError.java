@@ -26,6 +26,7 @@ public enum ApiError {
     TEXT_ASSET_META_NOT_FOUND(404, "Text asset metadata not found"),
     TEXT_PARSER_UNAVAILABLE(500, "No available text parser"),
     TEXT_PARSE_FAILED(500, "Text parse failed"),
+    CONVERSATION_SESSION_NOT_FOUND(404, "Conversation session not found"),
     INGEST_TASK_NOT_FOUND(404, "Task not found"),
     INGEST_TASK_ITEM_NOT_FOUND(404, "Task item not found"),
     INGEST_RETRY_ONLY_FAILED(409, "Only FAILED item can be retried"),
