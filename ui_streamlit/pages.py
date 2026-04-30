@@ -622,6 +622,7 @@ def render_conversation_search_page(base_url: str) -> None:
         _render_response_meta(state.get("status_code", 200), state.get("headers", {}))
         if state.get("payload_text"):
             st.code(state["payload_text"], language="json")
+        _render_conversation_latest_trace(state.get("results"))
 
     if session_id:
         st.caption(f"Current Session: {session_id}")
@@ -657,6 +658,8 @@ def _render_conversation_messages(messages: Any) -> None:
         created_at = message.get("createdAt")
         turn_id = _safe_str(message.get("turnId"))
         citations = message.get("citations")
+        retrieval_trace = message.get("retrievalTrace")
+        suggested_questions = message.get("suggestedQuestions")
         st.markdown(
             f"<div class='conversation-turn-sep'>Turn {idx}"
             f"{' · ' + turn_id if turn_id else ''}"
@@ -670,6 +673,95 @@ def _render_conversation_messages(messages: Any) -> None:
         with st.chat_message("assistant"):
             st.markdown(answer or "-")
             _render_conversation_citations(citations)
+            _render_conversation_retrieval_trace(retrieval_trace, compact=True)
+            _render_conversation_suggested_questions(suggested_questions)
+
+
+def _render_conversation_latest_trace(results: Any) -> None:
+    if not isinstance(results, dict):
+        return
+    trace = results.get("retrievalTrace")
+    if not isinstance(trace, dict):
+        return
+    st.markdown("### Latest Retrieval Trace")
+    _render_conversation_retrieval_trace(trace, compact=False)
+
+
+def _render_conversation_retrieval_trace(trace: Any, compact: bool) -> None:
+    if not isinstance(trace, dict):
+        return
+    top_k = trace.get("topK")
+    limit = trace.get("limit")
+    strategy = _safe_str(trace.get("strategy"))
+    strategy_effective = _safe_str(trace.get("strategyEffective"))
+    rewrite_reason = _safe_str(trace.get("rewriteReason"))
+    rewrite_confidence = trace.get("rewriteConfidence")
+    rewrite_fallback = trace.get("rewriteFallback")
+    retrieved_count = trace.get("retrievedCount")
+    grouped_counts = trace.get("groupedResultCounts")
+    top_segment_ids = trace.get("topSegmentIds")
+    top_hit_sources = trace.get("topHitSources")
+    answer_fallback = trace.get("answerFallback")
+    answer_fallback_reason = _safe_str(trace.get("answerFallbackReason"))
+
+    if compact:
+        st.caption(
+            "Trace: "
+            f"topK={top_k if isinstance(top_k, int) else '-'}, "
+            f"limit={limit if isinstance(limit, int) else '-'}, "
+            f"strategy={strategy or '-'}"
+        )
+    else:
+        st.caption(
+            "TopK Summary: "
+            f"topK={top_k if isinstance(top_k, int) else '-'}, "
+            f"limit={limit if isinstance(limit, int) else '-'}, "
+            f"strategy={strategy or '-'}, "
+            f"effective={strategy_effective or '-'}, "
+            f"retrieved={retrieved_count if isinstance(retrieved_count, int) else '-'}"
+        )
+
+    if rewrite_reason:
+        rewrite_caption = f"Rewrite Reason: {rewrite_reason}"
+        if isinstance(rewrite_confidence, (int, float)):
+            rewrite_caption += f" | confidence={rewrite_confidence:.2f}"
+        if isinstance(rewrite_fallback, bool):
+            rewrite_caption += f" | fallback={str(rewrite_fallback).lower()}"
+        st.caption(rewrite_caption)
+
+    if isinstance(grouped_counts, dict) and grouped_counts:
+        grouped_text = ", ".join(
+            f"{_safe_str(group_key) or '-'}={count if isinstance(count, int) else '-'}"
+            for group_key, count in grouped_counts.items()
+        )
+        st.caption(f"Grouped: {grouped_text}")
+
+    if isinstance(top_hit_sources, list) and top_hit_sources:
+        sources = [source for source in (_safe_str(item) for item in top_hit_sources) if source]
+        if sources:
+            st.caption(f"Explain Hit Sources: {', '.join(sources)}")
+
+    if isinstance(top_segment_ids, list) and top_segment_ids:
+        segments = [segment for segment in (_safe_str(item) for item in top_segment_ids) if segment]
+        if segments:
+            st.caption(f"Top Segment IDs: {', '.join(segments)}")
+
+    if isinstance(answer_fallback, bool):
+        fallback_text = f"Answer Fallback: {str(answer_fallback).lower()}"
+        if answer_fallback_reason:
+            fallback_text += f" ({answer_fallback_reason})"
+        st.caption(fallback_text)
+
+
+def _render_conversation_suggested_questions(suggested_questions: Any) -> None:
+    if not isinstance(suggested_questions, list) or not suggested_questions:
+        return
+    normalized = [item for item in (_safe_str(question) for question in suggested_questions) if item]
+    if not normalized:
+        return
+    st.markdown("**Suggested Questions**")
+    for idx, question in enumerate(normalized, start=1):
+        st.caption(f"{idx}. {question}")
 
 
 def _render_conversation_citations(citations: Any) -> None:
@@ -702,6 +794,25 @@ def _build_conversation_mock_messages() -> list[dict[str, Any]]:
             "query": "mysql 架构是什么",
             "rewrittenQuery": "mysql 架构 核心组件 关系",
             "answer": "MySQL 架构通常包含连接层、SQL 层和存储引擎层。[1]",
+            "retrievalTrace": {
+                "topK": 60,
+                "limit": 20,
+                "strategy": "KB_RRF_RERANK",
+                "strategyEffective": "KB_RRF_RERANK",
+                "rewriteReason": "rewrite_by_model",
+                "rewriteConfidence": 0.92,
+                "rewriteFallback": False,
+                "retrievedCount": 2,
+                "groupedResultCounts": {"TEXT": 1, "IMAGE": 1},
+                "topSegmentIds": ["seg_mock_001", "seg_mock_002"],
+                "topHitSources": ["VECTOR", "CONTENT", "TAG"],
+                "answerFallback": False,
+                "answerFallbackReason": None,
+            },
+            "suggestedQuestions": [
+                "《mysql-notes.pdf》里还有哪些和“mysql”直接相关的内容？",
+                "有没有“mysql”对应的结构图或示意图可对照理解？",
+            ],
             "citations": [
                 {
                     "fileName": "mysql-notes.pdf",
@@ -720,6 +831,25 @@ def _build_conversation_mock_messages() -> list[dict[str, Any]]:
             "query": "那 InnoDB 呢",
             "rewrittenQuery": "mysql 架构 InnoDB 作用 事务 行锁",
             "answer": "InnoDB 是默认事务型存储引擎，支持事务、行级锁和崩溃恢复。[1][2]",
+            "retrievalTrace": {
+                "topK": 60,
+                "limit": 20,
+                "strategy": "KB_RRF_RERANK",
+                "strategyEffective": "KB_RRF_RERANK",
+                "rewriteReason": "rewrite_by_model",
+                "rewriteConfidence": 0.95,
+                "rewriteFallback": False,
+                "retrievedCount": 3,
+                "groupedResultCounts": {"TEXT": 2, "IMAGE": 1},
+                "topSegmentIds": ["seg_mock_010", "seg_mock_020", "seg_mock_021"],
+                "topHitSources": ["VECTOR", "CONTENT", "CAPTION"],
+                "answerFallback": False,
+                "answerFallbackReason": None,
+            },
+            "suggestedQuestions": [
+                "在《mysql-engine-guide.md》第12页，关于“InnoDB”还有哪些关键点？",
+                "“InnoDB”和“buffer pool”之间的关系是什么？",
+            ],
             "citations": [
                 {
                     "fileName": "mysql-engine-guide.md",
@@ -755,6 +885,25 @@ def _append_conversation_mock_turn(messages: Any) -> list[dict[str, Any]]:
         "query": "补充说明下索引和检索链路",
         "rewrittenQuery": "mysql 检索链路 向量检索 召回 排序",
         "answer": "检索链路可拆成召回、重排和答案生成三个阶段，引用证据用于可追溯性。[1]",
+        "retrievalTrace": {
+            "topK": 60,
+            "limit": 20,
+            "strategy": "KB_RRF_RERANK",
+            "strategyEffective": "KB_RRF_RERANK",
+            "rewriteReason": "rewrite_by_model",
+            "rewriteConfidence": 0.90,
+            "rewriteFallback": False,
+            "retrievedCount": 1,
+            "groupedResultCounts": {"TEXT": 1},
+            "topSegmentIds": ["seg_mock_030"],
+            "topHitSources": ["VECTOR", "CONTENT"],
+            "answerFallback": False,
+            "answerFallbackReason": None,
+        },
+        "suggestedQuestions": [
+            "《retrieval-pipeline.md》里还有哪些和“检索链路”直接相关的内容？",
+            "“向量检索”和“重排”之间的关系是什么？",
+        ],
         "citations": [
             {
                 "fileName": "retrieval-pipeline.md",

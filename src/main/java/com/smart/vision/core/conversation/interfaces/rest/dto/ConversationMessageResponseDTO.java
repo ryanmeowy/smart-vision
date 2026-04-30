@@ -4,6 +4,7 @@ import lombok.Data;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Response DTO for conversation message API.
@@ -25,6 +26,15 @@ public class ConversationMessageResponseDTO implements Serializable {
         private Integer topK;
         private Integer limit;
         private String strategy;
+        private String strategyEffective;
+        private String rewriteReason;
+        private Double rewriteConfidence;
+        private Boolean rewriteFallback;
+        private Integer retrievedCount;
+        private Map<String, Integer> groupedResultCounts;
+        private List<String> topSegmentIds;
+        private List<String> topHitSources;
+        private Boolean answerFallback;
+        private String answerFallbackReason;
     }
 }
-

@@ -32,6 +32,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -123,6 +124,16 @@ public class ConversationServiceImpl implements ConversationService {
         traceDTO.setTopK(request.getTopK());
         traceDTO.setLimit(request.getLimit());
         traceDTO.setStrategy(request.getStrategy());
+        traceDTO.setStrategyEffective(resolveStrategyEffective(pipelineResult.retrievalResult, request.getStrategy()));
+        traceDTO.setRewriteReason(pipelineResult.rewriteResult.getRewriteReason());
+        traceDTO.setRewriteConfidence(pipelineResult.rewriteResult.getConfidence());
+        traceDTO.setRewriteFallback(pipelineResult.rewriteResult.isFallbackUsed());
+        traceDTO.setRetrievedCount(pipelineResult.retrievalResult.getTopCandidates().size());
+        traceDTO.setGroupedResultCounts(toGroupedCounts(pipelineResult.retrievalResult));
+        traceDTO.setTopSegmentIds(extractTopSegmentIds(pipelineResult.retrievalResult, 5));
+        traceDTO.setTopHitSources(extractTopHitSources(pipelineResult.retrievalResult, 6));
+        traceDTO.setAnswerFallback(pipelineResult.answerGenerationResult.isFallbackUsed());
+        traceDTO.setAnswerFallbackReason(pipelineResult.answerGenerationResult.getFallbackReason());
         response.setRetrievalTrace(traceDTO);
         response.setCreatedAt(now);
         meterRegistry.summary("answer.citation.count").record(pipelineResult.answerCitations.size());
@@ -299,6 +310,56 @@ public class ConversationServiceImpl implements ConversationService {
             groupedCounts.put(groupedResult.getGroupKey(), groupedResult.getItems() == null ? 0 : groupedResult.getItems().size());
         }
         return groupedCounts;
+    }
+
+    private List<String> extractTopSegmentIds(ConversationRetrievalResult retrievalResult, int limit) {
+        if (retrievalResult.getTopCandidates() == null || retrievalResult.getTopCandidates().isEmpty()) {
+            return List.of();
+        }
+        return retrievalResult.getTopCandidates().stream()
+                .map(ConversationServiceImpl::safeSegmentId)
+                .filter(StringUtils::hasText)
+                .limit(Math.max(1, limit))
+                .toList();
+    }
+
+    private List<String> extractTopHitSources(ConversationRetrievalResult retrievalResult, int limit) {
+        if (retrievalResult.getTopCandidates() == null || retrievalResult.getTopCandidates().isEmpty()) {
+            return List.of();
+        }
+        LinkedHashSet<String> hitSources = new LinkedHashSet<>();
+        for (com.smart.vision.core.search.interfaces.rest.dto.KbSearchResultDTO candidate : retrievalResult.getTopCandidates()) {
+            if (candidate == null || candidate.getExplain() == null || candidate.getExplain().getHitSources() == null) {
+                continue;
+            }
+            for (String source : candidate.getExplain().getHitSources()) {
+                if (StringUtils.hasText(source)) {
+                    hitSources.add(source.trim());
+                }
+            }
+        }
+        if (hitSources.isEmpty()) {
+            return List.of();
+        }
+        return hitSources.stream()
+                .limit(Math.max(1, limit))
+                .toList();
+    }
+
+    private String resolveStrategyEffective(ConversationRetrievalResult retrievalResult, String fallbackStrategy) {
+        if (retrievalResult.getTopCandidates() == null || retrievalResult.getTopCandidates().isEmpty()) {
+            return fallbackStrategy;
+        }
+        for (com.smart.vision.core.search.interfaces.rest.dto.KbSearchResultDTO candidate : retrievalResult.getTopCandidates()) {
+            if (candidate == null || candidate.getExplain() == null) {
+                continue;
+            }
+            String strategyEffective = candidate.getExplain().getStrategyEffective();
+            if (StringUtils.hasText(strategyEffective)) {
+                return strategyEffective.trim();
+            }
+        }
+        return fallbackStrategy;
     }
 
     private String newSessionId() {

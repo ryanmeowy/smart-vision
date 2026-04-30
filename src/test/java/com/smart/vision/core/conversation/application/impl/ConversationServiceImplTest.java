@@ -18,6 +18,7 @@ import com.smart.vision.core.conversation.interfaces.rest.dto.ConversationMessag
 import com.smart.vision.core.conversation.interfaces.rest.dto.ConversationMessageResponseDTO;
 import com.smart.vision.core.conversation.interfaces.rest.dto.ConversationSessionDTO;
 import com.smart.vision.core.conversation.interfaces.rest.dto.ConversationTurnListDTO;
+import com.smart.vision.core.search.interfaces.rest.dto.KbSearchExplainDTO;
 import com.smart.vision.core.search.interfaces.rest.dto.KbSearchResultDTO;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
@@ -126,6 +127,10 @@ class ConversationServiceImplTest {
         assertThat(secondResponse.getCitations()).hasSize(1);
         assertThat(secondResponse.getCitations().getFirst().getFileName()).isEqualTo("mysql-notes.pdf");
         assertThat(secondResponse.getRetrievalTrace().getTopK()).isEqualTo(60);
+        assertThat(secondResponse.getRetrievalTrace().getRewriteReason()).isEqualTo("rewrite_by_model");
+        assertThat(secondResponse.getRetrievalTrace().getRetrievedCount()).isEqualTo(1);
+        assertThat(secondResponse.getRetrievalTrace().getTopSegmentIds()).containsExactly("seg_text_2");
+        assertThat(secondResponse.getRetrievalTrace().getTopHitSources()).contains("VECTOR", "CONTENT");
         assertThat(secondResponse.getSuggestedQuestions()).hasSize(2);
         assertThat(secondResponse.getSuggestedQuestions().getFirst()).contains("mysql-notes.pdf");
         assertThat(service.getSession(sessionId).getTitle()).isEqualTo("mysql 架构是什么 核心组件");
@@ -173,6 +178,9 @@ class ConversationServiceImplTest {
         assertThat(response.getSessionId()).isEqualTo(sessionId);
         assertThat(response.getCitations()).isEmpty();
         assertThat(response.getAnswer()).contains("未找到足够内容支持该问题");
+        assertThat(response.getRetrievalTrace().getRetrievedCount()).isEqualTo(0);
+        assertThat(response.getRetrievalTrace().getAnswerFallback()).isTrue();
+        assertThat(response.getRetrievalTrace().getAnswerFallbackReason()).isEqualTo("no_evidence");
         assertThat(response.getSuggestedQuestions()).isEmpty();
 
         List<ConversationTurn> storedTurns = repository.findRecentTurns(sessionId, 10);
@@ -250,6 +258,10 @@ class ConversationServiceImplTest {
                 .snippet(snippet)
                 .sourceRef(sourceRef)
                 .pageNo(pageNo)
+                .explain(KbSearchExplainDTO.builder()
+                        .strategyEffective("KB_RRF_RERANK")
+                        .hitSources(List.of("VECTOR", "CONTENT"))
+                        .build())
                 .build();
     }
 

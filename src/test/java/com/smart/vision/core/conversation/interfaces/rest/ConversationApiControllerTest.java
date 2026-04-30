@@ -95,6 +95,8 @@ class ConversationApiControllerTest {
         trace.setTopK(60);
         trace.setLimit(20);
         trace.setStrategy("KB_RRF_RERANK");
+        trace.setRewriteReason("rewrite_by_model");
+        trace.setRetrievedCount(3);
         response.setRetrievalTrace(trace);
         response.setCreatedAt(1777520001000L);
 
@@ -118,7 +120,9 @@ class ConversationApiControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.turnId").value("turn_test_001"))
-                .andExpect(jsonPath("$.data.retrievalTrace.topK").value(60));
+                .andExpect(jsonPath("$.data.retrievalTrace.topK").value(60))
+                .andExpect(jsonPath("$.data.retrievalTrace.rewriteReason").value("rewrite_by_model"))
+                .andExpect(jsonPath("$.data.retrievalTrace.retrievedCount").value(3));
     }
 
     @Test
